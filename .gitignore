@@ -1,24 +1,22 @@
-# Logs
-logs
-*.log
+# Ignora dependências
+node_modules/
+
+# Ignora pasta de build do Vite
+dist/
+
+# Ignora arquivos de configuração do editor
+.vscode/
+
+# Ignora variáveis sensíveis e senhas (quando usar futuramente)
+.env
+
+# Arquivos do sistema (especialmente em Mac)
+.DS_Store
+
+# Logs e temporários
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Cache do Vite
+.cache/
