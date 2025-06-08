@@ -36,7 +36,7 @@ function AppContent() {
     } else {
       const updated = [
         ...videos,
-        { ...newVideo, id: videos.length + 1, duration: "00:00", views: 0 },
+        { ...newVideo, id: videos.length + 1, views: 0 },
       ];
       setVideos(updated);
       saveVideosToLocalStorage(updated);
@@ -103,35 +103,28 @@ function AppContent() {
                     className="transform hover:scale-105 transition-transform duration-200 group perspective-[1000px]"
                   >
                     <div className="relative h-[350px] [transform-style:preserve-3d] transition-transform duration-500 group-hover:[transform:rotateY(180deg)]">
-                      <div className="absolute inset-0 bg-zinc-800 border border-yellow-500 rounded-lg p-4 flex flex-col justify-between cursor-pointer [backface-visibility:hidden]">
+                      <div className="absolute inset-0 bg-black border border-yellow-500 rounded-lg p-4 flex flex-col justify-between cursor-pointer [backface-visibility:hidden]">
                         <img src={video.thumbnail} alt={video.title} className="rounded-md object-cover w-full h-40" />
                         <div className="mt-3">
                           <h2 className="text-white text-base font-semibold text-left line-clamp-2 mb-1">{video.title}</h2>
                           <p className="text-sm text-gray-500 text-center">👁️ {video.views || 0} visualizações</p>
                         </div>
-                        <div className="mt-3 flex justify-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleEditVideo(video);
-                            }}
-                            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-1 px-3 rounded shadow"
-                          >
-                            ✏️ Editar
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              handleDeleteVideo(video.id);
-                            }}
-                            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded shadow"
-                          >
-                            🗑 Excluir
-                          </button>
+                        <div className="mt-3 flex justify-center">
+                          <span className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-3 rounded">
+                            Assistir agora
+                          </span>
                         </div>
                       </div>
-                      <div className="absolute inset-0 bg-zinc-800 border border-yellow-500 rounded-lg p-4 flex flex-col justify-center items-center [transform:rotateY(180deg)] [backface-visibility:hidden]">
-                        <p className="text-white text-lg">⏱ {video.duration}</p>
+                      <div className="absolute inset-0 bg-black border border-yellow-500 rounded-lg p-4 flex flex-col justify-between items-center [transform:rotateY(180deg)] [backface-visibility:hidden]">
+                        <div className="flex flex-col items-center">
+                          <p className="text-sm text-gray-300">📅 {video.publishedAt}</p>
+                          <p className="text-sm text-gray-300">⏱ {video.duration}</p>
+                        </div>
+                        <div className="mt-3">
+                          <span className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-1 px-3 rounded">
+                            Ver Mais
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </Link>
@@ -141,7 +134,16 @@ function AppContent() {
         />
         <Route path="/painel" element={<CreatorPanel onAddVideo={handleAddVideo} videoToEdit={videoToEdit} />} />
         <Route path="/video/:id" element={<VideoPlayer videos={videos} />} />
-        <Route path="/meus-videos" element={<MyVideos videos={videos} />} />
+        <Route
+          path="/meus-videos"
+          element={
+            <MyVideos
+              videos={videos}
+              onEdit={handleEditVideo}
+              onDelete={handleDeleteVideo}
+            />
+          }
+        />
       </Routes>
 
       <footer className="bg-zinc-900 border-t border-zinc-700 text-center py-4 text-sm text-gray-400 mt-10">

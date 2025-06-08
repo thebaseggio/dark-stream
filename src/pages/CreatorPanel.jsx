@@ -10,6 +10,7 @@ export default function CreatorPanel({ onAddVideo, videoToEdit }) {
     sourceType: 'youtube',
     category: '',
     duration: '',
+    publishedAt: '',
   });
 
   const [submitted, setSubmitted] = useState(false);
@@ -111,6 +112,14 @@ export default function CreatorPanel({ onAddVideo, videoToEdit }) {
             onChange={handleChange}
             required
             className="p-2 border border-zinc-700 rounded bg-zinc-900 text-white placeholder-gray-400"
+          />
+          <input
+            type="date"
+            name="publishedAt"
+            value={formData.publishedAt}
+            onChange={handleChange}
+            required
+            className="p-2 border border-zinc-700 rounded bg-zinc-900 text-white"
           />
 
           <select
