@@ -100,34 +100,38 @@ function AppContent() {
                   <Link
                     to={`/video/${video.id}`}
                     key={video.id}
-                    className="transform hover:scale-105 transition-transform duration-200"
+                    className="transform hover:scale-105 transition-transform duration-200 group perspective-[1000px]"
                   >
-                    <div className="h-[350px] bg-zinc-800 border border-yellow-500 rounded-lg p-4 flex flex-col justify-between cursor-pointer">
-                      <img src={video.thumbnail} alt={video.title} className="rounded-md object-cover w-full h-40" />
-                      <div className="mt-3">
-                        <h2 className="text-white text-lg font-semibold text-center line-clamp-2 mb-1">{video.title}</h2>
-                        <p className="text-sm text-gray-400 text-center">⏱ {video.duration}</p>
-                        <p className="text-sm text-gray-500 text-center">👁️ {video.views || 0} visualizações</p>
+                    <div className="relative h-[350px] [transform-style:preserve-3d] transition-transform duration-500 group-hover:[transform:rotateY(180deg)]">
+                      <div className="absolute inset-0 bg-zinc-800 border border-yellow-500 rounded-lg p-4 flex flex-col justify-between cursor-pointer [backface-visibility:hidden]">
+                        <img src={video.thumbnail} alt={video.title} className="rounded-md object-cover w-full h-40" />
+                        <div className="mt-3">
+                          <h2 className="text-white text-base font-semibold text-left line-clamp-2 mb-1">{video.title}</h2>
+                          <p className="text-sm text-gray-500 text-center">👁️ {video.views || 0} visualizações</p>
+                        </div>
+                        <div className="mt-3 flex justify-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleEditVideo(video);
+                            }}
+                            className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-1 px-3 rounded shadow"
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleDeleteVideo(video.id);
+                            }}
+                            className="bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded shadow"
+                          >
+                            🗑 Excluir
+                          </button>
+                        </div>
                       </div>
-                      <div className="mt-3 flex justify-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleEditVideo(video);
-                          }}
-                          className="bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-1 px-3 rounded shadow"
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            handleDeleteVideo(video.id);
-                          }}
-                          className="bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded shadow"
-                        >
-                          🗑 Excluir
-                        </button>
+                      <div className="absolute inset-0 bg-zinc-800 border border-yellow-500 rounded-lg p-4 flex flex-col justify-center items-center [transform:rotateY(180deg)] [backface-visibility:hidden]">
+                        <p className="text-white text-lg">⏱ {video.duration}</p>
                       </div>
                     </div>
                   </Link>
