@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { supabase } from '../supabase';
 
 function VideoPlayer({ videos }) {
   const { id } = useParams();
@@ -7,22 +8,32 @@ function VideoPlayer({ videos }) {
   const [video, setVideo] = useState(null);
 
   useEffect(() => {
-    let currentVideos = videos;
+    const fetchVideo = async () => {
+      let currentVideos = videos;
 
-    // Se os vídeos não foram passados via props, tenta buscar do localStorage
-    if (!currentVideos || currentVideos.length === 0) {
-      const stored = localStorage.getItem('darkstream_videos');
-      if (stored) {
-        currentVideos = JSON.parse(stored);
+      if (!currentVideos || currentVideos.length === 0) {
+        const { data, error } = await supabase
+          .from('videos')
+          .select('id, title, description, url, thumbnail, duration, publishedat, category, views')
+          .eq('id', id)
+          .single();
+        if (error || !data) {
+          navigate('/');
+          return;
+        }
+        setVideo(data);
+        return;
       }
-    }
 
-    const found = currentVideos?.find((v) => v.id === parseInt(id));
-    if (!found) {
-      navigate('/');
-    } else {
-      setVideo(found);
-    }
+      const found = currentVideos.find((v) => v.id === parseInt(id));
+      if (!found) {
+        navigate('/');
+      } else {
+        setVideo(found);
+      }
+    };
+
+    fetchVideo();
   }, [id, videos, navigate]);
 
   if (!video) {
@@ -36,7 +47,7 @@ function VideoPlayer({ videos }) {
       <div className="w-full max-w-4xl aspect-video rounded overflow-hidden mb-6">
         <iframe
           className="w-full h-full"
-          src={video.videoUrl}
+          src={video.url}
           title={video.title}
           frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
