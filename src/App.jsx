@@ -9,6 +9,18 @@ function AppContent() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [videos, setVideos] = useState([]);
   const [videoToEdit, setVideoToEdit] = useState(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  const categories = [
+    { key: 'investigativos', label: 'Investigativos' },
+    { key: 'desaparecimentos', label: 'Desaparecimentos' },
+    { key: 'nao-solucionados', label: 'Casos não solucionados' },
+    { key: 'crimes-famosos', label: 'Crimes Famosos' },
+    { key: 'serial-killers', label: 'Serial Killers' },
+    { key: 'podcasts-entrevistas', label: 'Podcasts e Entrevistas' },
+    { key: 'documentarios', label: 'Documentários' },
+    { key: 'casos-sobrenaturais', label: 'Casos Sobrenaturais' },
+  ];
 
   useEffect(() => {
     const storedVideos = localStorage.getItem('darkstream_videos');
@@ -19,6 +31,7 @@ function AppContent() {
 
   const handleCategoryFilter = (category) => {
     setSelectedCategory((prev) => (prev === category ? '' : category));
+    setShowDropdown(false);
   };
 
   const saveVideosToLocalStorage = (data) => {
@@ -56,10 +69,40 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-black text-white font-sans">
-      <nav className="bg-zinc-900 border-b border-zinc-700 p-4 flex flex-col sm:flex-row justify-between items-center">
-        <Link to="/">
-          <h1 className="text-purple-500 text-2xl font-bold cursor-pointer hover:text-purple-400">Dark Stream</h1>
-        </Link>
+      <nav className="bg-black border-b border-yellow-500 p-4 flex flex-col sm:flex-row justify-between items-center">
+        <div className="flex items-center gap-6">
+          <Link to="/">
+            <img src="/logo.png" alt="Dark Stream logo" className="h-12 sm:h-14 object-contain" />
+          </Link>
+          <div
+            className="relative hidden sm:block"
+            onMouseEnter={() => setShowDropdown(true)}
+            onMouseLeave={() => setShowDropdown(false)}
+          >
+            <button className="text-gray-300 text-sm">
+              Categorias
+            </button>
+            {showDropdown && (
+              <ul className="absolute left-0 mt-2 bg-zinc-800 border border-yellow-500 rounded shadow-md py-2 w-56 z-10">
+                {categories.map((c) => (
+                  <li key={c.key}>
+                    <button
+                      onClick={() => handleCategoryFilter(c.key)}
+                      className="block w-full text-left px-4 py-2 text-gray-300 hover:bg-zinc-700"
+                    >
+                      {c.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <ul className="hidden sm:flex gap-4 text-gray-300 text-sm ml-4">
+            <li><a href="#">Criadores</a></li>
+            <li><a href="#">Casos Nacionais</a></li>
+            <li><a href="#">Casos Internacionais</a></li>
+          </ul>
+        </div>
         <div className="flex gap-2 mt-2 sm:mt-0">
           <Link to="/"><button className="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-1.5 rounded">Início</button></Link>
           <Link to="/painel"><button className="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-4 py-1.5 rounded">Painel de Criador</button></Link>
@@ -67,33 +110,11 @@ function AppContent() {
         </div>
       </nav>
 
-      <div className="w-full flex flex-wrap justify-center items-center gap-2 my-6 px-4 text-center">
-        {["investigativo", "casos-famosos", "desaparecimentos", "arquivos-policiais", "podcasts", "nao-solucionados"].map((cat) => (
-          <button
-            key={cat}
-            onClick={() => handleCategoryFilter(cat)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-              selectedCategory === cat
-                ? "bg-purple-700 text-white"
-                : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-            }`}
-          >
-            {cat
-              .replace("nao-solucionados", "⚖️ Não Solucionados")
-              .replace("investigativo", "🔍 Investigativo")
-              .replace("casos-famosos", "👥 Casos Famosos")
-              .replace("desaparecimentos", "🕵️ Desaparecimentos")
-              .replace("arquivos-policiais", "📺 Arquivos Policiais")
-              .replace("podcasts", "🎧 Podcasts")}
-          </button>
-        ))}
-      </div>
-
       <Routes>
         <Route
           path="/"
           element={
-            <main className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-4 pb-10 max-w-7xl mx-auto">
+            <main className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-4 pb-10 max-w-7xl mx-auto">
               {videos
                 .filter((video) => !selectedCategory || video.category === selectedCategory)
                 .map((video) => (
@@ -146,7 +167,7 @@ function AppContent() {
         />
       </Routes>
 
-      <footer className="bg-zinc-900 border-t border-zinc-700 text-center py-4 text-sm text-gray-400 mt-10">
+      <footer className="bg-black border-t border-yellow-500 text-center py-4 text-sm text-gray-400 mt-10">
         <p>© 2025 Dark Stream. Todos os direitos reservados.</p>
       </footer>
     </div>

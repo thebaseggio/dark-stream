@@ -130,12 +130,14 @@ export default function CreatorPanel({ onAddVideo, videoToEdit }) {
             className="p-2 border border-zinc-700 rounded bg-zinc-900 text-white"
           >
             <option value="">Selecione uma categoria</option>
-            <option value="investigativo">🔍 Investigativo</option>
-            <option value="casos-famosos">👥 Casos Famosos</option>
-            <option value="desaparecimentos">🕵️ Desaparecimentos</option>
-            <option value="arquivos-policiais">📺 Arquivos Policiais</option>
-            <option value="podcasts">🎧 Podcasts</option>
-            <option value="nao-solucionados">⚖️ Não Solucionados</option>
+            <option value="investigativos">Investigativos</option>
+            <option value="desaparecimentos">Desaparecimentos</option>
+            <option value="nao-solucionados">Casos não solucionados</option>
+            <option value="crimes-famosos">Crimes Famosos</option>
+            <option value="serial-killers">Serial Killers</option>
+            <option value="podcasts-entrevistas">Podcasts e Entrevistas</option>
+            <option value="documentarios">Documentários</option>
+            <option value="casos-sobrenaturais">Casos Sobrenaturais</option>
           </select>
 
           <button
