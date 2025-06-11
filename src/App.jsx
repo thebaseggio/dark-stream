@@ -1,6 +1,12 @@
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase'
+
+// Deriva a URL da thumbnail do YouTube a partir do link de embed
+function deriveYouTubeThumb(embedUrl) {
+  const videoId = embedUrl.split('/').pop()
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+}
 import VideoPlayer from './pages/VideoPlayer';
 import CreatorPanel from './pages/CreatorPanel';
 import MyVideos from './pages/MyVideos';
@@ -63,7 +69,12 @@ function AppContent() {
         .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views')
         .order('id');
       if (data) {
-        setVideos(data);
+        setVideos(
+          data.map((video) => ({
+            ...video,
+            thumbnail: video.thumbnail || deriveYouTubeThumb(video.videoUrl),
+          }))
+        );
       }
     };
     loadVideos();
@@ -85,7 +96,13 @@ function AppContent() {
       .from('videos')
       .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views')
       .order('id');
-    if (data) setVideos(data);
+    if (data)
+      setVideos(
+        data.map((v) => ({
+          ...v,
+          thumbnail: v.thumbnail || deriveYouTubeThumb(v.videoUrl),
+        }))
+      );
   };
 
   const handleDeleteVideo = async (id) => {
@@ -94,7 +111,13 @@ function AppContent() {
       .from('videos')
       .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views')
       .order('id');
-    if (data) setVideos(data);
+    if (data)
+      setVideos(
+        data.map((v) => ({
+          ...v,
+          thumbnail: v.thumbnail || deriveYouTubeThumb(v.videoUrl),
+        }))
+      );
   };
 
   const handleEditVideo = (video) => {

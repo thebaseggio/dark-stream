@@ -1,6 +1,17 @@
 import { Link } from 'react-router-dom';
 
+// Util para obter a thumbnail de um embed do YouTube quando nenhuma é fornecida
+function deriveYouTubeThumb(embedUrl) {
+  const videoId = embedUrl.split('/').pop();
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+}
+
 export default function MyVideos({ videos, onEdit, onDelete }) {
+  const videosWithThumbs = videos.map((v) => ({
+    ...v,
+    thumbnail: v.thumbnail || deriveYouTubeThumb(v.videoUrl),
+  }));
+
   return (
     <div className="p-4 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">🎬 Meus Vídeos</h1>
@@ -11,10 +22,10 @@ export default function MyVideos({ videos, onEdit, onDelete }) {
       </Link>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {videos.length === 0 ? (
+        {videosWithThumbs.length === 0 ? (
           <p>Você ainda não publicou nenhum vídeo.</p>
         ) : (
-          videos.map((video) => (
+          videosWithThumbs.map((video) => (
             <Link
               to={`/video/${video.id}`}
               key={video.id}
