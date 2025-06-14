@@ -17,7 +17,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export async function loadVideo(id) {
   const { data, error } = await supabase
     .from('videos')
-    .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views')
+    .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views, creatorName, creatorAvatar')
     .eq('id', id)
     .single();
 
@@ -35,7 +35,7 @@ export async function loadVideo(id) {
 export async function loadAllVideos() {
   const { data, error } = await supabase
     .from('videos')
-    .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views')
+    .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views, creatorName, creatorAvatar')
     .order('id', { ascending: true });
 
   if (error) {
