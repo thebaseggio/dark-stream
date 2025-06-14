@@ -1,15 +1,17 @@
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from './supabase'
-
-// Deriva a URL da thumbnail do YouTube a partir do link de embed
-function deriveYouTubeThumb(embedUrl) {
-  const videoId = embedUrl.split('/').pop()
-  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-}
+import { supabase, loadAllVideos } from './supabase';
 import VideoPlayer from './pages/VideoPlayer';
 import CreatorPanel from './pages/CreatorPanel';
 import MyVideos from './pages/MyVideos';
+
+// Deriva a URL da thumbnail do YouTube a partir do link de embed
+function deriveYouTubeThumb(embedUrl) {
+  const urlParts = embedUrl.split('/');
+  const videoIdWithParams = urlParts[urlParts.length - 1];
+  const videoId = videoIdWithParams.split('?')[0]; // Remove parâmetros extras
+  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+}
 
 function AppContent() {
   const navigate = useNavigate();
@@ -20,12 +22,10 @@ function AppContent() {
   const dropdownTimer = useRef(null);
   const [showCreatorsDropdown, setShowCreatorsDropdown] = useState(false);
   const creatorsTimer = useRef(null);
+  const [rotatedCards, setRotatedCards] = useState({});
 
   const openDropdown = () => {
-    if (dropdownTimer.current) {
-      clearTimeout(dropdownTimer.current);
-      dropdownTimer.current = null;
-    }
+    if (dropdownTimer.current) clearTimeout(dropdownTimer.current);
     setShowDropdown(true);
   };
 
@@ -36,10 +36,7 @@ function AppContent() {
   };
 
   const openCreatorsDropdown = () => {
-    if (creatorsTimer.current) {
-      clearTimeout(creatorsTimer.current);
-      creatorsTimer.current = null;
-    }
+    if (creatorsTimer.current) clearTimeout(creatorsTimer.current);
     setShowCreatorsDropdown(true);
   };
 
@@ -47,6 +44,13 @@ function AppContent() {
     creatorsTimer.current = setTimeout(() => {
       setShowCreatorsDropdown(false);
     }, 100);
+  };
+
+  const toggleCardRotation = (id) => {
+    setRotatedCards((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
   };
 
   const categories = [
@@ -63,21 +67,24 @@ function AppContent() {
   const creators = ['Perfil 1', 'Perfil 2', 'Perfil 3'];
 
   useEffect(() => {
-    const loadVideos = async () => {
-      const { data } = await supabase
-        .from('videos')
-        .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views')
-        .order('id');
-      if (data) {
-        setVideos(
-          data.map((video) => ({
-            ...video,
-            thumbnail: video.thumbnail || deriveYouTubeThumb(video.videoUrl),
-          }))
-        );
+    let isMounted = true;
+    async function fetchVideos() {
+      try {
+        const data = await loadAllVideos();
+        if (!isMounted) return;
+        const withThumbs = data.map((video) => ({
+          ...video,
+          thumbnail: video.thumbnail || deriveYouTubeThumb(video.videoUrl),
+        }));
+        setVideos(withThumbs);
+      } catch (err) {
+        console.error('Erro ao carregar vídeos:', err);
       }
+    }
+    fetchVideos();
+    return () => {
+      isMounted = false;
     };
-    loadVideos();
   }, []);
 
   const handleCategoryFilter = (category) => {
@@ -92,32 +99,24 @@ function AppContent() {
     } else {
       await supabase.from('videos').insert([{ ...newVideo, views: 0 }]);
     }
-    const { data } = await supabase
-      .from('videos')
-      .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views')
-      .order('id');
-    if (data)
-      setVideos(
-        data.map((v) => ({
-          ...v,
-          thumbnail: v.thumbnail || deriveYouTubeThumb(v.videoUrl),
-        }))
-      );
+    const data = await loadAllVideos();
+    setVideos(
+      data.map((v) => ({
+        ...v,
+        thumbnail: v.thumbnail || deriveYouTubeThumb(v.videoUrl),
+      }))
+    );
   };
 
   const handleDeleteVideo = async (id) => {
     await supabase.from('videos').delete().eq('id', id);
-    const { data } = await supabase
-      .from('videos')
-      .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views')
-      .order('id');
-    if (data)
-      setVideos(
-        data.map((v) => ({
-          ...v,
-          thumbnail: v.thumbnail || deriveYouTubeThumb(v.videoUrl),
-        }))
-      );
+    const data = await loadAllVideos();
+    setVideos(
+      data.map((v) => ({
+        ...v,
+        thumbnail: v.thumbnail || deriveYouTubeThumb(v.videoUrl),
+      }))
+    );
   };
 
   const handleEditVideo = (video) => {
@@ -129,81 +128,58 @@ function AppContent() {
     <div className="min-h-screen bg-black text-white font-sans">
       <nav className="bg-black border-b border-[#f1c40f] p-4 flex flex-col sm:flex-row justify-between items-center">
         <div className="flex items-center gap-6">
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            className="focus:outline-none"
-          >
+          <button type="button" onClick={() => navigate('/')} className="focus:outline-none">
             <img src="/logo.png" alt="Dark Stream" className="h-16 w-auto" />
           </button>
-        <div
-          className="relative hidden sm:block"
-          onMouseEnter={openDropdown}
-          onMouseLeave={closeDropdown}
-        >
-          <button
-            type="button"
-            className="text-gray-300 text-sm focus:outline-none flex items-center border border-[#f1c40f] px-2 py-1 rounded"
+          <div
+            className="relative hidden sm:block"
+            onMouseEnter={openDropdown}
+            onMouseLeave={closeDropdown}
           >
-            Categorias <span className="ml-1">▼</span>
-          </button>
-          {showDropdown && (
-            <ul
-              className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-56 z-10"
-              onMouseEnter={openDropdown}
-              onMouseLeave={closeDropdown}
-            >
-              {categories.map((c) => (
-                <li key={c.key}>
-                  <button
-                    type="button"
-                    onClick={() => handleCategoryFilter(c.key)}
-                    className={`block w-full text-left px-4 py-2 text-gray-300 hover:bg-zinc-700 ${
-                      selectedCategory === c.key ? 'bg-zinc-700' : ''
-                    }`}
-                  >
-                    {c.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <div
-          className="relative hidden sm:block"
-          onMouseEnter={openCreatorsDropdown}
-          onMouseLeave={closeCreatorsDropdown}
-        >
-          <button
-            type="button"
-            className="text-gray-300 text-sm focus:outline-none flex items-center border border-[#f1c40f] px-2 py-1 rounded"
+            <button type="button" className="text-white font-semibold">Categorias</button>
+            {showDropdown && (
+              <ul className="absolute bg-black border border-[#f1c40f] mt-2 rounded z-10">
+                {categories.map((cat) => (
+                  <li key={cat.key}>
+                    <button
+                      type="button"
+                      onClick={() => handleCategoryFilter(cat.key)}
+                      className="block px-4 py-2 text-gray-300 hover:bg-zinc-700 w-full text-left"
+                    >
+                      {cat.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div
+            className="relative hidden sm:block"
+            onMouseEnter={openCreatorsDropdown}
+            onMouseLeave={closeCreatorsDropdown}
           >
-            Criadores <span className="ml-1">▼</span>
-          </button>
-          {showCreatorsDropdown && (
-            <ul
-              className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-40 z-10"
-              onMouseEnter={openCreatorsDropdown}
-              onMouseLeave={closeCreatorsDropdown}
-            >
-              {creators.map((creator) => (
-                <li key={creator}>
-                  <a href="#" className="block px-4 py-2 text-gray-300 hover:bg-zinc-700">
-                    {creator}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
+            <button type="button" className="text-white font-semibold">Criadores</button>
+            {showCreatorsDropdown && (
+              <ul className="absolute bg-black border border-[#f1c40f] mt-2 rounded z-10">
+                {creators.map((creator, idx) => (
+                  <li key={`${creator}-${idx}`}>
+                    <a href="#" className="block px-4 py-2 text-gray-300 hover:bg-zinc-700">
+                      {creator}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
-        </div>
+
         <div className="flex gap-2 mt-2 sm:mt-0">
-          <Link to="/"><button className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1.5 rounded">Início</button></Link>
-          <Link to="/painel"><button className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1.5 rounded">Painel de Criador</button></Link>
-          <Link to="/meus-videos"><button className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1.5 rounded">Meus Vídeos</button></Link>
+          <Link to="/"><button type="button" className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1.5 rounded">Início</button></Link>
+          <Link to="/painel"><button type="button" className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1.5 rounded">Painel de Criador</button></Link>
+          <Link to="/meus-videos"><button type="button" className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1.5 rounded">Meus Vídeos</button></Link>
         </div>
       </nav>
-
 
       <Routes>
         <Route
@@ -213,43 +189,62 @@ function AppContent() {
               {videos
                 .filter((video) => !selectedCategory || video.category === selectedCategory)
                 .map((video) => (
-                  <Link
-                    to={`/video/${video.id}`}
+                  <div
                     key={video.id}
-                    className="transform hover:scale-105 transition-transform duration-200 group perspective-[1000px]"
+                    className="transform transition-transform duration-200 group perspective-[1000px]"
                   >
-                    <div className="relative h-[350px] [transform-style:preserve-3d] transition-transform duration-500 group-hover:[transform:rotateY(180deg)]">
-                      <div className="absolute inset-0 bg-black border border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between cursor-pointer [backface-visibility:hidden]">
-                        <img src={video.thumbnail} alt={video.title} className="rounded-md object-cover w-full h-40" />
-                        <div className="mt-3">
-                          <h2 className="text-white text-base font-semibold text-left line-clamp-2 mb-1">{video.title}</h2>
-                          <p className="text-sm text-gray-500 text-center">👁️ {video.views || 0} visualizações</p>
-                        </div>
-                        <div className="mt-3 flex justify-center">
-                          <span className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold py-1 px-3 rounded">
+                    <div
+                      className={`relative h-[350px] transition-transform duration-500 [transform-style:preserve-3d] ${
+                        rotatedCards[video.id] ? '[transform:rotateY(180deg)]' : ''
+                      }`}
+                    >
+                      <div className="absolute inset-0 bg-black border border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [backface-visibility:hidden]">
+                        <img
+                          src={video.thumbnail}
+                          alt={video.title}
+                          className="rounded-md object-cover w-full h-40"
+                        />
+                        <h2 className="text-white text-base font-semibold mt-2 line-clamp-2">
+                          {video.title}
+                        </h2>
+                        <p className="text-sm text-gray-500 text-center">
+                          👁️ {video.views || 0} visualizações
+                        </p>
+                        <div className="mt-2 flex justify-between gap-2">
+                          <Link
+                            to={`/video/${video.id}`}
+                            className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 py-1 px-2 rounded text-xs text-center w-1/2"
+                          >
                             Assistir agora
-                          </span>
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => toggleCardRotation(video.id)}
+                            className="bg-gray-700 hover:bg-gray-600 py-1 px-2 rounded text-xs w-1/2"
+                          >
+                            Mais Info
+                          </button>
                         </div>
                       </div>
                       <div className="absolute inset-0 bg-black border border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between items-center [transform:rotateY(180deg)] [backface-visibility:hidden]">
-                        <div className="flex flex-col items-center">
-                          <p className="text-sm text-gray-300">📅 {video.publishedAt}</p>
-                          <p className="text-sm text-gray-300">⏱ {video.duration}</p>
-                        </div>
-                        <div className="mt-3">
-                          <span className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold py-1 px-3 rounded">
-                            Ver Mais
-                          </span>
-                        </div>
+                        <p className="text-sm text-gray-300">📅 {video.publishedAt}</p>
+                        <p className="text-sm text-gray-300">⏱ {video.duration}</p>
+                        <button
+                          type="button"
+                          onClick={() => toggleCardRotation(video.id)}
+                          className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 py-1 px-3 rounded text-xs"
+                        >
+                          Voltar
+                        </button>
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 ))}
             </main>
           }
         />
         <Route path="/painel" element={<CreatorPanel onAddVideo={handleAddVideo} videoToEdit={videoToEdit} />} />
-        <Route path="/video/:id" element={<VideoPlayer videos={videos} />} />
+        <Route path="/video/:id" element={<VideoPlayer />} />
         <Route
           path="/meus-videos"
           element={

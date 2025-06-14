@@ -1,15 +1,18 @@
 // supabase.js
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://baqvszumalgtgaepxwqq.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'SUA_CHAVE_AQUI';
+// Garante que as variáveis de ambiente estão presentes
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Supabase URL e/ou Anon Key não estão definidos no .env');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
- * Carrega um vídeo específico pelo ID, usando nomes de coluna conforme estão no banco (camelCase).
- * @param {number|string} id - ID do vídeo a ser carregado
- * @returns {Promise<Object>} Dados do vídeo
+ * Carrega um vídeo específico pelo ID.
  */
 export async function loadVideo(id) {
   const { data, error } = await supabase
@@ -27,8 +30,7 @@ export async function loadVideo(id) {
 }
 
 /**
- * Carrega todos os vídeos ordenados por ID.
- * @returns {Promise<Object[]>} Lista de vídeos
+ * Carrega todos os vídeos.
  */
 export async function loadAllVideos() {
   const { data, error } = await supabase
