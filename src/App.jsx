@@ -1,6 +1,12 @@
 // src/App.jsx
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Link,
+  useNavigate
+} from 'react-router-dom';
 import { supabase, loadAllVideos } from './supabase';
 import VideoPlayer from './pages/VideoPlayer';
 import CreatorPanel from './pages/CreatorPanel';
@@ -14,7 +20,7 @@ function deriveYouTubeThumb(embedUrl) {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-// Página de login do criador
+// Página de login
 function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -23,10 +29,7 @@ function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setErrorMsg(error.message);
     } else {
@@ -35,9 +38,12 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
-      <form onSubmit={handleLogin} className="w-full max-w-sm bg-zinc-900 p-6 rounded">
-        <h2 className="text-2xl mb-4">Login do Criador</h2>
+    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
+      <form
+        onSubmit={handleLogin}
+        className="w-full max-w-sm bg-zinc-900 p-6 rounded"
+      >
+        <h2 className="text-2xl mb-4">Login</h2>
         {errorMsg && <p className="text-red-500 mb-2">{errorMsg}</p>}
         <input
           type="email"
@@ -57,7 +63,7 @@ function LoginPage() {
         />
         <button
           type="submit"
-          className="w-full bg-[#8e44ad] py-2 rounded hover:bg-[#8e44ad]/90"
+          className="w-full bg-[#8e44ad] hover:bg-[#8e44ad]/90 py-2 rounded"
         >
           Entrar
         </button>
@@ -78,41 +84,32 @@ function AppContent() {
   const creatorsTimer = useRef(null);
   const [rotatedCards, setRotatedCards] = useState({});
 
-  // Monitora sessão/auth do Supabase
+  // Monitora sessão/auth
   useEffect(() => {
-    // pega sessão inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
     });
-    // escuta mudanças de auth
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user || null);
     });
-    return () => {
-      listener.subscription.unsubscribe();
-    };
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   // Carrega vídeos
   useEffect(() => {
-    let isMounted = true;
-    async function fetchVideos() {
-      try {
-        const data = await loadAllVideos();
-        if (!isMounted) return;
-        const withThumbs = data.map((video) => ({
-          ...video,
-          thumbnail: video.thumbnail || deriveYouTubeThumb(video.videoUrl),
-        }));
-        setVideos(withThumbs);
-      } catch (err) {
-        console.error('Erro ao carregar vídeos:', err);
-      }
-    }
-    fetchVideos();
-    return () => {
-      isMounted = false;
-    };
+    let mounted = true;
+    loadAllVideos()
+      .then((data) => {
+        if (!mounted) return;
+        setVideos(
+          data.map((v) => ({
+            ...v,
+            thumbnail: v.thumbnail || deriveYouTubeThumb(v.videoUrl),
+          }))
+        );
+      })
+      .catch(console.error);
+    return () => { mounted = false; };
   }, []);
 
   const openDropdown = () => {
@@ -131,10 +128,7 @@ function AppContent() {
   };
 
   const toggleCardRotation = (id) => {
-    setRotatedCards((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    setRotatedCards((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleCategoryFilter = (category) => {
@@ -193,7 +187,7 @@ function AppContent() {
           <Link to="/" className="focus:outline-none">
             <img src="/logo.png" alt="Dark Stream" className="h-20 w-auto" />
           </Link>
-
+          {/* Categorias */}
           <div
             className="relative hidden sm:block"
             onMouseEnter={openDropdown}
@@ -219,7 +213,7 @@ function AppContent() {
               </ul>
             )}
           </div>
-
+          {/* Criadores */}
           <div
             className="relative hidden sm:block"
             onMouseEnter={openCreatorsDropdown}
@@ -230,13 +224,10 @@ function AppContent() {
             </button>
             {showCreatorsDropdown && (
               <ul className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-40 z-10">
-                {creators.map((creator) => (
-                  <li key={creator}>
-                    <a
-                      href="#"
-                      className="block px-4 py-2 text-gray-300 hover:bg-zinc-700"
-                    >
-                      {creator}
+                {creators.map((name) => (
+                  <li key={name}>
+                    <a href="#" className="block px-4 py-2 text-gray-300 hover:bg-zinc-700">
+                      {name}
                     </a>
                   </li>
                 ))}
@@ -244,7 +235,7 @@ function AppContent() {
             )}
           </div>
         </div>
-
+        {/* Menu direito */}
         <div className="flex gap-2 mt-2 sm:mt-0">
           <Link to="/">
             <button className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1.5 rounded">
@@ -282,92 +273,100 @@ function AppContent() {
           )}
         </div>
       </nav>
-
+      {/* Rotas */}
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
-          path="/"
+          path="/" 
           element={
             <main className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 px-4 pb-10 max-w-7xl mx-auto">
               {videos
-                .filter((video) => !selectedCategory || video.category === selectedCategory)
+                .filter((v) => !selectedCategory || v.category === selectedCategory)
                 .map((video) => (
-                  <div
-                    key={video.id}
-                    className="transform transition-transform duration-200 group perspective-[1000px]"
-                  >
-                    <div
-                      className={`relative h-[350px] transition-transform duration-500 [transform-style:preserve-3d] ${
-                        rotatedCards[video.id] ? '[transform:rotateY(180deg)]' : ''
-                      }`}
-                    >
-                      {/* frente */}
-                      <div className="absolute inset-0 bg-black border border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [backface-visibility:hidden]">
-                        <img
-                          src={video.thumbnail}
-                          alt={video.title}
-                          className="rounded-md object-cover w-full h-40"
-                        />
-                        <h2 className="text-white text-base font-semibold mt-2 line-clamp-2">
-                          {video.title}
-                        </h2>
-                        <div className="mt-2 flex justify-between gap-2">
-                          <Link
-                            to={`/video/${video.id}`}
-                            className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 py-1 px-2 rounded text-xs text-center w-1/2"
-                          >
-                            Assistir agora
-                          </Link>
-                          <button
-                            onClick={() => toggleCardRotation(video.id)}
-                            className="bg-gray-700 hover:bg-gray-600 py-1 px-2 rounded text-xs w-1/2"
-                          >
-                            Mais Info
-                          </button>
-                        </div>
-                      </div>
-                      {/* verso aprimorado */}
- <div
-   className="absolute inset-0 bg-black border border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden]"
- >
-   {/* Topo: perfil do criador e botão Seguir */}
-   <div className="w-full flex items-center justify-between mb-3">
-     <div className="flex items-center gap-2">
-       <img
-         src={video.creatorAvatar}
-         alt={video.creatorName}
-         className="w-8 h-8 rounded-full"
-       />
-       <span className="text-white font-semibold">
-         {video.creatorName}
-       </span>
-     </div>
-     <button
-       className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black text-xs font-semibold px-2 py-1 rounded"
-     >
-       Seguir
-     </button>
-   </div>
-   {/* Descrição */}
-   <p className="text-gray-300 text-sm mb-3 line-clamp-3">
-     {video.description}
-   </p>
-   {/* Metadados: data, duração, views */}
-   <div className="w-full flex justify-between text-gray-300 text-xs mb-3">
-     <span>📅 {video.publishedAt}</span>
-     <span>⏱ {video.duration}</span>
-     <span>👁️ {video.views || 0}</span>
-   </div>
-   {/* Botão Voltar */}
-   <button
-     onClick={() => toggleCardRotation(video.id)}
-   className="self-center bg-[#8e44ad] hover:bg-[#8e44ad]/90 py-1 px-3 rounded text-xs text-white"
-   >
-     Voltar
-   </button>
- </div>
-                    </div>
-                  </div>
+<div
+  key={video.id}
+  className="transform transition-transform duration-200 group perspective-[1000px]"
+>
+  <div
+    className={`relative w-full max-w-md mx-auto
+      min-h-[420px]
+      transition-transform duration-500 [transform-style:preserve-3d] ${
+        rotatedCards[video.id] ? '[transform:rotateY(180deg)]' : ''
+      }`}
+  >
+    {/* ─── Frente ────────────────────────────────────────── */}
+    <div className="absolute inset-0 bg-black border border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [backface-visibility:hidden]">
+      <img
+        src={video.thumbnail}
+        alt={video.title}
+        className="rounded-md object-cover w-full h-48 mb-2"  /* ↓ margem */
+      />
+      <h2 className="text-white text-base font-semibold w-full text-left mb-4 line-clamp-2">
+        {video.title}
+      </h2>
+      <div className="mt-auto flex justify-between gap-2">
+        <Link
+          to={`/video/${video.id}`}
+          className="bg-[#cc9825] hover:bg-[#cc9825]/90 text-[#040402] font-bold py-2 px-4 rounded text-sm text-center flex-1"
+        >
+          Assistir agora
+        </Link>
+        <button
+          onClick={() => toggleCardRotation(video.id)}
+          className="bg-gray-700 hover:bg-gray-600 py-2 px-4 rounded text-sm flex-1"
+        >
+          Mais Info
+        </button>
+      </div>
+    </div>
+
+    {/* ─── Verso ─────────────────────────────────────────── */}
+    <div
+      onClick={() => navigate(`/canal/${video.creatorId}`)}
+      className="absolute inset-0 bg-black border border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden] cursor-pointer"
+    >
+      {/* Sub-card 1 */}
+      <div className="bg-zinc-900 rounded-lg p-3 flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <img
+            src={video.creatorAvatar}
+            alt={video.creatorName}
+            className="w-8 h-8 rounded-full"
+          />
+          <span className="text-white font-semibold">
+            {video.creatorName}
+          </span>
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); /* handleFollow */ }}
+          className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black text-xs font-semibold px-2 py-1 rounded"
+        >
+          Seguir
+        </button>
+      </div>
+      {/* Sub-card 2 */}
+      <div className="bg-zinc-900 rounded-lg p-3 flex flex-col gap-2 flex-1">
+        <p className="text-gray-300 text-sm line-clamp-3">
+          {video.description}
+        </p>
+        <div className="flex justify-between text-gray-400 text-xs">
+          <span>📅 {video.publishedAt}</span>
+          <span>⏱ {video.duration}</span>
+          <span>👁️ {video.views || 0}</span>
+        </div>
+      </div>
+      {/* Botão Voltar */}
+      <div className="flex justify-center mt-3">
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleCardRotation(video.id); }}
+          className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white text-sm font-semibold px-4 py-2 rounded"
+        >
+          Voltar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
                 ))}
             </main>
           }
@@ -379,9 +378,7 @@ function AppContent() {
         <Route path="/video/:id" element={<VideoPlayer />} />
         <Route
           path="/meus-videos"
-          element={
-            <MyVideos videos={videos} onEdit={handleEditVideo} onDelete={handleDeleteVideo} />
-          }
+          element={<MyVideos videos={videos} onEdit={handleEditVideo} onDelete={handleDeleteVideo} />}
         />
       </Routes>
 

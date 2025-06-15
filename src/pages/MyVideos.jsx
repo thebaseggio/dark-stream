@@ -33,7 +33,7 @@ export default function MyVideos({ videos, onEdit, onDelete }) {
             >
               <div className="relative h-[350px] [transform-style:preserve-3d] transition-transform duration-500 group-hover:[transform:rotateY(180deg)]">
                 <div className="absolute inset-0 bg-black border border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between cursor-pointer [backface-visibility:hidden]">
-                  <img src={video.thumbnail} alt={video.title} className="rounded-md object-cover w-full h-40" />
+                  <img src={video.thumbnail} alt={video.title} className="rounded-md object-contain w-full h-40" />
                   <div className="mt-3">
                     <h2 className="text-white text-base font-semibold text-left line-clamp-2 mb-1">{video.title}</h2>
                   </div>
