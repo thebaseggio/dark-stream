@@ -197,7 +197,7 @@ function AppContent() {
               Categorias <span className="ml-1">▼</span>
             </button>
             {showDropdown && (
-              <ul className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-56 z-10">
+              <ul className="absolute left-0 mt-2 bg-black border-[#f1c40f] rounded shadow-md py-2 w-56 z-10">
                 {categories.map((c) => (
                   <li key={c.key}>
                     <button
@@ -238,7 +238,7 @@ function AppContent() {
         {/* Menu direito */}
         <div className="flex gap-2 mt-2 sm:mt-0">
           <Link to="/">
-            <button className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1.5 rounded">
+            <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1.5 rounded">
               Início
             </button>
           </Link>
@@ -266,7 +266,7 @@ function AppContent() {
             </>
           ) : (
             <Link to="/login">
-              <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1.5 rounded">
+              <button className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1.5 rounded">
                 Entrar
               </button>
             </Link>
@@ -289,33 +289,33 @@ function AppContent() {
 >
   <div
     className={`relative w-full max-w-md mx-auto
-      min-h-[420px]
+      min-h-[340px]
       transition-transform duration-500 [transform-style:preserve-3d] ${
         rotatedCards[video.id] ? '[transform:rotateY(180deg)]' : ''
       }`}
   >
     {/* ─── Frente ────────────────────────────────────────── */}
-    <div className="absolute inset-0 bg-black border border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [backface-visibility:hidden]">
+    <div className="absolute inset-0 bg-black border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [backface-visibility:hidden]">
       <img
         src={video.thumbnail}
         alt={video.title}
         className="rounded-md object-cover w-full h-48 mb-2"  /* ↓ margem */
       />
-      <h2 className="text-white text-base font-semibold w-full text-left mb-4 line-clamp-2">
+      <h2 className="text-white text-l font-bold uppercase tracking-wide">
         {video.title}
       </h2>
       <div className="mt-auto flex justify-between gap-2">
         <Link
           to={`/video/${video.id}`}
-          className="bg-[#cc9825] hover:bg-[#cc9825]/90 text-[#040402] font-bold py-2 px-4 rounded text-sm text-center flex-1"
+          className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-[#040402] font-bold py-2 px-4 rounded text-sm text-center flex-1"
         >
-          Assistir agora
+        🎬Assistir agora
         </Link>
         <button
           onClick={() => toggleCardRotation(video.id)}
-          className="bg-gray-700 hover:bg-gray-600 py-2 px-4 rounded text-sm flex-1"
+          className="bg-gray-700 hover:bg-gray-600/90 font-semibold py-2 px-4 rounded text-sm text-center flex-1"
         >
-          Mais Info
+          ℹ️Mais Info
         </button>
       </div>
     </div>
@@ -323,7 +323,7 @@ function AppContent() {
     {/* ─── Verso ─────────────────────────────────────────── */}
     <div
       onClick={() => navigate(`/canal/${video.creatorId}`)}
-      className="absolute inset-0 bg-black border border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden] cursor-pointer"
+      className="absolute inset-0 bg-zink-800 border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden] cursor-pointer"
     >
       {/* Sub-card 1 */}
       <div className="bg-zinc-900 rounded-lg p-3 flex items-center justify-between mb-3">
@@ -346,7 +346,8 @@ function AppContent() {
       </div>
       {/* Sub-card 2 */}
       <div className="bg-zinc-900 rounded-lg p-3 flex flex-col gap-2 flex-1">
-        <p className="text-gray-300 text-sm line-clamp-3">
+        <h1>Resumo:</h1>
+        <p className="text-gray-300 text-sm">
           {video.description}
         </p>
         <div className="flex justify-between text-gray-400 text-xs">
