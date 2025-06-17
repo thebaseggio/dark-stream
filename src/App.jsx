@@ -197,7 +197,7 @@ function AppContent() {
               Categorias <span className="ml-1">▼</span>
             </button>
             {showDropdown && (
-              <ul className="absolute left-0 mt-2 bg-black border-[#f1c40f] rounded shadow-md py-2 w-56 z-10">
+              <ul className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-56 z-10">
                 {categories.map((c) => (
                   <li key={c.key}>
                     <button
@@ -307,7 +307,7 @@ function AppContent() {
       <div className="mt-auto flex justify-between gap-2">
         <Link
           to={`/video/${video.id}`}
-          className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-[#040402] font-bold py-2 px-4 rounded text-sm text-center flex-1"
+          className="bg-[#f1c40f] hover:bg-[#f1c40f ]/90 text-[#040402] font-bold py-2 px-4 rounded text-sm text-center flex-1"
         >
         🎬Assistir agora
         </Link>
@@ -320,52 +320,68 @@ function AppContent() {
       </div>
     </div>
 
-    {/* ─── Verso ─────────────────────────────────────────── */}
-    <div
-      onClick={() => navigate(`/canal/${video.creatorId}`)}
-      className="absolute inset-0 bg-zink-800 border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden] cursor-pointer"
-    >
-      {/* Sub-card 1 */}
-      <div className="bg-zinc-900 rounded-lg p-3 flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <img
-            src={video.creatorAvatar}
-            alt={video.creatorName}
-            className="w-8 h-8 rounded-full"
-          />
-          <span className="text-white font-semibold">
-            {video.creatorName}
-          </span>
-        </div>
-        <button
-          onClick={(e) => { e.stopPropagation(); /* handleFollow */ }}
-          className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black text-xs font-semibold px-2 py-1 rounded"
-        >
-          Seguir
-        </button>
-      </div>
-      {/* Sub-card 2 */}
-      <div className="bg-zinc-900 rounded-lg p-3 flex flex-col gap-2 flex-1">
-        <h1>Resumo:</h1>
-        <p className="text-gray-300 text-sm">
-          {video.description}
-        </p>
-        <div className="flex justify-between text-gray-400 text-xs">
-          <span>📅 {video.publishedAt}</span>
-          <span>⏱ {video.duration}</span>
-          <span>👁️ {video.views || 0}</span>
-        </div>
-      </div>
-      {/* Botão Voltar */}
-      <div className="flex justify-center mt-3">
-        <button
-          onClick={(e) => { e.stopPropagation(); toggleCardRotation(video.id); }}
-          className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white text-sm font-semibold px-4 py-2 rounded"
-        >
-          Voltar
-        </button>
-      </div>
+{/* ─── Verso ─────────────────────────────────────────── */}
+<div
+  onClick={() => navigate(`/canal/${video.creatorId}`)}
+  className="absolute inset-0 bg-zinc-800 border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden] cursor-pointer"
+>
+  {/* Sub-card 1 */}
+  <div className="bg-zinc-900 rounded-lg p-3 flex items-center justify-between mb-3">
+    <div className="flex items-center gap-2">
+      <img
+        src={video.creatorAvatar}
+        alt={video.creatorName}
+        className="w-8 h-8 rounded-full"
+      />
+      <span className="text-white font-semibold">
+        {video.creatorName}
+      </span>
     </div>
+    <button
+      onClick={(e) => { e.stopPropagation(); /* handleFollow */ }}
+      className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black text-xs font-semibold px-2 py-1 rounded"
+    >
+      Seguir
+    </button>
+  </div>
+  {/* Sub-card 2 */}
+  <div className="bg-zinc-900 rounded-lg p-3 flex flex-col gap-2 flex-1">
+    <h1>Resumo:</h1>
+    <p className="text-gray-300 text-sm">
+      {video.description}
+    </p>
+    <div className="flex justify-between text-gray-400 text-xs">
+      <span>📅 {video.publishedAt}</span>
+      <span>⏱ {video.duration}</span>
+      <span>👁️ {video.views || 0}</span>
+    </div>
+  </div>
+  {/* Botões Ações */}
+{/* Botões Ações */}
+<div className="flex justify-around items-center mt-3">
+  <button
+    onClick={(e) => { e.stopPropagation(); toggleCardRotation(video.id); }}
+    className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-bold px-4 py-1.5 rounded text-l"
+    title="Voltar"
+  >
+🠔
+  </button>
+  <button
+    onClick={(e) => { e.stopPropagation(); alert('Reportar vídeo ainda não implementado'); }}
+    className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-bold px-4 py-1.5 rounded text-m"
+    title="Reportar vídeo"
+  >
+    Reportar
+  </button>
+  <button
+    onClick={(e) => { e.stopPropagation(); alert('Adicionar à playlist ainda não implementado'); }}
+    className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-bold px-4 py-1.5 rounded text-l"
+    title="Adicionar à playlist"
+  >
+    ＋
+  </button>
+</div>
+</div>
   </div>
 </div>
                 ))}
