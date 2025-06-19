@@ -11,6 +11,7 @@ import { supabase, loadAllVideos } from './supabase';
 import VideoPlayer from './pages/VideoPlayer';
 import CreatorPanel from './pages/CreatorPanel';
 import MyVideos from './pages/MyVideos';
+import Explore from './pages/Explore';
 
 // Deriva a URL da thumbnail do YouTube a partir do link de embed
 function deriveYouTubeThumb(embedUrl) {
@@ -20,7 +21,6 @@ function deriveYouTubeThumb(embedUrl) {
   return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 }
 
-// Página de login
 function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -84,7 +84,6 @@ function AppContent() {
   const creatorsTimer = useRef(null);
   const [rotatedCards, setRotatedCards] = useState({});
 
-  // Monitora sessão/auth
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
@@ -95,7 +94,6 @@ function AppContent() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Carrega vídeos
   useEffect(() => {
     let mounted = true;
     loadAllVideos()
@@ -169,14 +167,13 @@ function AppContent() {
   };
 
   const categories = [
-    { key: 'investigativos', label: 'Investigativos' },
-    { key: 'desaparecimentos', label: 'Desaparecimentos' },
-    { key: 'nao-solucionados', label: 'Casos não solucionados' },
-    { key: 'crimes-famosos', label: 'Crimes Famosos' },
+    { key: 'nacionais', label: 'Nacionais' },
+    { key: 'internacionais', label: 'Internacionais' },
+    { key: 'nao-solucionados', label: 'Não solucionados' },
+    { key: 'solucionados', label: 'Solucionados' },
     { key: 'serial-killers', label: 'Serial Killers' },
-    { key: 'podcasts-entrevistas', label: 'Podcasts e Entrevistas' },
     { key: 'documentarios', label: 'Documentários' },
-    { key: 'casos-sobrenaturais', label: 'Casos Sobrenaturais' },
+    { key: 'casos-sobrenaturais', label: 'Sobrenaturais' },
   ];
   const creators = ['Perfil 1', 'Perfil 2', 'Perfil 3'];
 
@@ -187,14 +184,14 @@ function AppContent() {
           <Link to="/" className="focus:outline-none">
             <img src="/logo.png" alt="Dark Stream" className="h-20 w-auto" />
           </Link>
-          {/* Categorias */}
-          <div
-            className="relative hidden sm:block"
-            onMouseEnter={openDropdown}
-            onMouseLeave={closeDropdown}
-          >
+          <Link to="/explorar">
             <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1.5 rounded">
-              Categorias <span className="ml-1">▼</span>
+              🔍 Explorar
+            </button>
+          </Link>
+          <div className="relative hidden sm:block" onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
+            <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1.5 rounded">
+              🖿 Casos <span className="ml-1">▼</span>
             </button>
             {showDropdown && (
               <ul className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-56 z-10">
@@ -202,9 +199,7 @@ function AppContent() {
                   <li key={c.key}>
                     <button
                       onClick={() => handleCategoryFilter(c.key)}
-                      className={`block w-full text-left px-4 py-2 text-gray-300 hover:bg-zinc-700 ${
-                        selectedCategory === c.key ? 'bg-zinc-700' : ''
-                      }`}
+                      className={`block w-full text-left px-4 py-2 text-gray-300 hover:bg-zinc-700 ${selectedCategory === c.key ? 'bg-zinc-700' : ''}`}
                     >
                       {c.label}
                     </button>
@@ -213,14 +208,9 @@ function AppContent() {
               </ul>
             )}
           </div>
-          {/* Criadores */}
-          <div
-            className="relative hidden sm:block"
-            onMouseEnter={openCreatorsDropdown}
-            onMouseLeave={closeCreatorsDropdown}
-          >
+          <div className="relative hidden sm:block" onMouseEnter={openCreatorsDropdown} onMouseLeave={closeCreatorsDropdown}>
             <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1.5 rounded">
-              Criadores <span className="ml-1">▼</span>
+              👤 Criadores <span className="ml-1">▼</span>
             </button>
             {showCreatorsDropdown && (
               <ul className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-40 z-10">
@@ -276,6 +266,7 @@ function AppContent() {
       {/* Rotas */}
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/explorar" element={<Explore />} />
         <Route
           path="/" 
           element={
