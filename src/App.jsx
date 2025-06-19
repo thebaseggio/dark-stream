@@ -83,6 +83,8 @@ function AppContent() {
   const [showCreatorsDropdown, setShowCreatorsDropdown] = useState(false);
   const creatorsTimer = useRef(null);
   const [rotatedCards, setRotatedCards] = useState({});
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -173,65 +175,96 @@ function AppContent() {
     { key: 'solucionados', label: 'Solucionados' },
     { key: 'serial-killers', label: 'Serial Killers' },
     { key: 'documentarios', label: 'Documentários' },
-    { key: 'casos-sobrenaturais', label: 'Sobrenaturais' },
+    { key: 'sobrenaturais', label: 'Sobrenaturais' },
   ];
   const creators = ['Perfil 1', 'Perfil 2', 'Perfil 3'];
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans">
-      <nav className="bg-black border-b border-[#f1c40f] p-4 flex flex-col sm:flex-row justify-between items-center">
-        <div className="flex items-center gap-6">
-          <Link to="/" className="focus:outline-none">
-            <img src="/logo.png" alt="Dark Stream" className="h-20 w-auto" />
-          </Link>
-          <Link to="/explorar">
-            <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1.5 rounded">
-              🔍 Explorar
+    <div className="min-h-screen flex flex-col bg-black text-white font-sans">
+      <nav className="bg-black p-4 flex flex-col sm:flex-row justify-between items-center">
+        <div className="flex items-center gap-2">
+  <Link to="/" className="focus:outline-none">
+    <img src="/logo.png" alt="Dark Stream" className="h-16 w-auto self-center" />
+  </Link>
+
+  <div
+    className="relative hidden sm:block"
+    onMouseEnter={openDropdown}
+    onMouseLeave={closeDropdown}
+  >
+    <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1 rounded">
+      🖿 Casos <span className="ml-1">▼</span>
+    </button>
+    {showDropdown && (
+      <ul className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-56 z-10">
+        {categories.map((c) => (
+          <li key={c.key}>
+            <button
+              onClick={() => handleCategoryFilter(c.key)}
+              className={`block w-full text-left px-4 py-2 text-gray-300 hover:bg-zinc-700 ${
+                selectedCategory === c.key ? 'bg-zinc-700' : ''
+              }`}
+            >
+              {c.label}
             </button>
-          </Link>
-          <div className="relative hidden sm:block" onMouseEnter={openDropdown} onMouseLeave={closeDropdown}>
-            <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1.5 rounded">
-              🖿 Casos <span className="ml-1">▼</span>
-            </button>
-            {showDropdown && (
-              <ul className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-56 z-10">
-                {categories.map((c) => (
-                  <li key={c.key}>
-                    <button
-                      onClick={() => handleCategoryFilter(c.key)}
-                      className={`block w-full text-left px-4 py-2 text-gray-300 hover:bg-zinc-700 ${selectedCategory === c.key ? 'bg-zinc-700' : ''}`}
-                    >
-                      {c.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className="relative hidden sm:block" onMouseEnter={openCreatorsDropdown} onMouseLeave={closeCreatorsDropdown}>
-            <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1.5 rounded">
-              👤 Criadores <span className="ml-1">▼</span>
-            </button>
-            {showCreatorsDropdown && (
-              <ul className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-40 z-10">
-                {creators.map((name) => (
-                  <li key={name}>
-                    <a href="#" className="block px-4 py-2 text-gray-300 hover:bg-zinc-700">
-                      {name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+
+  <div
+    className="relative hidden sm:block"
+    onMouseEnter={openCreatorsDropdown}
+    onMouseLeave={closeCreatorsDropdown}
+  >
+    <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1 rounded">
+      👤 Criadores <span className="ml-1">▼</span>
+    </button>
+    {showCreatorsDropdown && (
+      <ul className="absolute left-0 mt-2 bg-black border border-[#f1c40f] rounded shadow-md py-2 w-40 z-10">
+        {creators.map((name) => (
+          <li key={name}>
+            <a href="#" className="block px-4 py-2 text-gray-300 hover:bg-zinc-700">
+              {name}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</div>
         {/* Menu direito */}
-        <div className="flex gap-2 mt-2 sm:mt-0">
-          <Link to="/">
-            <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1.5 rounded">
-              Início
-            </button>
-          </Link>
+        <div className="flex gap-2 mt-2 sm:mt-0 items-center">
+            {/* Botão lupa */}
+  <button
+    onClick={() => setShowSearch(!showSearch)}
+    className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-bold px-3 py-1 rounded"
+    title="Buscar"
+  >
+    🔍
+  </button>
+
+  {/* Input de busca */}
+  {showSearch && (
+    <input
+      type="text"
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      onKeyDown={(e) => {
+    if (e.key === 'Enter') {
+      navigate(`/buscar?termo=${encodeURIComponent(searchTerm)}`);
+    }
+  }}
+  placeholder="Buscar por casos ou criadores..."
+  className="ml-2 bg-zinc-900 border border-[#8e44ad] text-white px-3 py-1.5 rounded w-64 focus:outline-none transition duration-200"
+/>
+  )}
+  <Link to="/">
+    <button className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-semibold px-4 py-1 rounded">
+      Início
+    </button>
+  </Link>
           {user ? (
             <>
               <Link to="/painel">
@@ -249,14 +282,14 @@ function AppContent() {
                   await supabase.auth.signOut();
                   navigate('/');
                 }}
-                className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-1.5 rounded"
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-1 rounded"
               >
                 Sair
               </button>
             </>
           ) : (
             <Link to="/login">
-              <button className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1.5 rounded">
+              <button className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold px-4 py-1 rounded">
                 Entrar
               </button>
             </Link>
@@ -264,59 +297,64 @@ function AppContent() {
         </div>
       </nav>
       {/* Rotas */}
+      <main className="flex-1">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/explorar" element={<Explore />} />
         <Route
           path="/" 
           element={
-            <main className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 px-4 pb-10 max-w-7xl mx-auto">
+            <main className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-10 pl-[3rem] pr-4 w-full">
               {videos
-                .filter((v) => !selectedCategory || v.category === selectedCategory)
-                .map((video) => (
+                  .filter((v) =>
+    (!selectedCategory || v.category === selectedCategory) &&
+    (!searchTerm ||
+      v.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.creatorName?.toLowerCase().includes(searchTerm.toLowerCase()))
+  )
+  .map((video) => (
 <div
-  key={video.id}
-  className="transform transition-transform duration-200 group perspective-[1000px]"
->
-  <div
-    className={`relative w-full max-w-md mx-auto
-      min-h-[340px]
-      transition-transform duration-500 [transform-style:preserve-3d] ${
-        rotatedCards[video.id] ? '[transform:rotateY(180deg)]' : ''
-      }`}
-  >
-    {/* ─── Frente ────────────────────────────────────────── */}
-    <div className="absolute inset-0 bg-black border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [backface-visibility:hidden]">
-      <img
-        src={video.thumbnail}
-        alt={video.title}
-        className="rounded-md object-cover w-full h-48 mb-2"  /* ↓ margem */
-      />
-      <h2 className="text-white text-l font-bold uppercase tracking-wide">
-        {video.title}
-      </h2>
-      <div className="mt-auto flex justify-between gap-2">
-        <Link
-          to={`/video/${video.id}`}
-          className="bg-[#f1c40f] hover:bg-[#f1c40f ]/90 text-[#040402] font-bold py-2 px-4 rounded text-sm text-center flex-1"
-        >
-        🎬Assistir agora
-        </Link>
-        <button
-          onClick={() => toggleCardRotation(video.id)}
-          className="bg-gray-700 hover:bg-gray-600/90 font-semibold py-2 px-4 rounded text-sm text-center flex-1"
-        >
-          ℹ️Mais Info
-        </button>
-      </div>
-    </div>
+            key={video.id}
+            className="transform transition-transform duration-300 group hover:scale-[1.03] perspective-[1000px]"
+          >
+            <div
+              className={`relative w-full max-w-[280px] mx-auto min-h-[300px] transition-transform duration-500 [transform-style:preserve-3d] cursor-pointer ${rotatedCards[video.id] ? '[transform:rotateY(180deg)]' : ''}`}
+            >
+              {/* Frente */}
+              <div
+                className="absolute inset-0 bg-black border-2 border-[#f1c40f] rounded-lg p-3 flex flex-col justify-between [backface-visibility:hidden]"
+                onClick={(e) => {
+                  if (!e.target.closest('button')) {
+                    navigate(`/video/${video.id}`);
+                  }
+                }}
+              >
+                <img src={video.thumbnail} alt={video.title} className="rounded-md object-cover w-full h-40 mb-2" />
+                <h2 className="text-white text-base font-bold uppercase tracking-wide line-clamp-2">
+                  {video.title}
+                </h2>
+                <div className="mt-auto flex justify-between gap-2">
+                  <Link
+                    to={`/video/${video.id}`}
+                    className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-[#040402] font-bold py-2 px-3 rounded text-xs text-center flex-1"
+                  >
+                    🎬 Assistir agora
+                  </Link>
+                  <button
+                    onClick={() => toggleCardRotation(video.id)}
+                    className="bg-gray-700 hover:bg-gray-600/90 font-semibold py-2 px-3 rounded text-xs text-center flex-1"
+                  >
+                    ℹ️ Mais Info
+                  </button>
+                </div>
+              </div>
 
-{/* ─── Verso ─────────────────────────────────────────── */}
-<div
+              {/* Verso */}
+              <div
   onClick={() => navigate(`/canal/${video.creatorId}`)}
-  className="absolute inset-0 bg-zinc-800 border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden] cursor-pointer"
+  className="absolute inset-0 bg-black border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden] cursor-pointer"More actions
 >
-  {/* Sub-card 1 */}
+                {/* Subcard 1 */}
   <div className="bg-zinc-900 rounded-lg p-3 flex items-center justify-between mb-3">
     <div className="flex items-center gap-2">
       <img
@@ -335,46 +373,32 @@ function AppContent() {
       Seguir
     </button>
   </div>
-  {/* Sub-card 2 */}
-  <div className="bg-zinc-900 rounded-lg p-3 flex flex-col gap-2 flex-1">
-    <h1>Resumo:</h1>
-    <p className="text-gray-300 text-sm">
-      {video.description}
-    </p>
-    <div className="flex justify-between text-gray-400 text-xs">
-      <span>📅 {video.publishedAt}</span>
-      <span>⏱ {video.duration}</span>
-      <span>👁️ {video.views || 0}</span>
-    </div>
-  </div>
-  {/* Botões Ações */}
-{/* Botões Ações */}
-<div className="flex justify-around items-center mt-3">
-  <button
-    onClick={(e) => { e.stopPropagation(); toggleCardRotation(video.id); }}
-    className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-bold px-4 py-1.5 rounded text-l"
-    title="Voltar"
-  >
-🠔
-  </button>
-  <button
-    onClick={(e) => { e.stopPropagation(); alert('Reportar vídeo ainda não implementado'); }}
-    className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-bold px-4 py-1.5 rounded text-m"
-    title="Reportar vídeo"
-  >
-    Reportar
-  </button>
-  <button
-    onClick={(e) => { e.stopPropagation(); alert('Adicionar à playlist ainda não implementado'); }}
-    className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-bold px-4 py-1.5 rounded text-l"
-    title="Adicionar à playlist"
-  >
-    ＋
-  </button>
-</div>
-</div>
-  </div>
-</div>
+                {/* Subcard 2 */}
+                <div className="mb-2 bg-zinc-900 border border-zinc-700 p-2 rounded text-xs">
+                  <h3 className="text-white font-semibold mb-1 line-clamp-2">🎥 {video.title}</h3>
+                  <p className="mb-1">📂 Categoria: {video.category}</p>
+                  <p className="mb-1">🏷️ Tags: {(video.tags || []).join(' · ')}</p>
+                  <p className="mb-1">⏱️ Duração: {video.duration || 'N/A'}</p>
+                  <p className="mb-1">👍 Curtidas: {video.likes || 0}</p>
+                </div>
+                {/* Botões */}
+                <div className="flex justify-around mt-auto">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleCardRotation(video.id); }}
+                    className="border border-[#9c27b0] text-[#9c27b0] hover:bg-[#9c27b0]/20 rounded px-2 py-1"
+                  >🠔</button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); alert('Reportar ainda não implementado'); }}
+                    className="border border-[#9c27b0] text-[#9c27b0] hover:bg-[#9c27b0]/20 rounded px-2 py-1"
+                  >Reportar</button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); alert('Salvar na playlist ainda não implementado'); }}
+                    className="border border-[#9c27b0] text-[#9c27b0] hover:bg-[#9c27b0]/20 rounded px-2 py-1"
+                  >＋</button>
+                </div>
+              </div>
+            </div>
+          </div>
                 ))}
             </main>
           }
@@ -389,8 +413,8 @@ function AppContent() {
           element={<MyVideos videos={videos} onEdit={handleEditVideo} onDelete={handleDeleteVideo} />}
         />
       </Routes>
-
-      <footer className="bg-black border-t border-[#f1c40f] text-center py-4 text-sm text-gray-400 mt-10">
+</main>
+      <footer className="bg-black text-center py-4 text-sm text-gray-400 mt-10">
         <p>© 2025 Dark Stream. Todos os direitos reservados.</p>
       </footer>
     </div>
