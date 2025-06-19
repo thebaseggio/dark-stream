@@ -304,7 +304,7 @@ function AppContent() {
         <Route
           path="/" 
           element={
-            <main className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-10 pl-[3rem] pr-4 w-full">
+            <main className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-10 pr-4 w-full">
               {videos
                   .filter((v) =>
     (!selectedCategory || v.category === selectedCategory) &&
