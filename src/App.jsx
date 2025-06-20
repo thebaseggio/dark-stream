@@ -12,6 +12,7 @@ import VideoPlayer from './pages/VideoPlayer';
 import CreatorPanel from './pages/CreatorPanel';
 import MyVideos from './pages/MyVideos';
 import Explore from './pages/Explore';
+import PageWrapper from './components/PageWrapper';
 
 // Deriva a URL da thumbnail do YouTube a partir do link de embed
 function deriveYouTubeThumb(embedUrl) {
@@ -181,7 +182,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-black text-white font-sans">
-      <nav className="bg-black p-4 flex flex-col sm:flex-row justify-between items-center">
+      <nav className="bg-black p-4 flex flex-col sm:flex-row justify-between items-center max-w-screen-xl mx-auto w-full">
         <div className="flex items-center gap-2">
   <Link to="/" className="focus:outline-none">
     <img src="/logo.png" alt="Dark Stream" className="h-16 w-auto self-center" />
@@ -298,111 +299,123 @@ function AppContent() {
       </nav>
       {/* Rotas */}
       <main className="flex-1">
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/explorar" element={<Explore />} />
-        <Route
-          path="/" 
-          element={
-            <main className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-10 pr-4 w-full">
-              {videos
-                  .filter((v) =>
-    (!selectedCategory || v.category === selectedCategory) &&
-    (!searchTerm ||
-      v.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      v.creatorName?.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
-  .map((video) => (
-<div
+  <Routes>
+    <Route path="/login" element={<LoginPage />} />
+    <Route path="/explorar" element={<Explore />} />
+    <Route
+  path="/"
+  element={
+    <PageWrapper>
+      {videos
+        .filter((v) =>
+          (!selectedCategory || v.category === selectedCategory) &&
+          (!searchTerm ||
+            v.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            v.creatorName?.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+        .map((video) => (
+          <div
             key={video.id}
             className="transform transition-transform duration-300 group hover:scale-[1.03] perspective-[1000px]"
           >
-            <div
-              className={`relative w-full max-w-[280px] mx-auto min-h-[300px] transition-transform duration-500 [transform-style:preserve-3d] cursor-pointer ${rotatedCards[video.id] ? '[transform:rotateY(180deg)]' : ''}`}
-            >
-              {/* Frente */}
-              <div
-                className="absolute inset-0 bg-black border-2 border-[#f1c40f] rounded-lg p-3 flex flex-col justify-between [backface-visibility:hidden]"
-                onClick={(e) => {
-                  if (!e.target.closest('button')) {
-                    navigate(`/video/${video.id}`);
-                  }
-                }}
-              >
-                <img src={video.thumbnail} alt={video.title} className="rounded-md object-cover w-full h-40 mb-2" />
-                <h2 className="text-white text-base font-bold uppercase tracking-wide line-clamp-2">
-                  {video.title}
-                </h2>
-                <div className="mt-auto flex justify-between gap-2">
-                  <Link
-                    to={`/video/${video.id}`}
-                    className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-[#040402] font-bold py-2 px-3 rounded text-xs text-center flex-1"
+                  <div
+                    className={`relative w-full max-w-[280px] mx-auto min-h-[300px] transition-transform duration-500 [transform-style:preserve-3d] cursor-pointer ${
+                      rotatedCards[video.id] ? '[transform:rotateY(180deg)]' : ''
+                    }`}
                   >
-                    🎬 Assistir agora
-                  </Link>
-                  <button
-                    onClick={() => toggleCardRotation(video.id)}
-                    className="bg-gray-700 hover:bg-gray-600/90 font-semibold py-2 px-3 rounded text-xs text-center flex-1"
-                  >
-                    ℹ️ Mais Info
-                  </button>
-                </div>
-              </div>
+                    {/* Frente */}
+                    <div
+                      className="absolute inset-0 bg-black border-2 border-[#f1c40f] rounded-lg p-3 flex flex-col justify-between [backface-visibility:hidden]"
+                      onClick={(e) => {
+                        if (!e.target.closest('button')) {
+                          navigate(`/video/${video.id}`);
+                        }
+                      }}
+                    >
+                      <img src={video.thumbnail} alt={video.title} className="rounded-md object-cover w-full h-40 mb-2" />
+                      <h2 className="text-white text-base font-bold uppercase tracking-wide line-clamp-2">
+                        {video.title}
+                      </h2>
+                      <div className="mt-auto flex justify-between gap-2">
+                        <Link
+                          to={`/video/${video.id}`}
+                          className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-[#040402] font-bold py-2 px-3 rounded text-xs text-center flex-1"
+                        >
+                          🎬 Assistir agora
+                        </Link>
+                        <button
+                          onClick={() => toggleCardRotation(video.id)}
+                          className="bg-gray-700 hover:bg-gray-600/90 font-semibold py-2 px-3 rounded text-xs text-center flex-1"
+                        >
+                          ℹ️ Mais Info
+                        </button>
+                      </div>
+                    </div>
 
-              {/* Verso */}
-              <div
-  onClick={() => navigate(`/canal/${video.creatorId}`)}
-  className="absolute inset-0 bg-black border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden] cursor-pointer"More actions
->
-                {/* Subcard 1 */}
-  <div className="bg-zinc-900 rounded-lg p-3 flex items-center justify-between mb-3">
-    <div className="flex items-center gap-2">
-      <img
-        src={video.creatorAvatar}
-        alt={video.creatorName}
-        className="w-8 h-8 rounded-full"
-      />
-      <span className="text-white font-semibold">
-        {video.creatorName}
-      </span>
-    </div>
-    <button
-      onClick={(e) => { e.stopPropagation(); /* handleFollow */ }}
-      className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black text-xs font-semibold px-2 py-1 rounded"
-    >
-      Seguir
-    </button>
-  </div>
-                {/* Subcard 2 */}
-                <div className="mb-2 bg-zinc-900 border border-zinc-700 p-2 rounded text-xs">
-                  <h3 className="text-white font-semibold mb-1 line-clamp-2">🎥 {video.title}</h3>
-                  <p className="mb-1">📂 Categoria: {video.category}</p>
-                  <p className="mb-1">🏷️ Tags: {(video.tags || []).join(' · ')}</p>
-                  <p className="mb-1">⏱️ Duração: {video.duration || 'N/A'}</p>
-                  <p className="mb-1">👍 Curtidas: {video.likes || 0}</p>
+                    {/* Verso */}
+                    <div
+                      onClick={() => navigate(`/canal/${video.creatorId}`)}
+                      className="absolute inset-0 bg-black border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden] cursor-pointer"
+                    >
+                      <div className="bg-zinc-900 rounded-lg p-3 flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <img src={video.creatorAvatar} alt={video.creatorName} className="w-8 h-8 rounded-full" />
+                          <span className="text-white font-semibold">{video.creatorName}</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black text-xs font-semibold px-2 py-1 rounded"
+                        >
+                          Seguir
+                        </button>
+                      </div>
+
+                      <div className="mb-2 bg-zinc-900 border border-zinc-700 p-2 rounded text-xs">
+                        <h3 className="text-white font-semibold mb-1 line-clamp-2">🎥 {video.title}</h3>
+                        <p className="mb-1">📂 Categoria: {video.category}</p>
+                        <p className="mb-1">🏷️ Tags: {(video.tags || []).join(' · ')}</p>
+                        <p className="mb-1">⏱️ Duração: {video.duration || 'N/A'}</p>
+                        <p className="mb-1">👍 Curtidas: {video.likes || 0}</p>
+                      </div>
+
+                      <div className="flex justify-around mt-auto">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCardRotation(video.id);
+                          }}
+                          className="border border-[#9c27b0] text-[#9c27b0] hover:bg-[#9c27b0]/20 rounded px-2 py-1"
+                        >
+                          🠔
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            alert('Reportar ainda não implementado');
+                          }}
+                          className="border border-[#9c27b0] text-[#9c27b0] hover:bg-[#9c27b0]/20 rounded px-2 py-1"
+                        >
+                          Reportar
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            alert('Salvar na playlist ainda não implementado');
+                          }}
+                          className="border border-[#9c27b0] text-[#9c27b0] hover:bg-[#9c27b0]/20 rounded px-2 py-1"
+                        >
+                          ＋
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                {/* Botões */}
-                <div className="flex justify-around mt-auto">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); toggleCardRotation(video.id); }}
-                    className="border border-[#9c27b0] text-[#9c27b0] hover:bg-[#9c27b0]/20 rounded px-2 py-1"
-                  >🠔</button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); alert('Reportar ainda não implementado'); }}
-                    className="border border-[#9c27b0] text-[#9c27b0] hover:bg-[#9c27b0]/20 rounded px-2 py-1"
-                  >Reportar</button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); alert('Salvar na playlist ainda não implementado'); }}
-                    className="border border-[#9c27b0] text-[#9c27b0] hover:bg-[#9c27b0]/20 rounded px-2 py-1"
-                  >＋</button>
-                </div>
-              </div>
-            </div>
-          </div>
-                ))}
-            </main>
-          }
-        />
+              ))}
+            </PageWrapper>
+      }
+    />
         <Route
           path="/painel"
           element={<CreatorPanel onAddVideo={handleAddVideo} videoToEdit={videoToEdit} />}
