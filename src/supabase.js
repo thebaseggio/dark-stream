@@ -1,4 +1,4 @@
-// supabase.js
+// src/supabase.js
 import { createClient } from '@supabase/supabase-js';
 
 // Garante que as variáveis de ambiente estão presentes
@@ -12,36 +12,34 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
- * Carrega um vídeo específico pelo ID.
- */
-export async function loadVideo(id) {
-  const { data, error } = await supabase
-    .from('videos')
-    .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views, creatorName, creatorAvatar')
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    console.error('Erro ao carregar vídeo:', error);
-    throw error;
-  }
-
-  return data;
-}
-
-/**
  * Carrega todos os vídeos.
  */
 export async function loadAllVideos() {
   const { data, error } = await supabase
     .from('videos')
-    .select('id, title, description, videoUrl, thumbnail, duration, publishedAt, category, views, creatorName, creatorAvatar')
+    .select('*') // Seleciona todas as colunas
     .order('id', { ascending: true });
 
   if (error) {
     console.error('Erro ao carregar vídeos:', error);
-    throw error;
   }
 
-  return data;
+  return { data, error };
+}
+
+/**
+ * Carrega todos os criadores.
+ * (Assumindo que você tem uma tabela 'creators' com colunas 'id', 'name', 'avatar_url', 'bio')
+ */
+export async function loadAllCreators() {
+  const { data, error } = await supabase
+    .from('creators')
+    .select('*') // Seleciona todas as colunas
+    .order('name', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao carregar criadores:', error);
+  }
+
+  return { data, error };
 }
