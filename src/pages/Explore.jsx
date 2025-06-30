@@ -93,17 +93,62 @@ export default function Explore({ videos }) {
                                     </div>
                                 </div>
 
-                                {/* Verso do Card (ainda não implementado, mas a estrutura está aqui) */}
-                                <div className="absolute inset-0 bg-zinc-900 border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col justify-between [transform:rotateY(180deg)] [backface-visibility:hidden]">
-                                    <div className="text-center">
-                                        <h3 className="font-bold mb-2">{video.title}</h3>
-                                        <p className="text-sm">Categoria: {video.category}</p>
-                                        {/* Você pode adicionar mais detalhes aqui */}
-                                    </div>
-                                    <button onClick={(e) => { e.stopPropagation(); toggleCardRotation(video.id); }} className="mt-auto bg-gray-700 hover:bg-gray-600/90 font-semibold py-2 px-3 rounded text-xs w-full">
-                                        🠔 Voltar
-                                    </button>
-                                </div>
+{/* Verso do Card */}
+<div className="absolute inset-0 bg-zinc-900 border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col [transform:rotateY(180deg)] [backface-visibility:hidden] text-left">
+    
+    {/* Informações do Criador */}
+    <Link 
+        to={`/criador/${video.creatorId}`}
+        onClick={(e) => e.stopPropagation()}
+        className="block mb-2 p-2 bg-black rounded-lg hover:bg-zinc-800 transition-colors"
+    >
+        <div className="flex items-center gap-3">
+            <img
+                src={video.creatorAvatar || 'https://placehold.co/40x40/000000/FFF?text=DS'}
+                alt={video.creatorName}
+                className="w-10 h-10 rounded-full object-cover"
+            />
+            <div>
+                <p className="text-xs text-gray-400">Criado por</p>
+                <p className="text-white font-bold">{video.creatorName || 'Anônimo'}</p>
+            </div>
+        </div>
+    </Link>
+
+    {/* Divisor */}
+    <hr className="border-zinc-700 my-2" />
+
+    {/* Descrição e Detalhes */}
+    <div className="flex-grow overflow-y-auto pr-1">
+        <h3 className="text-base text-white font-bold line-clamp-2 mb-2">{video.title}</h3>
+        
+        <p className="text-xs text-gray-300 line-clamp-3 mb-3">
+            {video.description || 'Nenhuma descrição disponível.'}
+        </p>
+        
+        <div className="text-xs space-y-1 text-gray-300">
+            <p><strong>📂 Categoria:</strong> {video.category}</p>
+            <p><strong>🏷️ Tags:</strong> {(video.tags || []).join(', ')}</p>
+            <p><strong>⏱️ Duração:</strong> {video.duration || 'N/A'}</p>
+        </div>
+    </div>
+    
+    {/* Divisor */}
+    <hr className="border-zinc-700 my-2" />
+
+    {/* Ações */}
+    <div className="flex justify-around items-center pt-1">
+        <button onClick={(e) => { e.stopPropagation(); toggleCardRotation(video.id); }} title="Voltar" className="text-gray-300 hover:text-white text-2xl transition-colors">
+            ⮐
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); alert('Funcionalidade de salvar não implementada.'); }} title="Salvar na Playlist" className="text-gray-300 hover:text-white text-2xl transition-colors">
+            ＋
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); alert('Funcionalidade de denunciar não implementada.'); }} title="Denunciar" className="text-gray-300 hover:text-white text-2xl transition-colors">
+            ⚠️
+        </button>
+    </div>
+</div>
 
                             </div>
                         </div>

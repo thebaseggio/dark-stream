@@ -9,11 +9,12 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import Explore from './pages/Explore';
 import VideoPlayer from './pages/VideoPlayer';
-import CreatorPanel from './pages/CreatorPanel';
+import CreatorDashboard from './pages/CreatorDashboard';
 import MyVideos from './pages/MyVideos';
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,20 +30,47 @@ export default function App() {
      }
   }
 
+// src/App.jsx
+
   useEffect(() => {
-    // Checa a sessão do usuário
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    setLoading(true);
+
+    const fetchSessionAndProfile = async () => {
+      // 1. Pega a sessão de autenticação
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        setUser(session.user);
+        
+        // 2. Se tem sessão, busca o perfil correspondente
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single(); // .single() pega apenas um resultado
+
+        if (profileError) {
+          console.error('Erro ao buscar perfil:', profileError);
+        } else {
+          setProfile(profileData);
+        }
+      } else {
+        // Se não tem sessão, limpa os estados
+        setUser(null);
+        setProfile(null);
+      }
       setLoading(false);
-    });
+    };
+
+    fetchSessionAndProfile();
 
     // Ouve mudanças na autenticação (login/logout)
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
+      // Re-executa a mesma lógica quando o estado de auth muda
+      fetchSessionAndProfile();
     });
 
-    // Carrega os vídeos
+    // ... (A lógica de carregar vídeos continua a mesma)
     loadAllVideos()
       .then((data) => {
         const videosWithThumbs = data.map((v) => ({
@@ -71,10 +99,10 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
 
         {/* Rotas que usam o layout principal (com cabeçalho e rodapé) */}
-        <Route element={<MainLayout user={user} />}>
+        <Route element={<MainLayout user={user} profile={profile} />} >
           <Route path="/casos" element={<Explore videos={videos} />} />
           <Route path="/video/:id" element={<VideoPlayer />} />
-          <Route path="/painel" element={<CreatorPanel user={user} />} />
+          <Route path="/painel" element={<CreatorDashboard user={user} profile={profile} />} />
           <Route path="/meus-videos" element={<MyVideos videos={videos} user={user} />} />
         </Route>
 
