@@ -14,6 +14,9 @@ import VideoPlayer from './pages/VideoPlayer';
 import CreatorDashboard from './pages/CreatorDashboard';
 import CreatorUploadForm from './pages/CreatorUploadForm';
 import { Dialog, Transition } from '@headlessui/react';
+import PartnerPage from './pages/PartnerPage';
+import SignupPage from './pages/SignupPage';
+
 
 // A função principal do App começa aqui
 export default function App() {
@@ -99,11 +102,13 @@ export default function App() {
             <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/inscrever-se" element={<SignupPage />} />
 
                 <Route element={<MainLayout user={user} profile={profile} />}>
                     <Route path="/casos" element={<Explore videos={videos} />} />
                     <Route path="/explorar" element={<Explore videos={videos} />} />
                     <Route path="/video/:id" element={<VideoPlayer />} />
+                    <Route path="/parceiro/:id" element={<PartnerPage />} />
                     <Route 
                         path="/painel" 
                         element={

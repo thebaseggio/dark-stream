@@ -61,8 +61,8 @@ export default function CreatorDashboard({ user, profile, onUploadClick, onEditC
                             <p className="text-sm text-gray-400">{profile?.bio || 'Bem-vindo(a) ao seu painel.'}</p>
                         </div>
                     </div>
-                    <button onClick={onUploadClick} className="bg-[#f1c40f] text-black font-bold py-2 px-5 rounded-lg hover:bg-opacity-90 transition-transform duration-200 hover:scale-105 w-full md:w-auto">
-                        Fazer Upload de Vídeo
+                    <button onClick={onUploadClick} title="Fazer Upload de Vídeo" className="bg-[#f1c40f] text-black font-bold rounded-lg hover:bg-opacity-90 transition-all duration-200 hover:scale-105 flex items-center justify-center w-12 h-12">
+                        <span className="text-3xl pb-1">+</span>
                     </button>
                 </div>
 

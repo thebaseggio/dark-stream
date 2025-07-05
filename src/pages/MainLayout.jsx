@@ -10,7 +10,7 @@ function Header({ user, profile }) {
     };
 
     return (
-        <nav className="bg-black sticky top-0 z-30 border-b border-zinc-800">
+        <nav className="bg-black sticky top-0 z-30 border-b border-[#f1c40f]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                     <div className="flex-shrink-0">
@@ -54,7 +54,7 @@ function Header({ user, profile }) {
 
 function Footer() {
     return (
-        <footer className="bg-black border-t border-zinc-800">
+        <footer className="bg-black border-t border-[#f1c40f]">
             <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
                 <p>© 2025 Dark Stream. Todos os direitos reservados.</p>
             </div>

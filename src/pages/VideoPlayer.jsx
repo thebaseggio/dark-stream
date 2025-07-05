@@ -68,7 +68,7 @@ export default function VideoPlayer() {
                 <div className="bg-zinc-900 p-6 rounded-lg">
                     <h1 className="text-3xl font-bold mb-2">{video.title}</h1>
                     
-                    <Link to={`/criador/${video.creatorId}`} className="inline-block mb-4">
+                    <Link to={`/parceiro/${video.creatorId}`} className="inline-block mb-4">
                         <div className="flex items-center gap-3 group">
                             <img 
                                 src={video.creatorAvatar || `https://ui-avatars.com/api/?name=${video.creatorName?.charAt(0)}&background=f1c40f&color=000`} 

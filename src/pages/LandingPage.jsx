@@ -47,15 +47,19 @@ export default function LandingPage() {
       <div className="relative z-10 flex flex-col flex-grow">
         <header className="w-full p-4">
           <div className="container mx-auto flex justify-between items-center">
-            <img src="/logo.png" alt="Dark Stream" className="h-14 w-auto" />
-            <div>
-              <Link to="/casos" className="text-white font-semibold px-4 py-2 rounded-md hover:bg-zinc-800 transition-colors">
-                Explorar Casos
-              </Link>
-              <Link to="/login" className="bg-[#8e44ad] hover:bg-[#8e44ad]/90 text-white font-semibold ml-2 px-4 py-2 rounded-md transition-colors">
-                Entrar
-              </Link>
-            </div>
+            <img src="/logo.png" alt="Dark Stream" className="h-16 w-auto" />
+            <div className="flex items-center gap-2">
+    <Link to="/login">
+        <button className="font-semibold px-4 py-2 rounded-md text-white hover:bg-zinc-800 transition-colors">
+            Entrar
+        </button>
+    </Link>
+    <Link to="/inscrever-se">
+        <button className="bg-[#f1c40f] hover:bg-opacity-90 text-black font-bold px-4 py-2 rounded-md transition-colors">
+            Inscrever-se
+        </button>
+    </Link>
+</div>
           </div>
         </header>
 

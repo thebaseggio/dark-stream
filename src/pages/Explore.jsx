@@ -97,8 +97,7 @@ export default function Explore({ videos = [] }) {
 <div className="absolute inset-0 bg-zinc-900 border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col [transform:rotateY(180deg)] [backface-visibility:hidden] text-left">
     
     {/* Informações do Criador */}
-    <Link 
-        to={`/criador/${video.creatorId}`}
+    <Link to={`/parceiro/${video.creatorId}`}
         onClick={(e) => e.stopPropagation()}
         className="block mb-2 p-2 bg-black rounded-lg hover:bg-zinc-800 transition-colors"
     >
@@ -120,7 +119,7 @@ export default function Explore({ videos = [] }) {
 
     {/* Descrição e Detalhes */}
     <div className="flex-grow overflow-y-auto pr-1">
-        <h3 className="text-base text-white font-bold line-clamp-2 mb-2">{video.title}</h3>
+        <h1 className="text-base text-white font-bold line-clamp-2 mb-2">{video.title}</h1>
         
         <p className="text-xs text-gray-300 line-clamp-3 mb-3">
             {video.description || 'Nenhuma descrição disponível.'}

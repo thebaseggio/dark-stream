@@ -4,7 +4,7 @@ import React, { useState, useEffect, Fragment } from 'react';
 import { supabase } from '../supabase';
 import { Listbox, Transition } from '@headlessui/react';
 
-const categories = [ 'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados', 'Serial Killers', 'Documentários', 'Sobrenaturais' ];
+const categories = [ '', 'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados', 'Serial Killers', 'Documentários', 'Sobrenaturais' ];
 
 export default function CreatorUploadForm({ user, onSuccess, videoToEdit, initialFocusRef }) {
     
