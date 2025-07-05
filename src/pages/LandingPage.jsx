@@ -1,5 +1,3 @@
-// src/pages/LandingPage.jsx
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -45,23 +43,26 @@ export default function LandingPage() {
       {/* 3. O CONTEÚDO (CABEÇALHO E TEXTO PRINCIPAL) */}
       {/* Todo o conteúdo visível fica aqui, com um z-index para garantir que esteja na frente do fundo */}
       <div className="relative z-10 flex flex-col flex-grow">
-        <header className="w-full p-4">
-          <div className="container mx-auto flex justify-between items-center">
-            <img src="/logo.png" alt="Dark Stream" className="h-16 w-auto" />
-            <div className="flex items-center gap-2">
-    <Link to="/login">
-        <button className="font-semibold px-4 py-2 rounded-md text-white hover:bg-zinc-800 transition-colors">
-            Entrar
-        </button>
-    </Link>
-    <Link to="/inscrever-se">
-        <button className="bg-[#f1c40f] hover:bg-opacity-90 text-black font-bold px-4 py-2 rounded-md transition-colors">
-            Inscrever-se
-        </button>
-    </Link>
-</div>
+      <header className="absolute top-0 left-0 right-0 z-10 p-6 flex justify-between items-center">
+          {/* LOGO AGORA POSICIONADA IGUAL ÀS OUTRAS PÁGINAS */}
+          <Link to="/" title="Voltar para a Home">
+              <img src="/LogoT.png" alt="Dark Stream Home" className="h-16 w-auto" />
+          </Link>
+          
+          {/* Botões */}
+          <div className="flex items-center gap-2">
+              <Link to="/login">
+                  <button className="font-semibold px-4 py-2 rounded-md text-white hover:bg-zinc-800 transition-colors text-sm">
+                      Entrar
+                  </button>
+              </Link>
+              <Link to="/inscrever-se">
+                  <button className="bg-[#f1c40f] hover:bg-opacity-90 text-black font-bold px-4 py-2 rounded-md transition-colors text-sm">
+                      Inscrever-se
+                  </button>
+              </Link>
           </div>
-        </header>
+      </header>
 
         <main className="flex-grow flex items-center justify-center text-center px-4">
           <motion.div

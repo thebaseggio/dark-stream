@@ -3,9 +3,9 @@
 import { motion } from 'framer-motion';
 
 const animations = {
-  initial: { opacity: 0, x: 20 },  // Começa invisível e 20px à direita
-  animate: { opacity: 1, x: 0 },    // Anima para totalmente visível e na posição original
-  exit:    { opacity: 0, x: -20 }, // Sai para invisível e 20px à esquerda
+  initial: { opacity: 0, y: 10 }, // Mudei para o eixo Y e diminuí a distância
+  animate: { opacity: 1, y: 0 },
+  exit:    { opacity: 0, y: -10 },
 };
 
 const AnimatedPage = ({ children }) => {

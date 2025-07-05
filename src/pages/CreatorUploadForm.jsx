@@ -161,8 +161,8 @@ useEffect(() => {
                 </div>
             </div>
             {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-            <button type="submit" disabled={isSubmitting} className="w-full bg-[#8e44ad] hover:bg-[#803d9c] text-white font-bold py-3 rounded-lg transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed">
-                {isSubmitting ? 'Salvando...' : (videoToEdit ? 'Salvar Alterações' : 'Adicionar Vídeo')}
+            <button type="submit" disabled={isSubmitting} className="w-full bg-[#8e44ad] hover:bg-[#803d9c] text-white font-bold py-3 rounded-lg transition-colors duration-200 disabled:bg-gray-500 flex justify-center">
+                {isSubmitting ? <Spinner /> : (videoToEdit ? 'Salvar Alterações' : 'Adicionar Vídeo')}
             </button>
         </form>
     );
