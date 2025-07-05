@@ -14,33 +14,42 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit, initia
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        const getInitialState = () => ({
-            title: '', videoUrl: '', description: '', category: categories[0], tags: '',
-            creatorId: user?.id,
-            creatorName: user?.user_metadata?.username || 'Criador',
-            creatorAvatar: user?.user_metadata?.avatar_url || ''
-        });
+useEffect(() => {
+    // Função interna para gerar um estado inicial limpo
+    const getInitialState = () => ({
+        title: '', videoUrl: '', description: '', category: categories[0], tags: '',
+        creatorId: user?.id,
+        creatorName: user?.user_metadata?.username || 'Criador',
+        creatorAvatar: user?.user_metadata?.avatar_url || ''
+    });
 
-        if (videoToEdit) {
-            let tagsAsString = '';
-            if (videoToEdit.tags) {
-                if (Array.isArray(videoToEdit.tags)) {
-                    tagsAsString = videoToEdit.tags.join(', ');
-                } else if (typeof videoToEdit.tags === 'string') {
-                    tagsAsString = videoToEdit.tags;
-                }
+    // A lógica de preenchimento só acontece se estivermos em modo de edição
+    if (videoToEdit) {
+        let tagsAsString = ''; // Prepara uma string vazia para as tags
+
+        // Verifica se 'videoToEdit.tags' existe e não está vazio
+        if (videoToEdit.tags && videoToEdit.tags.length > 0) {
+            // Se for um array (formato correto), junta com vírgula
+            if (Array.isArray(videoToEdit.tags)) {
+                tagsAsString = videoToEdit.tags.join(', ');
+            } 
+            // Se for um texto (formato antigo/legado), apenas usa o texto
+            else if (typeof videoToEdit.tags === 'string') {
+                tagsAsString = videoToEdit.tags;
             }
-            
-            setFormData({
-                ...getInitialState(),
-                ...videoToEdit,
-                tags: tagsAsString
-            });
-        } else {
-            setFormData(getInitialState());
+            // Se for qualquer outra coisa (como o lixo de dados), 'tagsAsString' permanece vazio, limpando o campo.
         }
-    }, [videoToEdit, user]);
+        
+        setFormData({
+            ...getInitialState(),
+            ...videoToEdit,
+            tags: tagsAsString // Define o valor limpo e preparado
+        });
+    } else {
+        // Se for para criar um novo vídeo, apenas usa o estado inicial limpo
+        setFormData(getInitialState());
+    }
+}, [videoToEdit, user]); // Roda sempre que o modo ou o usuário mudar
 
     const handleChange = (e) => {
         const { name, value } = e.target;
