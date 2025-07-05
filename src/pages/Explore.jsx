@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import SkeletonCard from './SkeletonCard'; // Vamos criar este componente a seguir
-import AnimatedPage from './AnimatedPage';
+import AnimatedPage from '../AnimatedPage';
 
 // É uma boa prática ter os dados de categorias aqui, perto de onde são usados.
 const categories = [
@@ -14,7 +14,7 @@ const categories = [
     { key: 'Sobrenaturais', label: 'Sobrenaturais' },
 ];
 
-export default function Explore({ videos }) {
+export default function Explore({ videos = [] }) {
     const navigate = useNavigate();
 
     // 1. ESTADOS PARA CONTROLAR A INTERATIVIDADE
@@ -128,7 +128,17 @@ export default function Explore({ videos }) {
         
         <div className="text-xs space-y-1 text-gray-300">
             <p><strong>📂 Categoria:</strong> {video.category}</p>
-            <p><strong>🏷️ Tags:</strong> {(video.tags || []).join(', ')}</p>
+            <p><strong>🏷️ Tags:</strong> 
+    {
+        // Primeiro, verificamos se video.tags existe
+        video.tags 
+        // Se existe, verificamos se é um Array. Se for, usamos .join()
+        ? (Array.isArray(video.tags) ? video.tags.join(', ') : video.tags) 
+        // Se não for um Array (é um texto), apenas mostramos o texto como está
+        // Se video.tags não existir, mostramos 'Nenhuma'
+        : 'Nenhuma'
+    }
+</p>
             <p><strong>⏱️ Duração:</strong> {video.duration || 'N/A'}</p>
         </div>
     </div>

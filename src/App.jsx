@@ -1,114 +1,153 @@
 // src/App.jsx
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { supabase, loadAllVideos } from './supabase';
 
-// Importando nossas peças organizadas
+import React, { useState, useEffect, Fragment, useRef } from 'react';
+// BrowserRouter foi renomeado para Router para simplicidade
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { supabase } from './supabase';
+
+// Componentes e Páginas
 import MainLayout from './pages/MainLayout';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import Explore from './pages/Explore';
 import VideoPlayer from './pages/VideoPlayer';
 import CreatorDashboard from './pages/CreatorDashboard';
-import MyVideos from './pages/MyVideos';
+import CreatorUploadForm from './pages/CreatorUploadForm';
+import { Dialog, Transition } from '@headlessui/react';
 
+// A função principal do App começa aqui
 export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [videos, setVideos] = useState([]);
+  const [videos, setVideos] = useState([]); // Estado dos vídeos adicionado
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [videoToEdit, setVideoToEdit] = useState(null);
 
-  function deriveYouTubeThumb(embedUrl) {
-     if (!embedUrl) return 'https://placehold.co/480x360?text=No+URL';
-     try {
-         const url = new URL(embedUrl);
-         const videoId = url.pathname.split('/').pop();
-         return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-     } catch (error) {
-         console.error("URL de embed inválida:", embedUrl);
-         return 'https://placehold.co/480x360?text=Invalid+URL';
-     }
-  }
+  const initialFocusRef = useRef(null);
 
-// src/App.jsx
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => setVideoToEdit(null), 300);
+  };
+  
+  const openUploadModal = () => {
+    setVideoToEdit(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (video) => {
+    setVideoToEdit(video);
+    setIsModalOpen(true);
+  };
+
+  const handleFormSuccess = () => {
+    closeModal();
+    // A recarga dos vídeos é tratada dentro do próprio dashboard
+  };
 
   useEffect(() => {
-    setLoading(true);
+    const fetchAllVideos = async () => {
+        const { data, error } = await supabase
+            .from('videos')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if(error) {
+            console.error("Erro ao carregar todos os vídeos:", error);
+        } else {
+            setVideos(data);
+        }
+    };
+    fetchAllVideos();
 
     const fetchSessionAndProfile = async () => {
-      // 1. Pega a sessão de autenticação
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
       if (session?.user) {
-        setUser(session.user);
-        
-        // 2. Se tem sessão, busca o perfil correspondente
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single(); // .single() pega apenas um resultado
-
-        if (profileError) {
-          console.error('Erro ao buscar perfil:', profileError);
-        } else {
-          setProfile(profileData);
-        }
-      } else {
-        // Se não tem sessão, limpa os estados
-        setUser(null);
-        setProfile(null);
+        const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+        setProfile(profileData);
       }
       setLoading(false);
     };
-
     fetchSessionAndProfile();
 
-    // Ouve mudanças na autenticação (login/logout)
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Re-executa a mesma lógica quando o estado de auth muda
-      fetchSessionAndProfile();
+      setUser(session?.user ?? null);
+      setProfile(null);
+      if (session?.user) {
+         (async () => {
+           const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+           setProfile(profileData);
+         })();
+      }
     });
-
-    // ... (A lógica de carregar vídeos continua a mesma)
-    loadAllVideos()
-      .then((data) => {
-        const videosWithThumbs = data.map((v) => ({
-          ...v,
-          thumbnail: v.thumbnail || deriveYouTubeThumb(v.videoUrl),
-        }));
-        setVideos(videosWithThumbs);
-      })
-      .catch(console.error);
 
     return () => {
       authListener.subscription.unsubscribe();
     };
   }, []);
 
-  // Mostra uma tela de loading enquanto verifica a sessão do usuário
   if (loading) {
     return <div className="bg-black text-white min-h-screen flex items-center justify-center">Carregando...</div>;
   }
 
+  // O return principal começa aqui
   return (
     <Router>
-      <Routes>
-        {/* Rotas que NÃO usam o layout principal */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
+        <>
+            <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<LoginPage />} />
 
-        {/* Rotas que usam o layout principal (com cabeçalho e rodapé) */}
-        <Route element={<MainLayout user={user} profile={profile} />} >
-          <Route path="/casos" element={<Explore videos={videos} />} />
-          <Route path="/video/:id" element={<VideoPlayer />} />
-          <Route path="/painel" element={<CreatorDashboard user={user} profile={profile} />} />
-          <Route path="/meus-videos" element={<MyVideos videos={videos} user={user} />} />
-        </Route>
+                <Route element={<MainLayout user={user} profile={profile} />}>
+                    <Route path="/casos" element={<Explore videos={videos} />} />
+                    <Route path="/explorar" element={<Explore videos={videos} />} />
+                    <Route path="/video/:id" element={<VideoPlayer />} />
+                    <Route 
+                        path="/painel" 
+                        element={
+                            <CreatorDashboard 
+                                user={user} 
+                                profile={profile}
+                                onUploadClick={openUploadModal}
+                                onEditClick={openEditModal}
+                            />
+                        } 
+                    />
+                </Route>
+                
+                <Route path="*" element={<div><h1>404 - Página não encontrada</h1></div>} />
+            </Routes>
 
-        {/* Rota "catch-all" para páginas não encontradas */}
-        <Route path="*" element={<div className="bg-black text-white min-h-screen flex items-center justify-center"><h1>404 - Página Não Encontrada</h1></div>} />
-      </Routes>
+            <Transition appear show={isModalOpen} as={Fragment}>
+                <Dialog as="div" className="relative z-50" onClose={closeModal} initialFocus={initialFocusRef}>
+                    <Transition.Child
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0"
+                        enterTo="opacity-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                    >
+                        <div className="fixed inset-0 bg-black/70" />
+                    </Transition.Child>
+                    <div className="fixed inset-0 overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center p-4">
+                            <Dialog.Panel className="w-full max-w-xl transform rounded-2xl bg-zinc-900 p-6 text-left align-middle shadow-xl transition-all">
+                                <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-white mb-6">
+                                    {videoToEdit ? 'Editar Vídeo' : 'Adicionar Novo Vídeo'}
+                                </Dialog.Title>
+                                <CreatorUploadForm user={user} onSuccess={handleFormSuccess} videoToEdit={videoToEdit} initialFocusRef={initialFocusRef} />
+                            </Dialog.Panel>
+                        </div>
+                    </div>
+                </Dialog>
+            </Transition>
+        </>
     </Router>
   );
+// O return principal termina aqui
 }
+// A função principal do App termina aqui

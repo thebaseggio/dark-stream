@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabase';
-import AnimatedPage from './AnimatedPage';
+import AnimatedPage from '../AnimatedPage';
 
 export default function VideoPlayer() {
     // 1. CAPTURANDO O ID DA URL

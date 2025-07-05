@@ -1,109 +1,127 @@
 // src/pages/CreatorUploadForm.jsx
 
-import React, { useState, Fragment, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { supabase } from '../supabase';
 import { Listbox, Transition } from '@headlessui/react';
 
-const categories = [
-    '', 'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados', 'Serial Killers', 'Documentários', 'Sobrenaturais'
-];
+const categories = [ 'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados', 'Serial Killers', 'Documentários', 'Sobrenaturais' ];
 
-// O formulário agora recebe o 'user' e uma função 'onSuccess' como props
-export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
+export default function CreatorUploadForm({ user, onSuccess, videoToEdit, initialFocusRef }) {
     
-    // TODA A LÓGICA DO FORMULÁRIO AGORA VIVE AQUI
-    const initialState = {
-        title: '',
-        videoUrl: '',
-        description: '',
-        category: categories[0],
-        tags: '',
-        creatorId: user?.id,
-        creatorName: user?.user_metadata?.username || 'Nome do Criador',
-        creatorAvatar: user?.user_metadata?.avatar_url || ''
-    };
-
-    const [formData, setFormData] = useState(initialState);
+    const [formData, setFormData] = useState({
+        title: '', videoUrl: '', description: '', category: categories[0], tags: ''
+    });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        const getInitialState = () => ({
+            title: '', videoUrl: '', description: '', category: categories[0], tags: '',
+            creatorId: user?.id,
+            creatorName: user?.user_metadata?.username || 'Criador',
+            creatorAvatar: user?.user_metadata?.avatar_url || ''
+        });
+
+        if (videoToEdit) {
+            let tagsAsString = '';
+            if (videoToEdit.tags) {
+                if (Array.isArray(videoToEdit.tags)) {
+                    tagsAsString = videoToEdit.tags.join(', ');
+                } else if (typeof videoToEdit.tags === 'string') {
+                    tagsAsString = videoToEdit.tags;
+                }
+            }
+            
+            setFormData({
+                ...getInitialState(),
+                ...videoToEdit,
+                tags: tagsAsString
+            });
+        } else {
+            setFormData(getInitialState());
+        }
+    }, [videoToEdit, user]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
     
-    // 👇 NOVO EFEITO: para preencher o formulário quando estiver em modo de edição
-    useEffect(() => {
-        if (videoToEdit) {
-            // Se recebemos um vídeo para editar, preenchemos o formulário com seus dados
-            setFormData({
-                ...videoToEdit,
-                tags: (videoToEdit.tags || []).join(', ') // Converte o array de tags de volta para string
-            });
-        } else {
-            // Se não, garantimos que o formulário esteja com os dados iniciais (modo de adição)
-            setFormData(initialState);
-        }
-    }, [videoToEdit]); // Roda sempre que o 'videoToEdit' mudar
-    
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!formData.title || !formData.videoUrl) {
-            setError('Título e URL do Vídeo são obrigatórios.');
+        if (!formData.title || !formData.videoUrl || !formData.category) {
+            setError('Título, URL e Categoria são obrigatórios.');
             return;
         }
         setIsSubmitting(true);
-                // 👇 LÓGICA INTELIGENTE: UPDATE vs INSERT 👇
-        let error;
+        setError('');
+
+        const tagsArray = formData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+        let queryError;
+
         if (videoToEdit) {
-            // MODO EDIÇÃO: Executa um update
-            const { error: updateError } = await supabase
-                .from('videos')
-                .update(videoData)
-                .eq('id', videoToEdit.id);
-            error = updateError;
+            const dataToUpdate = {
+                title: formData.title, videoUrl: formData.videoUrl, description: formData.description,
+                category: formData.category, tags: tagsArray.length > 0 ? tagsArray : null,
+            };
+            const { error } = await supabase.from('videos').update(dataToUpdate).eq('id', videoToEdit.id);
+            queryError = error;
         } else {
-            // MODO ADIÇÃO: Executa um insert
-            const { error: insertError } = await supabase
-                .from('videos')
-                .insert([videoData]);
-            error = insertError;
+            const dataToInsert = { ...formData, tags: tagsArray.length > 0 ? tagsArray : null };
+            delete dataToInsert.id;
+            const { error } = await supabase.from('videos').insert([dataToInsert]);
+            queryError = error;
         }
 
-        if (error) {
-            alert(`Erro: ${error.message}`);
+        if (queryError) {
+            setError(`Erro: ${queryError.message}`);
         } else {
             alert(videoToEdit ? 'Vídeo atualizado com sucesso!' : 'Vídeo adicionado com sucesso!');
-            if (onSuccess) {
-                onSuccess(); // Avisa o pai sobre o sucesso
-            }
+            if (onSuccess) onSuccess();
         }
         setIsSubmitting(false);
     };
 
     return (
-        // O <form> completo que criamos anteriormente
-        <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Título, URL e Descrição */}
+        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
             <div>
                 <label htmlFor="title" className="block text-sm font-medium mb-1">Título do Caso</label>
-                <input type="text" name="title" id="title" value={formData.title} onChange={handleChange} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f]" />
+                <input 
+                    ref={initialFocusRef}
+                    type="text" 
+                    name="title" 
+                    id="title" 
+                    value={formData.title} 
+                    onChange={handleChange} 
+                    className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f]" 
+                />
             </div>
             <div>
                 <label htmlFor="videoUrl" className="block text-sm font-medium mb-1">URL de Embed do Vídeo</label>
-                <input type="url" name="videoUrl" id="videoUrl" value={formData.videoUrl} onChange={handleChange} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f]" />
+                <input 
+                    type="url" 
+                    name="videoUrl" 
+                    id="videoUrl" 
+                    value={formData.videoUrl} 
+                    onChange={handleChange} 
+                    className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f]" 
+                />
                 <p className="mt-1 text-xs text-gray-400">Ex: https://www.youtube.com/embed/CODIGO_DO_VIDEO</p>
             </div>
             <div>
                 <label htmlFor="description" className="block text-sm font-medium mb-1">Descrição</label>
-                <textarea name="description" id="description" rows="4" value={formData.description} onChange={handleChange} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f]"></textarea>
+                <textarea 
+                    name="description" 
+                    id="description" 
+                    rows="4" 
+                    value={formData.description} 
+                    onChange={handleChange} 
+                    className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f] scrollbar-thin scrollbar-thumb-yellow-400 scrollbar-track-zinc-800"
+                ></textarea>
             </div>
-
-            {/* Seção de Organização */}
             <div className="space-y-2 bg-black/20 p-4 rounded-md border border-zinc-800">
-                <label className="block text-sm font-medium text-gray-300"></label>
+                <label className="block text-sm font-medium text-gray-300">Organização</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Coluna da Categoria */}
                     <div>
                         <Listbox value={formData.category} onChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
                             <div className="relative">
@@ -115,7 +133,7 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                                     </span>
                                 </Listbox.Button>
                                 <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
-                                    <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-black py-1 text-base shadow-lg ring-1 ring-black/5 ring-offset-2 ring-offset-[#f1c40f] focus:outline-none sm:text-sm z-10 scrollbar-thin scrollbar-thumb-yellow-400 scrollbar-track-zinc-800">
+                                    <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-zinc-900 py-1 text-base shadow-lg ring-1 ring-zinc-700 focus:outline-none sm:text-sm z-10 scrollbar-thin scrollbar-thumb-yellow-400 scrollbar-track-zinc-800">
                                         {categories.map((cat, catIdx) => (
                                             <Listbox.Option key={catIdx} className={({ active }) => `relative cursor-default select-none py-2 pl-4 pr-4 ${ active ? 'bg-zinc-800 text-[#f1c40f]' : 'text-gray-300' }`} value={cat}>
                                                 {({ selected }) => (<span className={`block truncate ${ selected ? 'font-medium text-[#f1c40f]' : 'font-normal' }`}>{cat}</span>)}
@@ -126,7 +144,6 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                             </div>
                         </Listbox>
                     </div>
-                    {/* Coluna das Tags */}
                     <div>
                         <label htmlFor="tags" className="block text-xs font-medium mb-1 text-gray-400">Tags</label>
                         <input type="text" name="tags" id="tags" value={formData.tags} onChange={handleChange} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 h-10 focus:outline-none focus:border-[#f1c40f] sm:text-sm" />
@@ -134,8 +151,8 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                     </div>
                 </div>
             </div>
-            {error && <p className="text-red-500 text-sm">{error}</p>}
-            <button type="submit" disabled={isSubmitting} className="w-full bg-[#f1c40f] ...">
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+            <button type="submit" disabled={isSubmitting} className="w-full bg-[#8e44ad] hover:bg-[#803d9c] text-white font-bold py-3 rounded-lg transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed">
                 {isSubmitting ? 'Salvando...' : (videoToEdit ? 'Salvar Alterações' : 'Adicionar Vídeo')}
             </button>
         </form>
