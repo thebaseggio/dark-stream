@@ -107,7 +107,7 @@ export default function App() {
                 <Route element={<MainLayout user={user} profile={profile} />}>
                     <Route path="/casos" element={<Explore videos={videos} />} />
                     <Route path="/explorar" element={<Explore videos={videos} />} />
-                    <Route path="/video/:id" element={<VideoPlayer />} />
+                    <Route path="/video/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/parceiro/:id" element={<PartnerPage />} />
                     <Route 
                         path="/painel" 

@@ -127,7 +127,7 @@ export default function Explore({ videos = [] }) {
         
         <div className="text-xs space-y-1 text-gray-300">
             <p><strong>📂 Categoria:</strong> {video.category}</p>
-            <p><strong>🏷️ Tags:</strong> 
+            <p><strong>🏷️ Tags: </strong> 
     {
         // Primeiro, verificamos se video.tags existe
         video.tags 

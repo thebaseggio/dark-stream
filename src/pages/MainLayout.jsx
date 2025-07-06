@@ -2,8 +2,6 @@ import React from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 
-// src/pages/MainLayout.jsx
-
 // Substitua sua função Header atual por esta:
 function Header({ user, profile }) {
     const navigate = useNavigate();
@@ -13,7 +11,7 @@ function Header({ user, profile }) {
     };
 
     return (
-        <nav className="bg-black sticky top-0 z-30 border-b border-[#f1c40f]">
+        <nav className="bg-black sticky top-0 z-30">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                     {/* Lado Esquerdo - Logo */}
@@ -64,7 +62,7 @@ function Header({ user, profile }) {
 
 function Footer() {
     return (
-        <footer className="bg-black border-t border-[#f1c40f]">
+        <footer className="bg-black">
             <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
                 <p>© 2025 Dark Stream. Todos os direitos reservados.</p>
             </div>

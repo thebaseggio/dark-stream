@@ -12,3 +12,7 @@ select:hover,
 select:focus {
   background-color: #000;
 }
+
+html {
+  @apply scrollbar-thin scrollbar-thumb-yellow-400 scrollbar-track-zinc-800;
+}
