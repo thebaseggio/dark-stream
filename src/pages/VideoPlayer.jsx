@@ -1,60 +1,31 @@
-// src/pages/VideoPlayer.jsx
-
-import React, { useState, useEffect, useRef } from 'react'; // Importamos o useRef
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
-
-// No topo do seu VideoPlayer.jsx
-
+// --- Componente de Animação de Loading ---
 function VideoLoadingIntro({ title }) {
     const text = title || "Carregando Dossiê...";
-
-    // Variantes da animação para o Framer Motion
     const sentence = {
         hidden: { opacity: 1 },
-        visible: {
-            opacity: 1,
-            transition: {
-                delay: 0.5,
-                staggerChildren: 0.08, // Tempo entre cada letra aparecer
-            },
-        },
-        exit: { // Nova animação de saída
-            opacity: 0,
-            y: -20,
-            transition: { duration: 0.5 }
-        }
+        visible: { opacity: 1, transition: { delay: 0.5, staggerChildren: 0.08 } },
+        exit: { opacity: 0, y: -20, transition: { duration: 0.5 } }
     };
-    const letter = {
-        hidden: { opacity: 0, y: 20 },
-        visible: { opacity: 1, y: 0 },
-    };
-
-    const introSoundRef = useRef(null);
-    const ambienceSoundRef = useRef(null);
+    const letter = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-black text-white">
-            <motion.h1 
-                key={text}
-                className="font-serif text-3xl lg:text-4xl tracking-wider text-center px-4"
-                variants={sentence}
-                initial="hidden"
-                animate="visible"
-                exit="exit" // Ativa a animação de saída
-            >
+            <motion.h1 key={text} className="font-serif text-3xl lg:text-4xl tracking-wider text-center px-4"
+                variants={sentence} initial="hidden" animate="visible" exit="exit">
                 {text.split("").map((char, index) => (
-                    <motion.span key={char + "-" + index} variants={letter}>
-                        {char}
-                    </motion.span>
+                    <motion.span key={char + "-" + index} variants={letter}>{char}</motion.span>
                 ))}
             </motion.h1>
         </div>
     );
 }
+
 
 export default function VideoPlayer({ user }) {
     const { id } = useParams();
@@ -63,75 +34,111 @@ export default function VideoPlayer({ user }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+    
+    // As refs para guardar os players de áudio
+    const introSoundRef = useRef(null);
+    const ambienceSoundRef = useRef(null);
 
-useEffect(() => {
-    const fetchVideoAndComments = async () => {
-        if (!id) {
-            setLoading(false);
-            setError("ID do vídeo não fornecido.");
-            return;
-        }
-        
-        setLoading(true);
-        setError('');
-
-        // Toca o som de introdução imediatamente
-        const sound = new Audio('/audio1.mp3');
-        sound.play().catch(e => console.error("Erro ao tocar o som:", e));
-
-        // Busca os dados do vídeo e comentários
-        const [videoResult, commentsResult] = await Promise.all([
-            supabase.from('videos').select('*, creatorId ( id, username, creatorAvatar )').eq('id', id).single(),
-            supabase.from('comments').select('*, user_id ( id, username, creatorAvatar )').eq('video_id', id).order('created_at', { ascending: false })
-        ]);
-
-        // Se a busca pelo vídeo principal falhar, paramos aqui.
-        if (videoResult.error || !videoResult.data) {
-            console.error("Erro ao buscar o vídeo:", videoResult.error);
-            setError("Não foi possível carregar o vídeo.");
-            setLoading(false);
-            return;
-        }
-        
-        // Se a busca deu certo, atualizamos o estado do vídeo
-        setVideo(videoResult.data);
-        // E também dos comentários
-        setComments(commentsResult.data || []);
-
-        // 👇 A LÓGICA DE TEMPO DINÂMICO ACONTECE AQUI 👇
-
-        // 1. Pegamos o título do vídeo que acabamos de receber
-        const title = videoResult.data.title || "Carregando Dossiê...";
-
-        // 2. Definimos nossas variáveis de tempo em milissegundos
-        const timePerChar = 80; // 80ms por letra (equivale ao staggerChildren de 0.08s)
-        const baseDelay = 1000; // 1s de atraso base para o som começar e a animação engrenar
-        
-        // 3. Calculamos a duração total da animação do título
-        const typingDuration = (title.length * timePerChar) + baseDelay;
-        
-        // 4. Definimos um tempo mínimo para a introdução (a duração do seu som)
-        const minIntroTime = 3000; // 3 segundos
-
-        // 5. A duração final será o MAIOR valor entre o tempo de digitação e o tempo mínimo
-        const finalDuration = Math.max(typingDuration, minIntroTime);
-        
-        // 6. Usamos essa duração final no nosso timer
-        setTimeout(() => setLoading(false), finalDuration);
+    // FUNÇÃO DE FADE OUT DO SOM
+    const startFadeOut = (audioElement, fadeDuration) => {
+        if (!audioElement) return;
+        const initialVolume = audioElement.volume;
+        const fadeStepTime = 50;
+        const numberOfSteps = fadeDuration / fadeStepTime;
+        const volumeDecrement = initialVolume / numberOfSteps;
+        const fadeInterval = setInterval(() => {
+            if (audioElement.volume > volumeDecrement) {
+                audioElement.volume -= volumeDecrement;
+            } else {
+                clearInterval(fadeInterval);
+                audioElement.pause();
+                audioElement.currentTime = 0;
+                audioElement.volume = initialVolume;
+            }
+        }, fadeStepTime);
     };
 
-    fetchVideoAndComments();
-}, [id]);
- 
-    if (loading) {
-        return <VideoLoadingIntro title={video?.title} />;
-    }
+    useEffect(() => {
+        // Inicializa os objetos de áudio apenas uma vez
+        if (!introSoundRef.current) {
+            introSoundRef.current = new Audio('/intro-sound3.mp3');
+        }
+        if (!ambienceSoundRef.current) {
+            ambienceSoundRef.current = new Audio('/intro-ambience.mp3');
+            ambienceSoundRef.current.loop = true;
+            ambienceSoundRef.current.volume = 0.3;
+        }
 
-    if (error || !video) {
-        return <div className="text-center p-10">{error || "Vídeo não encontrado."}</div>;
-    }
+        const fetchVideoAndComments = async () => {
+            if (!id) { setLoading(false); setError("ID do vídeo não fornecido."); return; }
+            setLoading(true);
+            setError('');
+
+            // Toca os sons
+            introSoundRef.current.play().catch(e => console.warn("Aviso de áudio:", e.message));
+            ambienceSoundRef.current.play().catch(e => console.warn("Aviso de áudio:", e.message));
+
+            const [videoResult, commentsResult] = await Promise.all([
+                supabase.from('videos').select('*, creatorId ( id, username, creatorAvatar )').eq('id', id).single(),
+                supabase.from('comments').select('*, user_id ( id, username, creatorAvatar )').eq('video_id', id).order('created_at', { ascending: false })
+            ]);
+
+            if (videoResult.error || !videoResult.data) {
+                console.error("Erro ao buscar o vídeo:", videoResult.error);
+                setError("Não foi possível carregar o vídeo.");
+                setLoading(false);
+                return;
+            }
+            
+            setVideo(videoResult.data);
+            setComments(commentsResult.data || []);
+            
+            const title = videoResult.data.title || "Carregando...";
+            const typingDuration = (title.length * 80) + 1000;
+            const minIntroTime = 3000;
+            const finalDuration = Math.max(typingDuration, minIntroTime);
+            const fadeOutDuration = 2500; // Duração de 2s para o fade out
+
+            const fadeTimer = setTimeout(() => {
+                startFadeOut(ambienceSoundRef.current, fadeOutDuration);
+            }, Math.max(0, finalDuration - fadeOutDuration));
+            
+            const screenChangeTimer = setTimeout(() => setLoading(false), finalDuration);
+
+            return { fadeTimer, screenChangeTimer };
+        };
+
+        let timers;
+        fetchVideoAndComments().then(res => timers = res);
+
+        return () => {
+            introSoundRef.current?.pause();
+            ambienceSoundRef.current?.pause();
+            if (timers) {
+                clearTimeout(timers.fadeTimer);
+                clearTimeout(timers.screenChangeTimer);
+            }
+        };
+    }, [id]);
+
+    if (loading) { return <VideoLoadingIntro title={video?.title} />; }
+    if (error || !video) { return <div className="text-center p-10">{error || "Vídeo não encontrado."}</div>; }
 
     return (
+        <AnimatePresence mode="wait">
+            {loading ? (
+                // Adicionamos uma key para o Framer Motion saber quem está saindo
+                <motion.div key="loader">
+                    <VideoLoadingIntro title={video?.title} />
+                </motion.div>
+            ) : error || !video ? (
+                // Adicionamos uma key para a tela de erro também
+                <motion.div key="error">
+                    <div className="text-center p-10">{error || "Vídeo não encontrado."}</div>
+                </motion.div>
+            ) : (
+                // Adicionamos uma key para o conteúdo principal
+                <motion.div key="player">
         <AnimatedPage>
             <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
@@ -195,5 +202,8 @@ useEffect(() => {
                 </div>
             </div>
         </AnimatedPage>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 }
