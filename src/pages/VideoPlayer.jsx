@@ -1,81 +1,25 @@
 // src/pages/VideoPlayer.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
-import { motion, AnimatePresence } from 'framer-motion';
+import AnimatedPage from '../AnimatedPage';
 
-// --- Componente de Animação de Loading ("Cut-scene") ---
-function VideoLoadingIntro({ videoTitle, onIntroEnd, onSkip }) {
-    const [step, setStep] = useState('brand'); // Controla a etapa da animação: 'brand' ou 'title'
-
-    useEffect(() => {
-        // Toca o som de impacto inicial
-        const stingSound = new Audio('/intro-sound.mp3');
-        stingSound.play().catch(e => console.warn("Aviso:", e.message));
-
-        // Timer para trocar da logo para o título
-        const titleTimer = setTimeout(() => {
-            setStep('title');
-        }, 2500); // Mostra a logo por 2.5 segundos
-
-        // Timer para finalizar toda a introdução
-        const endTimer = setTimeout(() => {
-            onIntroEnd(); // Avisa o componente pai que a intro acabou
-        }, 6000); // Duração total da intro: 6 segundos
-
-        return () => {
-            clearTimeout(titleTimer);
-            clearTimeout(endTimer);
-        };
-    }, [onIntroEnd]);
-
-    const logoVariants = {
-        hidden: { opacity: 0, scale: 0.9 },
-        visible: { opacity: 1, scale: 1, transition: { duration: 1.5, ease: "easeInOut" } },
-        exit: { opacity: 0, scale: 0.95, transition: { duration: 0.5, ease: "easeOut" } }
-    };
-    const sentence = { visible: { transition: { staggerChildren: 0.08 } } };
-    const letter = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
-
-    return (
-        <div className="fixed inset-0 bg-black flex items-center justify-center z-50">
-            <button onClick={onSkip} className="absolute top-6 right-6 bg-zinc-800/50 text-white text-xs px-3 py-1 rounded-full hover:bg-zinc-700 transition-colors z-10">
-                Pular Introdução
-            </button>
-            <AnimatePresence mode="wait">
-                {step === 'brand' && (
-                    <motion.div key="brand" variants={logoVariants} initial="hidden" animate="visible" exit="exit">
-                        <img src="/LogoT.png" alt="Dark Stream Logo" className="w-48 h-auto" />
-                    </motion.div>
-                )}
-                {step === 'title' && (
-                    <motion.h1 key="title" className="font-serif text-3xl lg:text-4xl tracking-wider text-center px-4"
-                        variants={sentence} initial="hidden" animate="visible">
-                        {(videoTitle || "Carregando Dossiê...").split("").map((char, index) => (
-                            <motion.span key={char + "-" + index} variants={letter}>{char}</motion.span>
-                        ))}
-                    </motion.h1>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-}
-
-
-// --- Componente Principal da Página ---
 export default function VideoPlayer() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [video, setVideo] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // NOVO ESTADO: para controlar se o usuário já clicou em "play"
+    const [hasStarted, setHasStarted] = useState(false);
+
     useEffect(() => {
         const fetchVideoUrl = async () => {
             if (!id) { setLoading(false); return; }
             const { data, error } = await supabase
                 .from('videos')
-                .select('videoUrl, title')
+                .select('videoUrl, title, thumbnail') // Agora também buscamos a thumbnail
                 .eq('id', id)
                 .single();
             
@@ -84,29 +28,52 @@ export default function VideoPlayer() {
                 navigate('/404');
             } else {
                 setVideo(data);
+                setLoading(false);
             }
         };
         fetchVideoUrl();
     }, [id, navigate]);
 
     if (loading) {
-        return <VideoLoadingIntro onIntroEnd={() => setLoading(false)} onSkip={() => setLoading(false)} videoTitle={video?.title} />;
+        return <div className="fixed inset-0 bg-black flex items-center justify-center text-white">Carregando Player...</div>;
+    }
+
+    if (!video) {
+        return <div className="fixed inset-0 bg-black flex items-center justify-center text-white">Vídeo não encontrado.</div>;
     }
 
     return (
-        <div className="fixed inset-0 bg-black flex items-center justify-center z-40 p-4">
-             <button onClick={() => navigate(-1)} className="absolute top-5 right-5 text-white text-3xl hover:opacity-70 transition-opacity z-50 p-2" title="Voltar">&times;</button>
+        // O fundo preto que cobre a tela inteira
+        <div className="fixed inset-0 bg-black z-40 flex items-center justify-center p-4">
+            <button onClick={() => navigate(-1)} className="absolute top-5 right-5 text-white text-3xl hover:opacity-70 transition-opacity z-50 p-2" title="Voltar">&times;</button>
             
-             {/* 👇 A SOLUÇÃO DEFINITIVA PARA A PROPORÇÃO 16:9 👇 */}
-             <div className="relative w-full max-w-screen-lg" style={{ paddingTop: '56.25%' }}>
-                <iframe 
-                    src={`${video.videoUrl}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1`} 
-                    title={video.title}
-                    className="absolute top-0 left-0 w-full h-full"
-                    frameBorder="0" 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                    allowFullScreen
-                ></iframe>
+            {/* O container do nosso player, menor e centralizado */}
+            <div className="relative w-full max-w-4xl aspect-video rounded-lg overflow-hidden shadow-2xl shadow-black/50">
+                {hasStarted ? (
+                    // DEPOIS DO CLIQUE: Mostra o vídeo tocando com som
+                    <iframe 
+                        src={`${video.videoUrl}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1`} 
+                        title={video.title}
+                        className="w-full h-full"
+                        frameBorder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                        allowFullScreen
+                    ></iframe>
+                ) : (
+                    // ANTES DO CLIQUE: Mostra a thumbnail com um botão de play customizado
+                    <div onClick={() => setHasStarted(true)} className="relative w-full h-full cursor-pointer group">
+                        <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                            <div className="bg-black/50 rounded-full p-4 transition-all duration-300 group-hover:bg-[#f1c40f] group-hover:scale-110">
+                                <svg className="w-12 h-12 text-white group-hover:text-black" fill="currentColor" viewBox="0 0 20 20"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path></svg>
+                            </div>
+                        </div>
+                        <div className="absolute bottom-4 left-4 text-white text-shadow">
+                            <p className="text-xs">Clique para iniciar</p>
+                            <h3 className="font-bold text-lg">{video.title}</h3>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
