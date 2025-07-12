@@ -1,9 +1,9 @@
 // src/App.jsx
 
 import React, { useState, useEffect, Fragment, useRef } from 'react';
-// BrowserRouter foi renomeado para Router para simplicidade
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { supabase } from './supabase';
+import CaseDetailPage from './pages/CaseDetailPage';
 
 // Componentes e Páginas
 import MainLayout from './pages/MainLayout';
@@ -109,6 +109,7 @@ export default function App() {
                     <Route path="/explorar" element={<Explore videos={videos} />} />
                     <Route path="/video/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/parceiro/:id" element={<PartnerPage />} />
+                    <Route path="/caso/:id" element={<CaseDetailPage />} />
                     <Route 
                         path="/painel" 
                         element={

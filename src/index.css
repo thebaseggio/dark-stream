@@ -1,18 +1,28 @@
+/* src/index.css */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-select,
-select option {
-  background-color: #000;
-  color: white;
+/*
+  Esta é a forma correta de aplicar um estilo customizado
+  na barra de rolagem para a página inteira.
+  Usamos pseudo-elementos que funcionam na maioria dos navegadores modernos.
+*/
+::-webkit-scrollbar {
+  width: 8px; /* Largura da scrollbar */
+  height: 8px;
 }
 
-select:hover,
-select:focus {
-  background-color: #000;
+::-webkit-scrollbar-track {
+  background: #27272a; /* Cor do trilho (zinc-800) */
 }
 
-html {
-  @apply scrollbar-thin scrollbar-thumb-yellow-400 scrollbar-track-zinc-800;
+::-webkit-scrollbar-thumb {
+  background: #f1c40f; /* Cor da barra (nosso amarelo) */
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #d4ac0d; /* Cor da barra ao passar o mouse */
 }

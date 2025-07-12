@@ -13,35 +13,25 @@ const categories = [
     { key: 'Sobrenaturais', label: 'Sobrenaturais' },
 ];
 
-function VideoCard({ video, onCardClick, isRotated, onInfoClick }) {
+function VideoCard({ video }) {
+    // Não precisamos mais da lógica de rotação aqui
     return (
-        <div className="transform transition-transform duration-300 group hover:scale-[1.03] perspective-[1000px]">
-            <div className={`relative w-full max-w-[280px] mx-auto min-h-[320px] transition-transform duration-500 [transform-style:preserve-3d] ${isRotated ? '[transform:rotateY(180deg)]' : ''}`}>
-                <div className="absolute inset-0 bg-black border-2 border-[#f1c40f] rounded-lg p-3 flex flex-col justify-between h-full [backface-visibility:hidden] cursor-pointer" onClick={() => onCardClick(video.id)}>
-                    <img src={video.thumbnail || `https://placehold.co/480x360/000000/FFF?text=IMG`} alt={video.title} className="rounded-md object-cover w-full h-40 mb-2"/>
-                    <h2 className="font-anton text-center text-white text-base capitalize tracking-wide leading-snug mt-2 line-clamp-2 flex-grow">{video.title}</h2>
-                    <div className="mt-auto flex justify-between gap-2 pt-2">
-                        <button className="bg-[#f1c40f] hover:bg-opacity-90 text-[#040402] font-bold py-2 px-3 rounded text-xs text-center flex-1">🎬 Assistir</button>
-                        <button onClick={(e) => { e.stopPropagation(); onInfoClick(); }} className="bg-gray-700 hover:bg-gray-600 font-semibold py-2 px-3 rounded text-xs text-center flex-1">ℹ️ Mais Info</button>
-                    </div>
+        <div className="bg-black border-2 border-zinc-800 rounded-lg p-3 flex flex-col h-full group transition-all duration-300 hover:border-[#f1c40f] hover:shadow-lg hover:shadow-[#f1c40f]/10">
+            <Link to={`/caso/${video.id}`} className="block">
+                <div className="relative w-full aspect-video mb-3">
+                    <img src={video.thumbnail || `https://placehold.co/480x360/111/FFF?text=IMG`} alt={video.title} className="rounded-md object-cover w-full h-full"/>
                 </div>
-                <div className="absolute inset-0 bg-zinc-900 border-2 border-[#f1c40f] rounded-lg p-4 flex flex-col [transform:rotateY(180deg)] [backface-visibility:hidden] text-left">
-                    <Link to={`/parceiro/${video.creatorId}`} onClick={(e) => e.stopPropagation()} className="block mb-2 p-2 bg-black rounded-lg hover:bg-zinc-800 transition-colors">
-                        <div className="flex items-center gap-3">
-                            <img src={video.creatorAvatar || 'https://placehold.co/40x40/000000/FFF?text=DS'} alt={video.creatorName} className="w-10 h-10 rounded-full object-cover"/>
-                            <div>
-                                <p className="text-xs text-gray-400">Criado por</p>
-                                <p className="text-white font-bold">{video.creatorName || 'Anônimo'}</p>
-                            </div>
-                        </div>
-                    </Link>
-                    <hr className="border-zinc-700 my-2" />
-                    <div className="flex-grow overflow-y-auto pr-1 text-xs space-y-1 text-gray-300">
-                        <p><strong>📂 Categoria:</strong> {video.category}</p>
-                        <p><strong>🏷️ Tags:</strong> {video.tags ? (Array.isArray(video.tags) ? video.tags.join(', ') : video.tags) : 'Nenhuma'}</p>
-                    </div>
-                    <button onClick={(e) => { e.stopPropagation(); onInfoClick(); }} title="Voltar" className="mt-auto w-full bg-gray-700 hover:bg-gray-600 font-semibold py-2 rounded text-xs">🠔 Voltar</button>
-                </div>
+                <h2 className="font-bold text-sm text-white capitalize leading-snug line-clamp-2 flex-grow group-hover:text-[#f1c40f] transition-colors">
+                    {video.title}
+                </h2>
+            </Link>
+            <div className="mt-4 flex justify-between items-center gap-2 pt-3 border-t border-zinc-800">
+                <Link to={`/caso/${video.id}`} className="font-medium text-xs text-gray-300 hover:text-white hover:underline">
+                    Mais Info
+                </Link>
+                <Link to={`/video/${video.id}`} className="bg-[#8e44ad] hover:bg-[#803d9c] text-white font-semibold py-1 px-4 rounded-md text-xs transition-colors">
+                    Assistir
+                </Link>
             </div>
         </div>
     );
@@ -107,9 +97,6 @@ export default function Explore({ videos = [] }) {
                                     <VideoCard 
                                         key={video.id} 
                                         video={video} 
-                                        onCardClick={handleCardClick}
-                                        isRotated={video.isRotated}
-                                        onInfoClick={() => toggleCardRotation(video.id)} 
                                     />
                                 ))
                             ) : (
