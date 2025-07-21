@@ -16,7 +16,6 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
 
-    // O useEffect para preencher o formulário em modo de edição
     useEffect(() => {
         if (videoToEdit) {
             setFormData({
@@ -25,6 +24,9 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                 category: videoToEdit.category || '',
                 tags: (videoToEdit.tags || []).join(', '),
             });
+        } else {
+            // Limpa o formulário para o modo de adição
+            setFormData({ title: '', description: '', category: '', tags: '' });
         }
     }, [videoToEdit]);
 
@@ -40,7 +42,6 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
         }
     };
     
-    // 👇 A FUNÇÃO handleSubmit CORRIGIDA E ORGANIZADA 👇
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -58,22 +59,20 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                     category: formData.category,
                     tags: tagsArray.length > 0 ? tagsArray : null,
                 };
-                // Aqui poderíamos adicionar lógica para atualizar a thumbnail também, se desejado.
                 const { error: updateError } = await supabase.from('videos').update(dataToUpdate).eq('id', videoToEdit.id);
                 if (updateError) throw updateError;
                 alert('Vídeo atualizado com sucesso!');
+            
             } else {
                 // --- MODO ADIÇÃO (UPLOAD) ---
                 if (!videoFile || !formData.title) throw new Error('Um arquivo de vídeo e um título são obrigatórios.');
 
-                // 1. Upload do vídeo
                 const videoFileExt = videoFile.name.split('.').pop();
                 const videoFileName = `${user.id}-${Date.now()}.${videoFileExt}`;
                 const { error: uploadVideoError } = await supabase.storage.from('videos').upload(videoFileName, videoFile);
                 if (uploadVideoError) throw uploadVideoError;
                 const { data: videoUrlData } = supabase.storage.from('videos').getPublicUrl(videoFileName);
 
-                // 2. Upload da thumbnail (opcional)
                 let thumbnailUrl = '';
                 if (thumbnailFile) {
                     const thumbFileExt = thumbnailFile.name.split('.').pop();
@@ -84,7 +83,6 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                     thumbnailUrl = thumbUrlData.publicUrl;
                 }
 
-                // 3. Inserção no banco de dados
                 const tagsArray = formData.tags.split(',').map(tag => tag.trim()).filter(Boolean);
                 const videoMetadata = {
                     title: formData.title,
@@ -93,8 +91,9 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                     tags: tagsArray.length > 0 ? tagsArray : null,
                     videoUrl: videoUrlData.publicUrl,
                     thumbnail: thumbnailUrl,
-                    creatorId: user.id, // O Supabase vai preencher isso automaticamente se configurado
+                    creator_id: user.id, // PADRONIZADO PARA creator_id
                 };
+                
                 const { error: insertError } = await supabase.from('videos').insert([videoMetadata]);
                 if (insertError) throw insertError;
                 alert('Vídeo enviado com sucesso!');

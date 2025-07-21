@@ -28,7 +28,7 @@ function Header({ user, profile }) {
                             <>
                                 <Link to="/painel">
                                     <button className="bg-[#8e44ad] hover:bg-opacity-90 text-white font-semibold px-4 py-1.5 rounded-md text-sm transition-colors">
-                                        Painel de Criador
+                                        Meu Painel
                                     </button>
                                 </Link>
                                 {profile?.role === 'admin' && (

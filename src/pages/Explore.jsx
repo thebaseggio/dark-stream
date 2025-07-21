@@ -1,10 +1,9 @@
-// src/pages/Explore.jsx
-
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import AnimatedPage from '../AnimatedPage';
 import PageTransition from '../components/PageTransition';
 import SkeletonCard from './SkeletonCard';
+import { Link } from 'react-router-dom';
 
 const categories = [
     { key: 'Nacionais', label: 'Nacionais' }, { key: 'Internacionais', label: 'Internacionais' },
@@ -13,37 +12,29 @@ const categories = [
     { key: 'Sobrenaturais', label: 'Sobrenaturais' },
 ];
 
-// Componente do Card de Vídeo (Versão Simplificada e Final)
 function VideoCard({ video, onNavigate }) {
+    const videoPath = `/video/${video.id}`; 
     return (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col h-full group transition-all duration-300 hover:border-[#f1c40f]/50 hover:shadow-lg hover:shadow-[#f1c40f]/10">
-            {/* A imagem e o título são um link para a página de detalhes */}
-            <Link to={`/caso/${video.id}`} onClick={() => onNavigate(`/caso/${video.id}`)}>
+        // O card inteiro agora é um grande botão para o player
+        <div onClick={() => onNavigate(videoPath)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col h-full group cursor-pointer transition-all duration-300 hover:border-[#f1c40f]/50 hover:shadow-lg hover:shadow-[#f1c40f]/10">
+            <div className="block">
                 <div className="relative w-full aspect-video mb-3 overflow-hidden rounded-md">
-                    <img 
-                        src={video.thumbnail || `https://placehold.co/480x360/111/FFF?text=IMG`} 
-                        alt={video.title} 
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                    />
+                    <img src={video.thumbnail || `https://placehold.co/480x360/111/FFF?text=IMG`} alt={video.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"/>
                 </div>
-                <h2 className="font-bold text-sm text-white capitalize leading-snug line-clamp-2 flex-grow group-hover:text-[#f1c40f] transition-colors">
-                    {video.title}
-                </h2>
-            </Link>
-            {/* Ações na parte de baixo do card */}
-            <div className="mt-4 flex justify-between items-center gap-2 pt-3 border-t border-zinc-800">
-                <button onClick={() => onNavigate(`/caso/${video.id}`)} className="font-medium text-xs text-gray-300 hover:text-white hover:underline">
-                    Mais Info
-                </button>
-                <button onClick={() => onNavigate(`/video/${video.id}`)} className="bg-[#8e44ad] hover:bg-[#803d9c] text-white font-semibold py-1 px-4 rounded-md text-xs transition-colors">
-                    Assistir
-                </button>
+                <h2 className="font-bold text-sm text-white capitalize leading-snug line-clamp-2 flex-grow group-hover:text-[#f1c40f] transition-colors">{video.title}</h2>
+            </div>
+            <div className="mt-4 flex justify-end items-center gap-2 pt-3 border-t border-zinc-800">
+                {/* O botão 'Assistir' confirma a ação principal */}
+                <button onClick={(e) => { 
+                    e.stopPropagation(); // Impede que o som toque duas vezes
+                    playClickSound(); 
+                    onNavigate(videoPath); 
+                }} className="bg-[#8e44ad] hover:bg-[#803d9c] text-white font-semibold py-1 px-4 rounded-md text-xs transition-colors">Assistir</button>
             </div>
         </div>
     );
 }
 
-// Componente Principal da Página Explore
 export default function Explore({ videos = [] }) {
     const navigate = useNavigate();
     const [isNavigating, setIsNavigating] = useState(false);
@@ -52,7 +43,14 @@ export default function Explore({ videos = [] }) {
 
     const handleNavigation = (path) => {
         setIsNavigating(true);
-        setTimeout(() => { navigate(path); }, 500); // 500ms para a animação de fade-out
+        setTimeout(() => { navigate(path); }, 500);
+    };
+
+        const playClickSound = () => {
+        // O caminho é relativo à pasta 'public'
+        const sound = new Audio('/sounds/click.mp3');
+        sound.volume = 0.5; // Ajuste o volume se necessário
+        sound.play();
     };
 
     const filteredVideos = videos.filter((v) =>
@@ -64,16 +62,14 @@ export default function Explore({ videos = [] }) {
         <AnimatedPage>
             {isNavigating && <PageTransition />}
             <div className="space-y-8">
-                {/* UI de Filtros e Busca */}
-                <div className="p-4 bg-zinc-900 rounded-lg flex flex-col md:flex-row items-center gap-4">
+                        <div onClick={() => {
+                playClickSound();
+                onNavigate(videoPath);
+            }} className="p-4 bg-zinc-900 rounded-lg flex flex-col md:flex-row items-center gap-4">
                     <h3 className="font-semibold flex-shrink-0">Filtros:</h3>
                     <div className="flex flex-wrap gap-2">
                         {categories.map((c) => (
-                            <button 
-                                key={c.key} 
-                                onClick={() => setSelectedCategory(prev => prev === c.key ? '' : c.key)} 
-                                className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedCategory === c.key ? 'bg-[#f1c40f] text-black font-bold' : 'bg-zinc-700 hover:bg-zinc-600 text-white'}`}
-                            >
+                            <button key={c.key} onClick={() => setSelectedCategory(prev => prev === c.key ? '' : c.key)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedCategory === c.key ? 'bg-[#f1c40f] text-black font-bold' : 'bg-zinc-700 hover:bg-zinc-600 text-white'}`}>
                                 {c.label}
                             </button>
                         ))}
@@ -81,8 +77,6 @@ export default function Explore({ videos = [] }) {
                     </div>
                     <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por título..." className="w-full md:w-auto md:ml-auto bg-zinc-800 border border-zinc-700 text-white px-3 py-1.5 rounded focus:outline-none focus:border-[#f1c40f]"/>
                 </div>
-
-                {/* Grid de Vídeos */}
                 <div>
                     <h2 className="font-anton text-white text-2xl mb-6 text-left">Casos em destaque</h2>
                     {videos.length === 0 ? (

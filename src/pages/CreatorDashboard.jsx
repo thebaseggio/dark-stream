@@ -5,7 +5,7 @@ import { supabase } from '../supabase';
 import { useNavigate } from 'react-router-dom';
 import AnimatedPage from '../AnimatedPage';
 
-export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick }) {
+export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick, refreshTrigger }) { 
     const navigate = useNavigate();
     const [myVideos, setMyVideos] = useState([]);
     const [isLoadingVideos, setIsLoadingVideos] = useState(true);
@@ -13,7 +13,7 @@ export default function CreatorDashboard({ user, profile, onUploadClick, onEditC
     const fetchMyVideos = async () => {
         if (!user) return;
         setIsLoadingVideos(true);
-        const { data, error } = await supabase.from('videos').select('*').eq('creatorId', user.id).order('created_at', { ascending: false });
+        const { data, error } = await supabase.from('videos').select('*').eq('creator_id', user.id).order('created_at', { ascending: false });
         if (error) console.error("Erro ao buscar vídeos:", error);
         else setMyVideos(data);
         setIsLoadingVideos(false);
@@ -21,7 +21,7 @@ export default function CreatorDashboard({ user, profile, onUploadClick, onEditC
 
     useEffect(() => {
         fetchMyVideos();
-    }, [user]);
+        }, [user, refreshTrigger]); 
 
     const handleDelete = async (videoId) => {
         if (window.confirm("Tem certeza que deseja excluir este vídeo?")) {

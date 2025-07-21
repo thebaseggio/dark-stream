@@ -36,45 +36,41 @@ export default function PartnerPage() {
     const [partnerVideos, setPartnerVideos] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchPartnerData = async () => {
-            if (!id) return;
+// Dentro do seu componente PartnerPage
 
-            setLoading(true);
+useEffect(() => {
+    const fetchPartnerData = async () => {
+        if (!id) return;
 
-            // Busca as informações do perfil do parceiro
-            const { data: profileData, error: profileError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', id)
-                .single();
+        setLoading(true);
 
-            if (profileError) {
-                console.error("Erro ao buscar perfil do parceiro:", profileError);
-                setLoading(false);
-                return;
-            }
+        // --- CHAMADA ÚNICA E OTIMIZADA ---
+        // Pede ao Supabase para trazer o perfil e, junto com ele ('*'),
+        // todos os vídeos ('videos(*)') que estão relacionados a ele.
+        const { data, error } = await supabase
+            .from('profiles')
+            .select(`
+                *,
+                videos ( * )
+            `)
+            .eq('id', id)
+            .order('created_at', { referencedTable: 'videos', ascending: false }) // Ordena os vídeos aninhados
+            .single();
 
-            setPartnerProfile(profileData);
+        if (error) {
+            console.error("Erro ao buscar dados do parceiro:", error);
+            setPartnerProfile(null); // Garante que nenhum perfil antigo seja mostrado
+        } else if (data) {
+            // A 'data' agora contém o perfil e um array 'videos' dentro dele
+            setPartnerProfile(data);
+            setPartnerVideos(data.videos || []);
+        }
 
-            // Busca todos os vídeos feitos por esse parceiro
-            const { data: videosData, error: videosError } = await supabase
-                .from('videos')
-                .select('*')
-                .eq('creatorId', id)
-                .order('created_at', { ascending: false });
+        setLoading(false);
+    };
 
-            if (videosError) {
-                console.error("Erro ao buscar vídeos do parceiro:", videosError);
-            } else {
-                setPartnerVideos(videosData);
-            }
-
-            setLoading(false);
-        };
-
-        fetchPartnerData();
-    }, [id]); // Roda sempre que o 'id' na URL mudar
+    fetchPartnerData();
+}, [id]);
 
     if (loading) {
         return <div className="text-center p-10">Carregando perfil do Parceiro...</div>;

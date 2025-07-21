@@ -17,7 +17,7 @@ export default function CaseDetailPage() {
             setLoading(true);
             const { data, error } = await supabase
                 .from('videos')
-                .select('*, creatorId ( id, username, creatorAvatar )')
+                .select('*, creator_id ( id, username, creatorAvatar )')
                 .eq('id', id)
                 .single();
             
@@ -41,11 +41,11 @@ export default function CaseDetailPage() {
                         <p className="text-sm text-[#f1c40f] font-bold uppercase">{video.category}</p>
                         <h1 className="text-3xl md:text-4xl font-bold my-3">{video.title}</h1>
                         
-                        {video.creatorId && (
-                        <Link to={`/parceiro/${video.creatorId.id}`} className="inline-block mb-4">
+                        {video.creator_id && (
+                        <Link to={`/parceiro/${video.creator_id.id}`} className="inline-block mb-4">
                             <div className="flex items-center gap-3 group">
-                                <img src={video.creatorId.creatorAvatar || `https://ui-avatars.com/api/?name=${video.creatorId.username?.charAt(0)}`} alt={video.creatorId.username} className="w-10 h-10 rounded-full object-cover transition-transform duration-200 group-hover:scale-110"/>
-                                <p className="text-sm text-gray-300 group-hover:text-white">por <span className="font-bold text-white">{video.creatorId.username}</span></p>
+                                <img src={video.creator_id.creatorAvatar || `https://ui-avatars.com/api/?name=${video.creator_id.username?.charAt(0)}`} alt={video.creator_id.username} className="w-10 h-10 rounded-full object-cover transition-transform duration-200 group-hover:scale-110"/>
+                                <p className="text-sm text-gray-300 group-hover:text-white">por <span className="font-bold text-white">{video.creator_id.username}</span></p>
                             </div>
                         </Link>
 )}

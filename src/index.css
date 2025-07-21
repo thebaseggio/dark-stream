@@ -26,3 +26,93 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #d4ac0d; /* Cor da barra ao passar o mouse */
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fadeIn 1s ease-in-out;
+}
+
+/* Em seu arquivo CSS principal */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fadeIn 1s ease-in-out;
+}
+
+/* Adicione ao final do seu src/index.css */
+
+.custom-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* --- Estilização da Barra (Track) --- */
+.custom-range::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  background: #404040; /* zinc-700 */
+  border-radius: 3px;
+}
+.custom-range::-moz-range-track {
+  width: 100%;
+  height: 6px;
+  background: #404040;
+  border-radius: 3px;
+}
+
+/* --- Estilização do Marcador (Thumb) --- */
+.custom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #f1c40f; /* Amarelo Dark Stream */
+  margin-top: -5px; /* Centraliza o thumb na track */
+  transition: transform 0.2s;
+}
+.custom-range:hover::-webkit-slider-thumb {
+    transform: scale(1.2);
+}
+.custom-range::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #f1c40f;
+  border: none;
+  transition: transform 0.2s;
+}
+.custom-range:hover::-moz-range-thumb {
+    transform: scale(1.2);
+}
+
+/* Adicione ao seu src/index.css */
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.animate-fade-out {
+  animation: fadeOut 0.5s ease-in-out forwards;
+}
