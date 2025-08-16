@@ -5,7 +5,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
 
-// Reutilizando o componente de Card que já temos
 function VideoCard({ video }) {
     const navigate = useNavigate();
     return (
@@ -26,51 +25,71 @@ function VideoCard({ video }) {
     );
 }
 
+export default function PartnerPage({ currentUser }) {
+    const { id: partnerId } = useParams();
+    const navigate = useNavigate();
 
-export default function PartnerPage() {
-    // Pega o 'id' da URL (ex: /parceiro/123-abc)
-    const { id } = useParams();
-
-    // Estados para guardar os dados e o status de carregamento
     const [partnerProfile, setPartnerProfile] = useState(null);
     const [partnerVideos, setPartnerVideos] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isSubscribed, setIsSubscribed] = useState(false);
+    const [subscriberCount, setSubscriberCount] = useState(0);
+    const [isProcessingFollow, setIsProcessingFollow] = useState(false);
 
-// Dentro do seu componente PartnerPage
+    useEffect(() => {
+        // A função que contém o 'await' precisa ser 'async'
+        const fetchPartnerData = async () => {
+            if (!partnerId) return;
+            setLoading(true);
 
-useEffect(() => {
-    const fetchPartnerData = async () => {
-        if (!id) return;
+            // O 'await' deve estar dentro da função 'async'
+            const [profileRes, videosRes, subsCountRes, userSubRes] = await Promise.all([
+                supabase.from('profiles').select('*').eq('id', partnerId).single(),
+                supabase.from('videos').select('*').eq('creator_id', partnerId),
+                supabase.from('subscriptions').select('*', { count: 'exact', head: true }).eq('creator_id', partnerId),
+                currentUser ? supabase.from('subscriptions').select('id').eq('creator_id', partnerId).eq('follower_id', currentUser.id).maybeSingle() : Promise.resolve({ data: null })
+            ]);
 
-        setLoading(true);
+            if (profileRes.error) {
+                console.error("Erro ao buscar perfil:", profileRes.error);
+                setLoading(false);
+                return;
+            }
 
-        // --- CHAMADA ÚNICA E OTIMIZADA ---
-        // Pede ao Supabase para trazer o perfil e, junto com ele ('*'),
-        // todos os vídeos ('videos(*)') que estão relacionados a ele.
-        const { data, error } = await supabase
-            .from('profiles')
-            .select(`
-                *,
-                videos ( * )
-            `)
-            .eq('id', id)
-            .order('created_at', { referencedTable: 'videos', ascending: false }) // Ordena os vídeos aninhados
-            .single();
+            setPartnerProfile(profileRes.data);
+            setPartnerVideos(videosRes.data || []);
+            setSubscriberCount(subsCountRes.count || 0);
+            setIsSubscribed(!!userSubRes.data);
+            
+            setLoading(false);
+        };
 
-        if (error) {
-            console.error("Erro ao buscar dados do parceiro:", error);
-            setPartnerProfile(null); // Garante que nenhum perfil antigo seja mostrado
-        } else if (data) {
-            // A 'data' agora contém o perfil e um array 'videos' dentro dele
-            setPartnerProfile(data);
-            setPartnerVideos(data.videos || []);
+        fetchPartnerData();
+    }, [partnerId, currentUser]);
+
+    const handleFollowToggle = async () => {
+        if (!currentUser) {
+            navigate('/login');
+            return;
         }
+        if (currentUser.id === partnerId) return;
 
-        setLoading(false);
+        setIsProcessingFollow(true);
+        if (isSubscribed) {
+            const { error } = await supabase.from('subscriptions').delete().match({ creator_id: partnerId, follower_id: currentUser.id });
+            if (!error) {
+                setIsSubscribed(false);
+                setSubscriberCount(prev => prev - 1);
+            }
+        } else {
+            const { error } = await supabase.from('subscriptions').insert({ creator_id: partnerId, follower_id: currentUser.id });
+            if (!error) {
+                setIsSubscribed(true);
+                setSubscriberCount(prev => prev + 1);
+            }
+        }
+        setIsProcessingFollow(false);
     };
-
-    fetchPartnerData();
-}, [id]);
 
     if (loading) {
         return <div className="text-center p-10">Carregando perfil do Parceiro...</div>;
@@ -82,7 +101,6 @@ useEffect(() => {
 
     return (
         <AnimatedPage>
-            {/* Seção do Banner do Perfil */}
             <div className="bg-zinc-900 rounded-lg p-6 md:p-8 mb-8 flex flex-col md:flex-row items-center gap-6">
                 <img 
                     src={partnerProfile.creatorAvatar || `https://ui-avatars.com/api/?name=${partnerProfile.username?.charAt(0)}&background=f1c40f&color=000&size=128`}
@@ -91,14 +109,22 @@ useEffect(() => {
                 />
                 <div className="text-center md:text-left">
                     <h1 className="text-3xl md:text-4xl font-bold">{partnerProfile.username}</h1>
-                    <p className="text-md text-gray-400 mt-2 max-w-2xl">{partnerProfile.bio || 'Parceiro do Dark Stream dedicado a desvendar os maiores mistérios.'}</p>
-                    <button className="mt-4 bg-[#8e44ad] hover:bg-[#803d9c] text-white font-semibold px-6 py-2 rounded-lg transition-colors">
-                        Seguir
-                    </button>
+                    <p className="text-md text-gray-400 mt-2 max-w-2xl">{partnerProfile.bio}</p>
+                    <div className="mt-4 flex items-center gap-4 justify-center md:justify-start">
+                        {currentUser?.id !== partnerId && (
+                            <button
+                                onClick={handleFollowToggle}
+                                disabled={isProcessingFollow}
+                                className={`font-semibold px-6 py-2 rounded-lg transition-all duration-200 w-36 text-center ${isSubscribed ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-[#8e44ad] hover:bg-[#803d9c] text-white'}`}
+                            >
+                                {isProcessingFollow ? 'Aguarde...' : (isSubscribed ? 'Seguindo ✓' : 'Seguir')}
+                            </button>
+                        )}
+                        <p className="text-sm text-gray-400">{subscriberCount.toLocaleString('pt-BR')} seguidores</p>
+                    </div>
                 </div>
             </div>
 
-            {/* Seção da Grade de Vídeos */}
             <div>
                 <h2 className="font-anton text-white text-2xl mb-6 text-left">Vídeos de {partnerProfile.username}</h2>
                 {partnerVideos.length > 0 ? (

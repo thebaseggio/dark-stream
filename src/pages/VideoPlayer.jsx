@@ -92,12 +92,10 @@ useEffect(() => {
             }
 
             // A busca no Supabase que estava faltando
-            const { data, error } = await supabase
-                .from('videos')
-                // GARANTA QUE ESTA PARTE ESTÁ AQUI
-                .select('*, creator_id ( username )') 
-                .eq('id', id)
-                .single();
+        const { data, error } = await supabase.from('videos')
+            .select('*, creator_id (id, username, creatorAvatar)') // Pede os dados do Parceiro
+            .eq('id', id)
+            .single();
 
             if (error) {
                 console.error("Erro ao buscar o vídeo:", error.message);

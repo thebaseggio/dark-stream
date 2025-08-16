@@ -29,7 +29,9 @@ export default function App() {
 
   useEffect(() => {
     const fetchAllVideos = async () => {
-        const { data, error } = await supabase.from('videos').select('*').order('created_at', { ascending: false });
+        const { data, error } = await supabase.from('videos')
+    .select('*, creator_id (id, username, creatorAvatar)') // Pede para trazer os dados do Parceiro junto
+    .order('created_at', { ascending: false });
         if(error) console.error("Erro ao carregar vídeos:", error);
         else setVideos(data);
     };
@@ -79,8 +81,8 @@ export default function App() {
         <Route path="/explorar" element={<Explore videos={videos} />} />
         <Route path="/video/:id" element={<VideoPlayer user={user} />} />
         <Route path="/caso/:id" element={<VideoPlayer user={user} />} />
-        <Route path="/parceiro/:id" element={<PartnerPage />} />
-        
+        <Route path="/parceiro/:id" element={<PartnerPage currentUser={user} />} />
+
         {/* --- Rota Privada (Apenas para usuários logados) --- */}
         {/* O componente CreatorDashboard deve ter sua própria lógica para redirecionar se o usuário não estiver logado */}
         <Route path="/painel" element={<CreatorDashboard user={user} profile={profile} onUploadClick={openUploadModal} onEditClick={openEditModal} />} />

@@ -13,7 +13,7 @@ const categories = [
 ];
 
 function VideoCard({ video, onNavigate }) {
-    const videoPath = `/video/${video.id}`; 
+    const creator = video.creator_id; 
     return (
         // O card inteiro agora é um grande botão para o player
         <div onClick={() => onNavigate(videoPath)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col h-full group cursor-pointer transition-all duration-300 hover:border-[#f1c40f]/50 hover:shadow-lg hover:shadow-[#f1c40f]/10">
@@ -23,13 +23,22 @@ function VideoCard({ video, onNavigate }) {
                 </div>
                 <h2 className="font-bold text-sm text-white capitalize leading-snug line-clamp-2 flex-grow group-hover:text-[#f1c40f] transition-colors">{video.title}</h2>
             </div>
-            <div className="mt-4 flex justify-end items-center gap-2 pt-3 border-t border-zinc-800">
-                {/* O botão 'Assistir' confirma a ação principal */}
-                <button onClick={(e) => { 
-                    e.stopPropagation(); // Impede que o som toque duas vezes
-                    playClickSound(); 
-                    onNavigate(videoPath); 
-                }} className="bg-[#8e44ad] hover:bg-[#803d9c] text-white font-semibold py-1 px-4 rounded-md text-xs transition-colors">Assistir</button>
+            {/* --- NOVO: Seção do Parceiro --- */}
+            {creator && (
+                <div className="mt-3 pt-3 border-t border-zinc-800 flex items-center gap-2">
+                    <Link 
+                        to={`/parceiro/${creator.id}`} 
+                        onClick={(e) => e.stopPropagation()} // Impede que o clique navegue para o vídeo
+                        className="flex items-center gap-2 group/creator"
+                    >
+                        <img src={creator.creatorAvatar || `...`} alt={creator.username} className="w-6 h-6 rounded-full object-cover"/>
+                        <p className="text-xs text-gray-400 group-hover/creator:text-white transition-colors">{creator.username}</p>
+                    </Link>
+                </div>
+            )}
+
+            <div className="mt-auto flex justify-end items-center pt-2">
+                <button onClick={() => onNavigate(`/video/${video.id}`)} className="bg-[#8e44ad] hover:bg-[#803d9c] text-white font-semibold py-1 px-4 rounded-md text-xs transition-colors">Assistir</button>
             </div>
         </div>
     );

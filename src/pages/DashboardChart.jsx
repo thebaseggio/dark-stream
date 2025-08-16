@@ -1,28 +1,46 @@
 // src/pages/DashboardChart.jsx
 
-import React from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabase'; // Importe o supabase
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-// Dados de exemplo para visualizarmos o gráfico antes de conectar com o Supabase
-const sampleData = [
-  { date: '10/08', views: 23 },
-  { date: '11/08', views: 45 },
-  { date: '12/08', views: 78 },
-  { date: '13/08', views: 55 },
-  { date: '14/08', views: 98 },
-  { date: '15/08', views: 150 },
-  { date: '16/08', views: 130 },
-];
+// Precisamos do ID do usuário para a consulta
+export default function DashboardChart({ userId }) {
+  const [chartData, setChartData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-export default function DashboardChart() {
+  useEffect(() => {
+    const fetchChartData = async () => {
+      if (!userId) return;
+
+      setIsLoading(true);
+      // Chamando nossa função do Supabase via RPC
+      const { data, error } = await supabase.rpc('get_daily_views_for_creator', {
+        creator_id_param: userId
+      });
+
+      if (error) {
+        console.error("Erro ao buscar dados do gráfico:", error);
+        setChartData([]); // Em caso de erro, exibe um gráfico vazio
+      } else {
+        setChartData(data);
+      }
+      setIsLoading(false);
+    };
+
+    fetchChartData();
+  }, [userId]);
+
+  if (isLoading) {
+    return <div className="bg-zinc-900 p-6 rounded-lg text-center">Carregando dados do gráfico...</div>;
+  }
 
   return (
     <div className="bg-zinc-900 p-4 sm:p-6 rounded-lg">
       <h3 className="text-xl font-bold mb-6 text-white">Performance de Views (Últimos 7 dias)</h3>
-      {/* ResponsiveContainer garante que o gráfico se ajuste ao tamanho do container */}
       <ResponsiveContainer width="100%" height={300}>
         <LineChart
-          data={sampleData} // Usando nossos dados de exemplo por enquanto
+          data={chartData} // Usando nossos dados reais!
           margin={{
             top: 5,
             right: 20,
@@ -34,10 +52,10 @@ export default function DashboardChart() {
           <CartesianGrid strokeDasharray="3 3" stroke="#404040" />
           
           {/* Eixo X (datas) */}
-          <XAxis dataKey="date" stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
+         <XAxis dataKey="view_date" stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
 
-          {/* Eixo Y (contagem de views) */}
-          <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} />
+        {/* Eixo Y (contagem de views) */}
+        <YAxis stroke="#a1a1aa" fontSize={12} tickLine={false} axisLine={false} domain={[0, dataMax => (dataMax < 5 ? 5 : dataMax + 5)]}/>
 
           {/* Tooltip que aparece ao passar o mouse */}
           <Tooltip 

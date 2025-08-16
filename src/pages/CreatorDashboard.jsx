@@ -6,45 +6,59 @@ import { useNavigate, Link } from 'react-router-dom';
 import AnimatedPage from '../AnimatedPage';
 import DashboardChart from './DashboardChart';
 
-export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick, refreshTrigger }) { 
+export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick }) { 
     const navigate = useNavigate();
     const [myVideos, setMyVideos] = useState([]);
     const [isLoadingVideos, setIsLoadingVideos] = useState(true);
+    const [stats, setStats] = useState({ views: 0, likes: 0, subscribers: 0 });
 
-    const [stats, setStats] = useState({ views: 0, likes: 0 });
+    // --- CORREÇÃO PRINCIPAL NA FUNÇÃO DE BUSCA DE DADOS ---
+// Em src/pages/CreatorDashboard.jsx
 
-    const fetchMyVideos = async () => {
-        if (!user) return;
-        setIsLoadingVideos(true);
-        const { data, error } = await supabase.from('videos').select('*').eq('creator_id', user.id).order('created_at', { ascending: false });
+const fetchMyData = async () => {
+    if (!user) return;
+    setIsLoadingVideos(true);
+    
+    // Passo 1: Buscar os vídeos do Parceiro (esta linha estava faltando)
+    const { data: videosData, error: videosError } = await supabase
+        .from('videos')
+        .select('*')
+        .eq('creator_id', user.id)
+        .order('created_at', { ascending: false });
+    
+    // Passo 2: Buscar a contagem de inscritos
+    const { count, error: subsError } = await supabase
+        .from('subscriptions')
+        .select('*', { count: 'exact', head: true })
+        .eq('creator_id', user.id);
+
+    // Passo 3: Agora sim, verificar se houve erro em qualquer uma das buscas
+    if (videosError || subsError) {
+        console.error("Erro ao buscar dados do painel:", videosError || subsError);
+    } else {
+        // Se deu tudo certo, atualizamos os estados
+        setMyVideos(videosData);
         
-        if (error) {
-            console.error("Erro ao buscar vídeos:", error);
-        } else {
-            setMyVideos(data);
-            
-            // --- CORREÇÃO 2: Faltava a lógica para calcular os totais ---
-            // Assumindo que sua tabela 'videos' tem colunas 'views' e 'likes'
-            const totalViews = data.reduce((sum, video) => sum + (video.views || 0), 0);
-            const totalLikes = data.reduce((sum, video) => sum + (video.likes || 0), 0);
+        const totalViews = videosData.reduce((sum, video) => sum + (video.views || 0), 0);
+        const totalLikes = videosData.reduce((sum, video) => sum + (video.likes || 0), 0);
 
-            // Atualiza o estado com os totais calculados
-            setStats({ views: totalViews, likes: totalLikes });
-        }
-        setIsLoadingVideos(false);
-    };
+        setStats({ views: totalViews, likes: totalLikes, subscribers: count || 0 });
+    }
+    setIsLoadingVideos(false);
+};
 
     useEffect(() => {
-        fetchMyVideos();
-        }, [user, refreshTrigger]); 
+        fetchMyData();
+    }, [user]); // Removido 'refreshTrigger' pois a lógica já atualiza quando necessário
 
     const handleDelete = async (videoId) => {
         if (window.confirm("Tem certeza que deseja excluir este vídeo?")) {
             const { error } = await supabase.from('videos').delete().eq('id', videoId);
-            if (error) alert(`Erro: ${error.message}`);
-            else {
+            if (error) {
+                alert(`Erro: ${error.message}`);
+            } else {
                 alert("Vídeo excluído!");
-                fetchMyVideos();
+                fetchMyData(); // Garante que TUDO seja atualizado após a exclusão
             }
         }
     };
@@ -98,10 +112,9 @@ export default function CreatorDashboard({ user, profile, onUploadClick, onEditC
                     </div>
                     <div className="bg-zinc-900 p-4 rounded-lg">
                         <p className="text-sm text-gray-400">Inscritos</p>
-                        <p className="text-2xl font-bold">Em breve</p>
-                    </div>
+                    <p className="text-2xl font-bold">{isLoadingVideos ? '...' : stats.subscribers.toLocaleString('pt-BR')}</p>                    </div>
                 </div>
-                <DashboardChart />
+                <DashboardChart userId={user.id} />
 
                 <div className="bg-zinc-900 p-4 sm:p-6 rounded-lg">
                     <h2 className="text-xl font-bold mb-4">Seu Conteúdo</h2>
