@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import AnimatedPage from '../AnimatedPage';
 
 export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick, refreshTrigger }) { 
