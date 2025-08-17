@@ -14,6 +14,7 @@ const categories = [
 
 function VideoCard({ video, onNavigate }) {
     const creator = video.creator_id; 
+    const videoPath = `/video/${video.id}`;
     return (
         // O card inteiro agora é um grande botão para o player
         <div onClick={() => onNavigate(videoPath)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col h-full group cursor-pointer transition-all duration-300 hover:border-[#f1c40f]/50 hover:shadow-lg hover:shadow-[#f1c40f]/10">

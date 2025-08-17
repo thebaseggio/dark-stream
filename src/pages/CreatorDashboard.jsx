@@ -5,6 +5,7 @@ import { supabase } from '../supabase';
 import { useNavigate, Link } from 'react-router-dom';
 import AnimatedPage from '../AnimatedPage';
 import DashboardChart from './DashboardChart';
+import RecentComments from "../components/RecentComments"; 
 
 export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick }) { 
     const navigate = useNavigate();
@@ -115,6 +116,7 @@ const fetchMyData = async () => {
                     <p className="text-2xl font-bold">{isLoadingVideos ? '...' : stats.subscribers.toLocaleString('pt-BR')}</p>                    </div>
                 </div>
                 <DashboardChart userId={user.id} />
+                <RecentComments userId={user?.id} />
 
                 <div className="bg-zinc-900 p-4 sm:p-6 rounded-lg">
                     <h2 className="text-xl font-bold mb-4">Seu Conteúdo</h2>
