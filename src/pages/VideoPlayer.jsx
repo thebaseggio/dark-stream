@@ -15,6 +15,8 @@ const BackIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="currentC
 const LoadingSpinner = () => (
     <div className="w-12 h-12 border-4 border-zinc-700 border-t-[#f1c40f] rounded-full animate-spin"></div>
 );
+const HeartIcon = (props) => ( <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 21l-7.682-7.318a4.5 4.5 0 010-6.364z" /></svg> );
+const HeartSolidIcon = (props) => ( <svg {...props} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg> );
 
 export default function VideoPlayer({ user }) {
     const { id: videoId } = useParams();
@@ -38,6 +40,13 @@ export default function VideoPlayer({ user }) {
     const [isLoadingComments, setIsLoadingComments] = useState(true);
     const [newComment, setNewComment] = useState('');
     const [isPostingComment, setIsPostingComment] = useState(false);
+    const [likeCount, setLikeCount] = useState(0);
+    const [isLiked, setIsLiked] = useState(false);
+    const [isProcessingLike, setIsProcessingLike] = useState(false);
+    const [isSubscribed, setIsSubscribed] = useState(false);
+    const [subscriberCount, setSubscriberCount] = useState(0);
+    const [isProcessingFollow, setIsProcessingFollow] = useState(false);
+    
 
     // --- Seção de Refs ---
     const inactivityTimerRef = useRef(null);
@@ -56,6 +65,28 @@ export default function VideoPlayer({ user }) {
         setIsPostingComment(false);
     };
 
+        const handleFollowToggle = async () => {
+        if (!user) { navigate('/login'); return; }
+        // Impede que o criador siga a si mesmo
+        if (user.id === video.creator_id.id) return;
+
+        setIsProcessingFollow(true);
+        if (isSubscribed) {
+            const { error } = await supabase.from('subscriptions').delete().match({ creator_id: video.creator_id.id, follower_id: user.id });
+            if (!error) {
+                setIsSubscribed(false);
+                setSubscriberCount(prev => prev - 1);
+            }
+        } else {
+            const { error } = await supabase.from('subscriptions').insert({ creator_id: video.creator_id.id, follower_id: user.id });
+            if (!error) {
+                setIsSubscribed(true);
+                setSubscriberCount(prev => prev + 1);
+            }
+        }
+        setIsProcessingFollow(false);
+    };
+
     const handleActivity = () => {
         setAreControlsVisible(true);
         if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -65,6 +96,27 @@ export default function VideoPlayer({ user }) {
                  setAreControlsVisible(false);
             }
         }, 3000);
+    };
+
+        const handleLikeToggle = async () => {
+        if (!user) { navigate('/login'); return; }
+        setIsProcessingLike(true);
+        if (isLiked) {
+            // Descurtir (deletar o like)
+            const { error } = await supabase.from('likes').delete().match({ video_id: videoId, user_id: user.id });
+            if (!error) {
+                setIsLiked(false);
+                setLikeCount(prev => prev - 1);
+            }
+        } else {
+            // Curtir (inserir o like)
+            const { error } = await supabase.from('likes').insert({ video_id: videoId, user_id: user.id });
+            if (!error) {
+                setIsLiked(true);
+                setLikeCount(prev => prev + 1);
+            }
+        }
+        setIsProcessingLike(false);
     };
 
     const togglePlayPause = () => {
@@ -94,8 +146,6 @@ const handleVolumeChange = (e) => {
     video.volume = newVolume;
     setVolume(newVolume);
 
-    // --- A LÓGICA QUE FALTAVA ---
-    // Garante que o vídeo saia do mudo se o volume for maior que zero
     if (newVolume > 0 && video.muted) {
         video.muted = false;
         setIsMuted(false);
@@ -128,23 +178,34 @@ const handleVolumeChange = (e) => {
         return `${minutes}:${seconds}`;
     };
 
+// Em src/pages/VideoPlayer.jsx
+
+    // --- Seção de Efeitos (useEffect) ---
     useEffect(() => {
         const fetchData = async () => {
             if (!videoId) return;
             setLoading(true);
             const { data: videoData, error: videoError } = await supabase.from('videos').select('*, creator_id (id, username, creatorAvatar)').eq('id', videoId).single();
-            if (videoError) { console.error("Erro ao buscar vídeo:", videoError); setLoading(false); return; }
+            if (videoError || !videoData) { console.error("Erro ao buscar vídeo:", videoError); setLoading(false); return; }
             setVideo(videoData);
+            const creatorId = videoData.creator_id.id;
+            const [commentsRes, likesCountRes, userLikeRes, subsCountRes, userSubRes] = await Promise.all([
+                supabase.from('comments').select('*, user_id (id, username, creatorAvatar)').eq('video_id', videoId).order('created_at', { ascending: false }),
+                supabase.from('likes').select('*', { count: 'exact', head: true }).eq('video_id', videoId),
+                user ? supabase.from('likes').select('id').eq('video_id', videoId).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+                supabase.from('subscriptions').select('*', { count: 'exact', head: true }).eq('creator_id', creatorId),
+                user ? supabase.from('subscriptions').select('id').eq('creator_id', creatorId).eq('follower_id', user.id).maybeSingle() : Promise.resolve({ data: null })
+            ]);
+            setComments(commentsRes.data || []);
+            setLikeCount(likesCountRes.count || 0);
+            setIsLiked(!!userLikeRes.data);
+            setSubscriberCount(subsCountRes.count || 0);
+            setIsSubscribed(!!userSubRes.data);
             setLoading(false);
-
-            setIsLoadingComments(true);
-            const { data: commentsData, error: commentsError } = await supabase.from('comments').select('*, user_id (id, username, creatorAvatar)').eq('video_id', videoId).order('created_at', { ascending: false });
-            if (commentsError) { console.error("Erro ao buscar comentários:", commentsError); } 
-            else { setComments(commentsData); }
             setIsLoadingComments(false);
         };
         fetchData();
-    }, [videoId]);
+    }, [videoId, user]);
 
     useEffect(() => {
         if (!loading && video) {
@@ -163,13 +224,30 @@ const handleVolumeChange = (e) => {
             setIsMuted(true);
             const playPromise = video.play();
             if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.log("Autoplay bloqueado, aguardando clique do usuário.", error);
-                    setIsPlaying(false);
-                });
+                playPromise.catch(error => { console.log("Autoplay bloqueado.", error); setIsPlaying(false); });
             }
         }
     }, [showIntro]);
+
+    useEffect(() => {
+        const videoElement = videoRef.current;
+        if (videoElement) {
+            const onPlay = () => setIsPlaying(true);
+            const onPause = () => setIsPlaying(false);
+            const updateProgress = () => { setCurrentTime(videoElement.currentTime); setProgress((videoElement.currentTime / videoElement.duration) * 100 || 0); };
+            const setVideoDuration = () => setDuration(videoElement.duration);
+            videoElement.addEventListener('play', onPlay);
+            videoElement.addEventListener('pause', onPause);
+            videoElement.addEventListener('timeupdate', updateProgress);
+            videoElement.addEventListener('loadedmetadata', setVideoDuration);
+            return () => {
+                videoElement.removeEventListener('play', onPlay);
+                videoElement.removeEventListener('pause', onPause);
+                videoElement.removeEventListener('timeupdate', updateProgress);
+                videoElement.removeEventListener('loadedmetadata', setVideoDuration);
+            };
+        }
+    }, [!showIntro]);
 
     useEffect(() => {
         const videoElement = videoRef.current;
@@ -206,75 +284,129 @@ const handleVolumeChange = (e) => {
                         <h1 className="text-4xl md:text-6xl font-anton">{video.title}</h1>
                     </div>
                 )}
+                <button 
+                    onClick={() => setShowIntro(false)} 
+                    className="absolute bottom-6 right-6 bg-black/50 text-white text-xs font-semibold px-4 py-2 rounded-full hover:bg-white/20 transition-colors"
+                >
+                    PULAR INTRO
+                </button>
             </div>
         );
     }
 
-    return (
-        <AnimatedPage>
-            <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-                <div ref={playerContainerRef} className={`relative w-full aspect-video bg-black rounded-lg overflow-hidden group mb-6 ${!areControlsVisible && !videoRef.current?.paused ? 'cursor-none' : ''}`} onMouseMove={handleActivity} onMouseLeave={() => setAreControlsVisible(false)} onTouchStart={handleActivity}>
-                    <video ref={videoRef} onClick={togglePlayPause} onDoubleClick={toggleFullScreen} className="w-full h-full object-cover" src={video.videoUrl} />
-                    <div className={`absolute top-0 left-0 right-0 p-4 lg:p-6 flex items-center gap-4 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${areControlsVisible ? 'opacity-100' : 'opacity-0'}`}>
-                        <button onClick={() => navigate(-1)} className="text-white hover:bg-white/20 rounded-full p-2 transition-colors" title="Voltar"><BackIcon className="w-6 h-6" /></button>
-                        <h1 className="text-white text-xl font-bold truncate">{video.title}</h1>
-                    </div>
-                    <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent transition-opacity duration-300 ${areControlsVisible ? 'opacity-100' : 'opacity-0'}`}>
-                        <input type="range" min="0" max={duration} value={currentTime} onChange={handleProgressChange} className="w-full h-1.5 custom-range" />
-                        <div className="flex items-center justify-between mt-2 text-white">
-                            <div className="flex items-center gap-4">
-                                <button onClick={togglePlayPause} className="w-6 h-6">{isPlaying ? <PauseIcon /> : <PlayIcon />}</button>
-                                <div className="flex items-center gap-2">
-                                    <button onClick={toggleMute} className="w-6 h-6">{isMuted || volume === 0 ? <VolumeMuteIcon /> : <VolumeHighIcon />}</button>
-                                    <input type="range" min="0" max="1" step="0.05" value={isMuted ? 0 : volume} onChange={handleVolumeChange} className="w-24 h-1 custom-range" />
-                                </div>
-                                <span className="text-xs font-mono">{formatTime(currentTime)} / {formatTime(duration)}</span>
+return (
+    <AnimatedPage>
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
+            
+            {/* --- BLOCO DO PLAYER DE VÍDEO (ESTAVA FALTANDO) --- */}
+            <div ref={playerContainerRef} className={`relative w-full aspect-video bg-black rounded-lg overflow-hidden group mb-6 ${!areControlsVisible && !videoRef.current?.paused ? 'cursor-none' : ''}`} onMouseMove={handleActivity} onMouseLeave={() => setAreControlsVisible(false)} onTouchStart={handleActivity}>
+                <video ref={videoRef} onClick={togglePlayPause} onDoubleClick={toggleFullScreen} className="w-full h-full object-cover" src={video.videoUrl} />
+                
+                {/* Controles Superiores */}
+                <div className={`absolute top-0 left-0 right-0 p-4 lg:p-6 flex items-center gap-4 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${areControlsVisible ? 'opacity-100' : 'opacity-0'}`}>
+                    <button onClick={() => navigate(-1)} className="text-white hover:bg-white/20 rounded-full p-2 transition-colors" title="Voltar"><BackIcon className="w-6 h-6" /></button>
+                    <h1 className="text-white text-xl font-bold truncate">{video.title}</h1>
+                </div>
+                
+                {/* Controles Inferiores */}
+                <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent transition-opacity duration-300 ${areControlsVisible ? 'opacity-100' : 'opacity-0'}`}>
+                    <input type="range" min="0" max={duration} value={currentTime} onChange={handleProgressChange} className="w-full h-1.5 custom-range" />
+                    <div className="flex items-center justify-between mt-2 text-white">
+                        <div className="flex items-center gap-4">
+                            <button onClick={togglePlayPause} className="w-6 h-6">{isPlaying ? <PauseIcon /> : <PlayIcon />}</button>
+                            <div className="flex items-center gap-2">
+                                <button onClick={toggleMute} className="w-6 h-6">{isMuted || volume === 0 ? <VolumeMuteIcon /> : <VolumeHighIcon />}</button>
+                                <input type="range" min="0" max="1" step="0.05" value={isMuted ? 0 : volume} onChange={handleVolumeChange} className="w-24 h-1 custom-range" />
                             </div>
-                            <button onClick={toggleFullScreen} className="w-6 h-6"><FullscreenIcon /></button>
+                            <span className="text-xs font-mono">{formatTime(currentTime)} / {formatTime(duration)}</span>
+                        </div>
+                        <button onClick={toggleFullScreen} className="w-6 h-6"><FullscreenIcon /></button>
+                    </div>
+                </div>
+            </div>
+            {/* --- Bloco de Conteúdo Centralizado --- */}
+            <div className="max-w-4xl mx-auto"> 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* Coluna Principal da Esquerda */}
+                    <div className="md:col-span-2">
+                        <h1 className="text-3xl font-bold text-white mb-2">{video.title}</h1>
+                        <p className="text-sm text-zinc-400 mb-4">Postado em {new Date(video.created_at).toLocaleDateString()}</p>
+
+                    {/* --- NOVA BARRA DE AÇÕES UNIFICADA --- */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4">
+                        {/* Bloco do Canal (Avatar, Nome, Inscritos e Botão Seguir) */}
+                        <div className="flex items-center gap-4">
+                            <Link to={`/parceiro/${video.creator_id.id}`}>
+                                <img src={video.creator_id.creatorAvatar || `...`} alt={video.creator_id.username} className="w-12 h-12 rounded-full object-cover"/>
+                            </Link>
+                            <div className="flex-grow">
+                                <Link to={`/parceiro/${video.creator_id.id}`} className="font-bold text-white hover:text-[#f1c40f]">{video.creator_id.username}</Link>
+                                <p className="text-xs text-zinc-400">{subscriberCount.toLocaleString('pt-BR')} seguidores</p>
+                            </div>
+                            {user?.id !== video.creator_id.id && (
+                                <button
+                                    onClick={handleFollowToggle}
+                                    disabled={isProcessingFollow}
+                                    className={`font-semibold px-4 py-2 rounded-lg transition-all duration-200 w-32 text-center text-sm ${isSubscribed ? 'bg-zinc-700 hover:bg-zinc-600' : 'bg-white text-black'}`}
+                                >
+                                    {isProcessingFollow ? '...' : (isSubscribed ? 'Seguindo ✓' : 'Seguir')}
+                                </button>
+                            )}
+                        </div>
+                        
+                        {/* Bloco de Ações do Vídeo (Likes, etc) */}
+                        <div className="flex items-center gap-2">
+                            <button onClick={handleLikeToggle} disabled={isProcessingLike} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isLiked ? 'bg-red-500/20 text-red-400' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}>
+                                {isLiked ? <HeartSolidIcon className="w-5 h-5" /> : <HeartIcon className="w-5 h-5" />}
+                                <span className="font-semibold text-sm">{likeCount.toLocaleString('pt-BR')}</span>
+                            </button>
+                            {/* Futuramente, botão de Compartilhar aqui */}
+                        </div>
+                    </div>
+
+                    {/* --- NOVA SEÇÃO DE DESCRIÇÃO --- */}
+                    <div className="mt-4 py-4 border-y border-zinc-800">
+                        <p className="text-white whitespace-pre-wrap leading-relaxed">
+                            {video.description || 'Nenhuma descrição fornecida.'}
+                        </p>
+                    </div>
+                            <div className="mt-8">
+                                <h3 className="text-xl font-bold text-white mb-4">{comments.length} Comentários</h3>
+                                {user ? (
+                                    <form onSubmit={handleCommentSubmit} className="flex items-start gap-3">
+                                        <img src={user.user_metadata?.avatar_url || `...`} alt="Seu avatar" className="w-10 h-10 rounded-full"/>
+                                        <div className="flex-1">
+                                            <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Adicione um comentário..." rows="2" className="w-full bg-zinc-800 border-zinc-700 rounded-md p-2" />
+                                            <div className="text-right mt-2">
+                                                <button type="submit" disabled={isPostingComment} className="bg-[#f1c40f] text-black font-bold px-4 py-2 rounded-md">{isPostingComment ? "Enviando..." : "Comentar"}</button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                ) : ( <p className="text-zinc-400">Você precisa <Link to="/login" className="text-[#f1c40f] hover:underline">fazer login</Link> para comentar.</p> )}
+                            </div>
+                            <div className="mt-8 space-y-6">
+                                {isLoadingComments ? ( <p>Carregando comentários...</p> ) : (
+                                    comments.map(comment => (
+                                        <div key={comment.id} className="flex items-start gap-3">
+                                            <img src={comment.user_id.creatorAvatar || `...`} alt={comment.user_id.username} className="w-10 h-10 rounded-full"/>
+                                            <div>
+                                                <p className="font-bold text-sm text-white">{comment.user_id.username} <span className="text-xs text-zinc-400 font-normal">{new Date(comment.created_at).toLocaleDateString()}</span></p>
+                                                <p className="text-zinc-300 mt-1">{comment.content}</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                        <div className="md:col-span-1">
+                            <div className="bg-zinc-900 rounded-lg p-4">
+                                <h4 className="font-bold text-white mb-3">Próximo</h4>
+                                <p className="text-sm text-zinc-400">(Em breve)</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2">
-                        <h1 className="text-3xl font-bold text-white mb-4">{video.title}</h1>
-                        <Link to={`/parceiro/${video.creator_id.id}`} className="inline-flex items-center gap-3 group/creator mb-6">
-                           <img src={video.creator_id.creatorAvatar || `https://ui-avatars.com/api/?name=${video.creator_id.username?.charAt(0)}`} alt={video.creator_id.username} className="w-12 h-12 rounded-full object-cover"/>
-                           <div><p className="font-bold text-white group-hover/creator:text-[#f1c40f]">{video.creator_id.username}</p></div>
-                        </Link>
-                        <div className="mt-8">
-                            <h3 className="text-xl font-bold text-white mb-4">{comments.length} Comentários</h3>
-                            {user ? (
-                                <form onSubmit={handleCommentSubmit} className="flex items-start gap-3">
-                                    <img src={user.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${user.email?.charAt(0)}`} alt="Seu avatar" className="w-10 h-10 rounded-full"/>
-                                    <div className="flex-1">
-                                        <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Adicione um comentário..." rows="2" className="w-full bg-zinc-800 border-zinc-700 rounded-md p-2" />
-                                        <div className="text-right mt-2">
-                                            <button type="submit" disabled={isPostingComment} className="bg-[#f1c40f] text-black font-bold px-4 py-2 rounded-md">
-                                                {isPostingComment ? "Enviando..." : "Comentar"}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </form>
-                            ) : (
-                                <p className="text-zinc-400">Você precisa <Link to="/login" className="text-[#f1c40f] hover:underline">fazer login</Link> para comentar.</p>
-                            )}
-                        </div>
-                        <div className="mt-8 space-y-6">
-                            {isLoadingComments ? ( <p>Carregando comentários...</p> ) : (
-                                comments.map(comment => (
-                                    <div key={comment.id} className="flex items-start gap-3">
-                                        <img src={comment.user_id.creatorAvatar || `https://ui-avatars.com/api/?name=${comment.user_id.username?.charAt(0)}`} alt={comment.user_id.username} className="w-10 h-10 rounded-full"/>
-                                        <div>
-                                            <p className="font-bold text-sm text-white">{comment.user_id.username} <span className="text-xs text-zinc-400 font-normal">{new Date(comment.created_at).toLocaleDateString()}</span></p>
-                                            <p className="text-zinc-300 mt-1">{comment.content}</p>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                    <div className="lg:col-span-1"></div>
-                </div>
+
             </div>
         </AnimatedPage>
     );
