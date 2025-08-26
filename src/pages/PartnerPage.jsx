@@ -36,6 +36,12 @@ export default function PartnerPage({ currentUser }) {
     const [subscriberCount, setSubscriberCount] = useState(0);
     const [isProcessingFollow, setIsProcessingFollow] = useState(false);
 
+    // --- NOVO: Estado para as estatísticas públicas ---
+    const [publicStats, setPublicStats] = useState({
+        totalViews: 0,
+        totalLikes: 0,
+    });
+
     useEffect(() => {
         // A função que contém o 'await' precisa ser 'async'
         const fetchPartnerData = async () => {
@@ -101,26 +107,41 @@ export default function PartnerPage({ currentUser }) {
 
     return (
         <AnimatedPage>
-            <div className="bg-zinc-900 rounded-lg p-6 md:p-8 mb-8 flex flex-col md:flex-row items-center gap-6">
-                <img 
-                    src={partnerProfile.creatorAvatar || `https://ui-avatars.com/api/?name=${partnerProfile.username?.charAt(0)}&background=f1c40f&color=000&size=128`}
-                    alt={partnerProfile.username}
-                    className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-4 border-zinc-800"
-                />
-                <div className="text-center md:text-left">
-                    <h1 className="text-3xl md:text-4xl font-bold">{partnerProfile.username}</h1>
-                    <p className="text-md text-gray-400 mt-2 max-w-2xl">{partnerProfile.bio}</p>
-                    <div className="mt-4 flex items-center gap-4 justify-center md:justify-start">
+            {/* Seção do Banner do Perfil (COM NOVOS CARDS) */}
+            <div className="bg-zinc-900 rounded-lg p-6 md:p-8 mb-8">
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                    <img src={partnerProfile.creatorAvatar || `...`} alt={partnerProfile.username} className="w-24 h-24 ..."/>
+                    <div className="text-center md:text-left flex-grow">
+                        <h1 className="text-3xl md:text-4xl font-bold">{partnerProfile.username}</h1>
+                        <p className="text-md text-gray-400 mt-2 max-w-2xl">{partnerProfile.bio}</p>
+                    </div>
+                </div>
+                
+                {/* --- NOVA SEÇÃO DE ESTATÍSTICAS PÚBLICAS --- */}
+                <div className="mt-8 pt-6 border-t border-zinc-800 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                    <div>
+                        <p className="text-2xl font-bold">{partnerVideos.length}</p>
+                        <p className="text-sm text-zinc-400">Vídeos</p>
+                    </div>
+                    <div>
+                        <p className="text-2xl font-bold">{subscriberCount.toLocaleString('pt-BR')}</p>
+                        <p className="text-sm text-zinc-400">Seguidores</p>
+                    </div>
+                    <div>
+                        <p className="text-2xl font-bold">{publicStats.totalViews.toLocaleString('pt-BR')}</p>
+                        <p className="text-sm text-zinc-400">Visualizações</p>
+                    </div>
+                    {/* Botão de Seguir movido para cá para ficar junto das métricas */}
+                    <div className="col-span-2 sm:col-span-1">
                         {currentUser?.id !== partnerId && (
                             <button
                                 onClick={handleFollowToggle}
                                 disabled={isProcessingFollow}
-                                className={`font-semibold px-6 py-2 rounded-lg transition-all duration-200 w-36 text-center ${isSubscribed ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-[#8e44ad] hover:bg-[#803d9c] text-white'}`}
+                                className={`font-semibold px-6 py-3 rounded-lg transition-all duration-200 w-full text-center text-sm ${isSubscribed ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-white hover:bg-zinc-200 text-black'}`}
                             >
-                                {isProcessingFollow ? 'Aguarde...' : (isSubscribed ? 'Seguindo ✓' : 'Seguir')}
+                                {isProcessingFollow ? '...' : (isSubscribed ? 'Seguindo ✓' : 'Seguir')}
                             </button>
                         )}
-                        <p className="text-sm text-gray-400">{subscriberCount.toLocaleString('pt-BR')} seguidores</p>
                     </div>
                 </div>
             </div>

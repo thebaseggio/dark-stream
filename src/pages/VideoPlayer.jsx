@@ -46,7 +46,9 @@ export default function VideoPlayer({ user }) {
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [subscriberCount, setSubscriberCount] = useState(0);
     const [isProcessingFollow, setIsProcessingFollow] = useState(false);
-    
+    const [nextVideo, setNextVideo] = useState(null);
+    const [showNextVideoOverlay, setShowNextVideoOverlay] = useState(false);
+    const [countdown, setCountdown] = useState(10); // Contagem regressiva de 10 segundos
 
     // --- Seção de Refs ---
     const inactivityTimerRef = useRef(null);
@@ -178,9 +180,6 @@ const handleVolumeChange = (e) => {
         return `${minutes}:${seconds}`;
     };
 
-// Em src/pages/VideoPlayer.jsx
-
-    // --- Seção de Efeitos (useEffect) ---
     useEffect(() => {
         const fetchData = async () => {
             if (!videoId) return;
@@ -234,40 +233,100 @@ const handleVolumeChange = (e) => {
         if (videoElement) {
             const onPlay = () => setIsPlaying(true);
             const onPause = () => setIsPlaying(false);
-            const updateProgress = () => { setCurrentTime(videoElement.currentTime); setProgress((videoElement.currentTime / videoElement.duration) * 100 || 0); };
             const setVideoDuration = () => setDuration(videoElement.duration);
-            videoElement.addEventListener('play', onPlay);
-            videoElement.addEventListener('pause', onPause);
-            videoElement.addEventListener('timeupdate', updateProgress);
-            videoElement.addEventListener('loadedmetadata', setVideoDuration);
-            return () => {
-                videoElement.removeEventListener('play', onPlay);
-                videoElement.removeEventListener('pause', onPause);
-                videoElement.removeEventListener('timeupdate', updateProgress);
-                videoElement.removeEventListener('loadedmetadata', setVideoDuration);
-            };
-        }
-    }, [!showIntro]);
+            
+            const handleTimeUpdate = async () => {
+                const currentTime = videoElement.currentTime;
+                const duration = videoElement.duration;
+                setCurrentTime(currentTime);
+                setProgress((currentTime / duration) * 100 || 0);
 
-    useEffect(() => {
-        const videoElement = videoRef.current;
-        if (videoElement) {
-            const onPlay = () => setIsPlaying(true);
-            const onPause = () => setIsPlaying(false);
-            const updateProgress = () => { setCurrentTime(videoElement.currentTime); setProgress((videoElement.currentTime / videoElement.duration) * 100 || 0); };
-            const setVideoDuration = () => setDuration(videoElement.duration);
+                // Mostra o overlay nos últimos 10 segundos
+                if (duration - currentTime <= 10 && !showNextVideoOverlay) {
+                    if (!nextVideo) { // Busca o próximo vídeo apenas uma vez
+                        const { data: nextVideoData } = await supabase
+                            .from('videos')
+                            .select('id, title, thumbnail')
+                            .eq('creator_id', video.creator_id.id)
+                            .neq('id', videoId) // Exclui o vídeo atual
+                            .limit(1)
+                            .single();
+                        if (nextVideoData) setNextVideo(nextVideoData);
+                    }
+                    setShowNextVideoOverlay(true);
+                }
+            };
+            
             videoElement.addEventListener('play', onPlay);
             videoElement.addEventListener('pause', onPause);
-            videoElement.addEventListener('timeupdate', updateProgress);
+            videoElement.addEventListener('timeupdate', handleTimeUpdate);
             videoElement.addEventListener('loadedmetadata', setVideoDuration);
+
             return () => {
                 videoElement.removeEventListener('play', onPlay);
                 videoElement.removeEventListener('pause', onPause);
-                videoElement.removeEventListener('timeupdate', updateProgress);
+                videoElement.removeEventListener('timeupdate', handleTimeUpdate);
                 videoElement.removeEventListener('loadedmetadata', setVideoDuration);
             };
         }
-    }, [!showIntro]);
+    }, [!showIntro, video, videoId, nextVideo, showNextVideoOverlay]); // Dependências atualizadas
+
+    // --- NOVO EFEITO: Contagem regressiva para o próximo vídeo ---
+    useEffect(() => {
+        let timer;
+        if (showNextVideoOverlay && nextVideo) {
+            timer = setInterval(() => {
+                setCountdown(prev => {
+                    if (prev <= 1) {
+                        clearInterval(timer);
+                        navigate(`/video/${nextVideo.id}`);
+                        return 10;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [showNextVideoOverlay, nextVideo, navigate]);
+
+        useEffect(() => {
+        const handleKeyDown = (e) => {
+            // Ignora os atalhos se o usuário estiver digitando em uma caixa de texto (como a de comentários)
+            const target = e.target;
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+                return;
+            }
+
+            switch (e.key.toLowerCase()) {
+                case ' ': // Barra de Espaço
+                    e.preventDefault(); // Impede a página de rolar para baixo
+                    togglePlayPause();
+                    break;
+                case 'f': // Tecla F
+                    toggleFullScreen();
+                    break;
+                case 'm': // Tecla M
+                    toggleMute();
+                    break;
+                case 'arrowright': // Seta para a Direita
+                    if (videoRef.current) videoRef.current.currentTime += 5; // Avança 5s
+                    break;
+                case 'arrowleft': // Seta para a Esquerda
+                    if (videoRef.current) videoRef.current.currentTime -= 5; // Retrocede 5s
+                    break;
+                default:
+                    break;
+            }
+        };
+
+        // Adiciona o "espião" de teclado na janela
+        window.addEventListener('keydown', handleKeyDown);
+
+        // Limpeza: Remove o "espião" quando o componente não estiver mais na tela
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [video]); // A dependência garante que as funções como togglePlayPause tenham os estados mais recentes
 
     if (loading) { return <div className="bg-black text-white min-h-screen flex items-center justify-center"><LoadingSpinner /></div>; }
     if (!video) { return <div className="bg-black text-white min-h-screen flex items-center justify-center"><p>Vídeo não encontrado.</p></div>; }
@@ -297,18 +356,14 @@ const handleVolumeChange = (e) => {
 return (
     <AnimatedPage>
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-            
-            {/* --- BLOCO DO PLAYER DE VÍDEO (ESTAVA FALTANDO) --- */}
             <div ref={playerContainerRef} className={`relative w-full aspect-video bg-black rounded-lg overflow-hidden group mb-6 ${!areControlsVisible && !videoRef.current?.paused ? 'cursor-none' : ''}`} onMouseMove={handleActivity} onMouseLeave={() => setAreControlsVisible(false)} onTouchStart={handleActivity}>
                 <video ref={videoRef} onClick={togglePlayPause} onDoubleClick={toggleFullScreen} className="w-full h-full object-cover" src={video.videoUrl} />
                 
-                {/* Controles Superiores */}
                 <div className={`absolute top-0 left-0 right-0 p-4 lg:p-6 flex items-center gap-4 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${areControlsVisible ? 'opacity-100' : 'opacity-0'}`}>
                     <button onClick={() => navigate(-1)} className="text-white hover:bg-white/20 rounded-full p-2 transition-colors" title="Voltar"><BackIcon className="w-6 h-6" /></button>
                     <h1 className="text-white text-xl font-bold truncate">{video.title}</h1>
                 </div>
                 
-                {/* Controles Inferiores */}
                 <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent transition-opacity duration-300 ${areControlsVisible ? 'opacity-100' : 'opacity-0'}`}>
                     <input type="range" min="0" max={duration} value={currentTime} onChange={handleProgressChange} className="w-full h-1.5 custom-range" />
                     <div className="flex items-center justify-between mt-2 text-white">
@@ -324,6 +379,7 @@ return (
                     </div>
                 </div>
             </div>
+            
             {/* --- Bloco de Conteúdo Centralizado --- */}
             <div className="max-w-4xl mx-auto"> 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

@@ -15,55 +15,66 @@ import PartnerPage from './pages/PartnerPage';
 import SignupPage from './pages/SignupPage';
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [videoToEdit, setVideoToEdit] = useState(null);
+    const [user, setUser] = useState(null);
+    const [profile, setProfile] = useState(null);
+    const [videos, setVideos] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [videoToEdit, setVideoToEdit] = useState(null);
 
-  const closeModal = () => { setIsModalOpen(false); setTimeout(() => setVideoToEdit(null), 300); };
-  const openUploadModal = () => { setVideoToEdit(null); setIsModalOpen(true); };
-  const openEditModal = (video) => { setVideoToEdit(video); setIsModalOpen(true); };
-  const handleFormSuccess = () => closeModal();
+    // --- SEÇÃO DE FUNÇÕES (LOCAL CORRETO) ---
+    const closeModal = () => { setIsModalOpen(false); setTimeout(() => setVideoToEdit(null), 300); };
+    const openUploadModal = () => { setVideoToEdit(null); setIsModalOpen(true); };
+    const openEditModal = (video) => { setVideoToEdit(video); setIsModalOpen(true); };
+    const handleFormSuccess = () => closeModal();
 
-  useEffect(() => {
-    const fetchAllVideos = async () => {
-        const { data, error } = await supabase.from('videos')
-    .select('*, creator_id (id, username, creatorAvatar)') // Pede para trazer os dados do Parceiro junto
-    .order('created_at', { ascending: false });
-        if(error) console.error("Erro ao carregar vídeos:", error);
-        else setVideos(data);
-    };
-    fetchAllVideos();
-
-    const fetchSessionAndProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+    const fetchProfile = async (userId) => {
+        const { data: profileData } = await supabase.from('profiles').select('*').eq('id', userId).single();
         setProfile(profileData);
-      }
-      setLoading(false);
     };
-    fetchSessionAndProfile();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setProfile(null);
-      if (session?.user) {
-         (async () => {
-           const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-           setProfile(profileData);
-         })();
-      }
-    });
-    return () => authListener.subscription.unsubscribe();
-  }, []);
+    const handleProfileUpdate = () => {
+        if(user) {
+            fetchProfile(user.id);
+        }
+    };
+    // --- FIM DA SEÇÃO DE FUNÇÕES ---
 
-  if (loading) {
-    return <div className="bg-black text-white min-h-screen flex items-center justify-center">Carregando...</div>;
-  }
+    useEffect(() => {
+        const fetchAllVideos = async () => {
+            const { data, error } = await supabase.from('videos').select('*, creator_id (id, username, creatorAvatar)').order('created_at', { ascending: false });
+            if(error) console.error("Erro ao carregar vídeos:", error);
+            else setVideos(data);
+        };
+        
+        const fetchSessionAndProfile = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            setUser(session?.user ?? null);
+            if (session?.user) {
+                // Reutiliza a função que já criamos
+                await fetchProfile(session.user.id);
+            }
+            setLoading(false);
+        };
+
+        fetchAllVideos();
+        fetchSessionAndProfile();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+            if (session?.user) {
+                fetchProfile(session.user.id);
+            } else {
+                setProfile(null);
+            }
+        });
+        
+        return () => authListener.subscription.unsubscribe();
+    }, []);
+
+    if (loading) {
+        return <div className="bg-black text-white min-h-screen flex items-center justify-center">Carregando...</div>;
+    }
 
   return (
     <Router>
@@ -85,7 +96,15 @@ export default function App() {
 
         {/* --- Rota Privada (Apenas para usuários logados) --- */}
         {/* O componente CreatorDashboard deve ter sua própria lógica para redirecionar se o usuário não estiver logado */}
-        <Route path="/painel" element={<CreatorDashboard user={user} profile={profile} onUploadClick={openUploadModal} onEditClick={openEditModal} />} />
+<Route path="/painel" element={
+    <CreatorDashboard 
+        user={user} 
+        profile={profile} 
+        onProfileUpdate={handleProfileUpdate} // <-- Pass the new function
+        onUploadClick={openUploadModal} 
+        onEditClick={openEditModal} 
+    />} 
+/>
     </Route>
 
     {/* Rota para página não encontrada */}

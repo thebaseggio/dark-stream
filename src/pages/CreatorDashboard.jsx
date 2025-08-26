@@ -1,20 +1,21 @@
 // src/pages/CreatorDashboard.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { supabase } from '../supabase';
 import { useNavigate, Link } from 'react-router-dom';
 import AnimatedPage from '../AnimatedPage';
 import DashboardChart from './DashboardChart';
 import RecentComments from "../components/RecentComments"; 
+import { Dialog, Transition } from '@headlessui/react';
+import ProfileEditor from '../components/ProfileEditor';
 
-export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick }) { 
+export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick, onProfileUpdate }) {  
     const navigate = useNavigate();
     const [myVideos, setMyVideos] = useState([]);
     const [isLoadingVideos, setIsLoadingVideos] = useState(true);
     const [stats, setStats] = useState({ views: 0, likes: 0, subscribers: 0 });
 
-    // --- CORREÇÃO PRINCIPAL NA FUNÇÃO DE BUSCA DE DADOS ---
-// Em src/pages/CreatorDashboard.jsx
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
 const fetchMyData = async () => {
     if (!user) return;
@@ -76,25 +77,35 @@ const fetchMyData = async () => {
         );
     }
     
+    
+
     return (
-        <AnimatedPage>
-            <div className="max-w-7xl mx-auto space-y-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div className="flex items-center gap-4">
-                        <img 
-                            src={profile?.creatorAvatar || `https://ui-avatars.com/api/?name=${profile?.username?.charAt(0)}&background=f1c40f&color=000`} 
-                            alt={profile?.username}
-                            className="w-16 h-16 rounded-full object-cover border-2 border-zinc-700"
-                        />
-                        <div>
-                            <h1 className="text-2xl md:text-3xl font-bold">Olá, {profile?.username || 'Criador'}!</h1>
-                            <p className="text-sm text-gray-400">{profile?.bio || 'Bem-vindo(a) ao seu painel.'}</p>
+        <>
+            <AnimatedPage>
+                <div className="max-w-7xl mx-auto space-y-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div className="flex items-center gap-4">
+                            {/* --- ESTRUTURA CORRIGIDA DO PERFIL --- */}
+                            <button onClick={() => setIsProfileModalOpen(true)} className="relative group/avatar" title="Editar foto de perfil">
+                                <img 
+                                    src={profile?.creatorAvatar || `https://ui-avatars.com/api/?name=${profile?.username?.charAt(0)}&background=f1c40f&color=000`} 
+                                    alt={profile?.username}
+                                    className="w-16 h-16 rounded-full object-cover border-2 border-zinc-700 transition-opacity group-hover/avatar:opacity-70"
+                                />
+                                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+                                    <span className="text-white text-xs font-bold">Editar</span>
+                                </div>
+                            </button>
+                            {/* O Título e a Bio ficam aqui, como irmãos do botão */}
+                            <div>
+                                <h1 className="text-2xl md:text-3xl font-bold">Olá, {profile?.username || 'Criador'}!</h1>
+                                <p className="text-sm text-gray-400">{profile?.bio || 'Bem-vindo(a) ao seu painel.'}</p>
+                            </div>
                         </div>
+                        <button onClick={onUploadClick} title="Fazer Upload de Vídeo" className="bg-[#f1c40f] text-black font-bold rounded-lg hover:bg-opacity-90 transition-all duration-200 hover:scale-105 flex items-center justify-center w-12 h-12">
+                            <span className="text-3xl pb-1">+</span>
+                        </button>
                     </div>
-                    <button onClick={onUploadClick} title="Fazer Upload de Vídeo" className="bg-[#f1c40f] text-black font-bold rounded-lg hover:bg-opacity-90 transition-all duration-200 hover:scale-105 flex items-center justify-center w-12 h-12">
-                        <span className="text-3xl pb-1">+</span>
-                    </button>
-                </div>
 
                 {/* --- ATUALIZAÇÃO: Cards de Estatísticas agora mostram dados reais --- */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -195,5 +206,32 @@ const fetchMyData = async () => {
                 </div>
             </div>
         </AnimatedPage>
+        
+            {/* --- NEW: Modal for the Profile Editor --- */}
+            <Transition appear show={isProfileModalOpen} as={Fragment}>
+                <Dialog as="div" className="relative z-50" onClose={() => setIsProfileModalOpen(false)}>
+                    <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+                        <div className="fixed inset-0 bg-black/70" />
+                    </Transition.Child>
+                    <div className="fixed inset-0 overflow-y-auto">
+                        <div className="flex min-h-full items-center justify-center p-4">
+                            <Dialog.Panel className="w-full max-w-md transform rounded-2xl bg-zinc-900 p-6 text-left align-middle shadow-xl transition-all">
+                                <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-white mb-6">
+                                    Editar Foto de Perfil
+                                </Dialog.Title>
+                                <ProfileEditor
+                                    user={user}
+                                    profile={profile}
+                                    onUploadSuccess={() => {
+                                        setIsProfileModalOpen(false);
+                                        onProfileUpdate(); // Avisa o App.jsx para re-buscar o perfil
+                                    }}
+                                />
+                            </Dialog.Panel>
+                        </div>
+                    </div>
+                </Dialog>
+            </Transition>
+        </>
     );
 }
