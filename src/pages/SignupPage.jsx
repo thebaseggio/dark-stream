@@ -44,6 +44,11 @@ const handleSignup = async (e) => {
     });
 
     if (error) {
+        // --- INÍCIO DA NOSSA INVESTIGAÇÃO ---
+        console.log("Objeto de erro completo do Supabase:", error);
+        console.log("A mensagem de erro exata é:", error.message);
+        // --- FIM DA NOSSA INVESTIGAÇÃO ---
+
         if (error.message.includes('Password should be at least')) {
             setErrorMsg("Sua senha é muito fraca. Ela deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e um símbolo especial.");
         } else {
