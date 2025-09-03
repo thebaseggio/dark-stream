@@ -51,8 +51,6 @@ export default function SignupPage() {
         setLoading(false);
     };
 
-// src/pages/SignupPage.jsx
-
 return (
     <AnimatedPage>
     <div className="min-h-screen bg-black text-white flex items-center justify-end pr-16 md:pr-24 lg:pr-48 relative overflow-hidden">
@@ -60,7 +58,6 @@ return (
         <Link to="/" className="absolute top-6 left-6 z-20 hover:opacity-80 transition-opacity" title="Voltar para a Home">
         <img src="/LogoT.png" alt="Dark Stream Home" className="h-16 w-auto" />
         </Link>
-        {/* 👇 A MUDANÇA ESTÁ AQUI 👇 */}
         <div 
             className="absolute inset-0 bg-contain bg-left bg-no-repeat" 
             style={{ backgroundImage: "url('/signup-bg.jpg')" }}
