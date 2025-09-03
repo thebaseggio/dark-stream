@@ -22,34 +22,48 @@ export default function SignupPage() {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
-    const handleSignup = async (e) => {
-        e.preventDefault();
-        if (formData.password !== formData.confirmPassword) {
-            setErrorMsg("As senhas não correspondem.");
-            return;
-        }
-        setLoading(true);
-        setErrorMsg(null);
-        setSuccessMsg(null);
+const handleSignup = async (e) => {
+    e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+        setErrorMsg("As senhas não correspondem.");
+        return;
+    }
+    setLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
 
-        const { data, error } = await supabase.auth.signUp({
-            email: formData.email,
-            password: formData.password,
-            options: {
-                data: {
-                    username: formData.username,
-                    bio: 'Novo Parceiro do Dark Stream!',
-                }
+    const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+            data: {
+                username: formData.username,
+                bio: 'Novo Parceiro do Dark Stream!',
             }
-        });
-
-        if (error) {
-            setErrorMsg(error.message);
-        } else {
-            setSuccessMsg("Inscrição realizada! Por favor, verifique seu e-mail para confirmar sua conta e poder fazer o login.");
         }
-        setLoading(false);
-    };
+    });
+
+    if (error) {
+        // --- INÍCIO DA NOSSA ADAPTAÇÃO ---
+
+        // Verificamos se a mensagem de erro original contém o texto sobre a senha.
+        // "Password should be at least" é uma boa chave para identificar esse erro específico.
+        if (error.message.includes('Password should be at least')) {
+            // Se for o erro de senha fraca, exibimos nossa mensagem personalizada.
+            setErrorMsg("Sua senha é muito fraca. Ela deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e um símbolo especial.");
+        } else {
+            // Para qualquer outro tipo de erro (ex: "User already registered"),
+            // continuamos mostrando a mensagem original do Supabase.
+            setErrorMsg(error.message);
+        }
+        
+        // --- FIM DA NOSSA ADAPTAÇÃO ---
+
+    } else {
+        setSuccessMsg("Inscrição realizada! Por favor, verifique seu e-mail para confirmar sua conta e poder fazer o login.");
+    }
+    setLoading(false);
+};
 
 return (
     <AnimatedPage>
@@ -75,7 +89,7 @@ return (
                 <div className="space-y-3">
                     <input name="username" type="text" placeholder="Nome de Usuário" onChange={handleChange} required className="w-full p-3 bg-zinc-800 rounded text-white focus:outline-none focus:border-[#f1c40f] border-2 border-transparent transition-colors"/>
                     <input name="email" type="email" placeholder="Email" onChange={handleChange} required className="w-full p-3 bg-zinc-800 rounded text-white focus:outline-none focus:border-[#f1c40f] border-2 border-transparent transition-colors"/>
-                    <input name="password" type="password" placeholder="Senha (mínimo 6 caracteres)" onChange={handleChange} required className="w-full p-3 bg-zinc-800 rounded text-white focus:outline-none focus:border-[#f1c40f] border-2 border-transparent transition-colors"/>
+                    <input name="password" type="password" placeholder="Senha (mínimo 8 caracteres)" onChange={handleChange} required className="w-full p-3 bg-zinc-800 rounded text-white focus:outline-none focus:border-[#f1c40f] border-2 border-transparent transition-colors"/>
                     <input name="confirmPassword" type="password" placeholder="Confirmar Senha" onChange={handleChange} required className="w-full p-3 bg-zinc-800 rounded text-white focus:outline-none focus:border-[#f1c40f] border-2 border-transparent transition-colors"/>
                 </div>
 
