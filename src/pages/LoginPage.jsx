@@ -13,21 +13,20 @@
    const [errorMsg, setErrorMsg] = useState(null);
    const [loading, setLoading] = useState(false);
  
-   const handleLogin = async (e) => {
-     e.preventDefault();
-     setLoading(true);
-     setErrorMsg(null);
-     const { error } = await supabase.auth.signInWithPassword({ email, password });
-     if (error) {
-       setErrorMsg(error.message);
-     } else {
-       navigate('/painel');
-     }
-     setLoading(false);
-   };
+const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    if (error) {
+        setErrorMsg(error.message);
+    } else {
+        navigate('/dashboard'); 
+    }
+    setLoading(false);
+};
  
-// src/pages/LoginPage.jsx
-
 return (
   <AnimatedPage>
     <div className="min-h-screen bg-black text-white flex items-center justify-end pr-16 md:pr-24 lg:pr-48 relative overflow-hidden">
@@ -35,19 +34,13 @@ return (
         <Link to="/" className="absolute top-6 left-6 z-20 hover:opacity-80 transition-opacity" title="Voltar para a Home">
         <img src="/LogoT.png" alt="Dark Stream Home" className="h-16 w-auto" />
         </Link>
-
-      {/* IMAGEM DE FUNDO */}
       <div 
         className="absolute inset-0 bg-cover bg-left" 
         style={{ backgroundImage: "url('/auth-bg2.jpg')" }}
       ></div>
 
-      {/* OVERLAY ESCURO SUTIL */}
       <div className="absolute inset-0 bg-black opacity-25"></div>
-
-      {/* CONTAINER DO FORMULÁRIO */}
       <div className="relative z-10 w-full max-w-sm">
-        {/* 👇 MUDANÇA AQUI: trocamos bg-zinc-900/80 por bg-black/50 👇 */}
         <form onSubmit={handleLogin} className="bg-black/0 backdrop-blur-md p-8 rounded-lg shadow-2xl">
           <h2 className="text-2xl mb-8 text-center font-bold">Login</h2>
           

@@ -44,20 +44,11 @@ const handleSignup = async (e) => {
     });
 
     if (error) {
-        // --- INÍCIO DA NOSSA ADAPTAÇÃO ---
-
-        // Verificamos se a mensagem de erro original contém o texto sobre a senha.
-        // "Password should be at least" é uma boa chave para identificar esse erro específico.
         if (error.message.includes('Password should be at least')) {
-            // Se for o erro de senha fraca, exibimos nossa mensagem personalizada.
             setErrorMsg("Sua senha é muito fraca. Ela deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e um símbolo especial.");
         } else {
-            // Para qualquer outro tipo de erro (ex: "User already registered"),
-            // continuamos mostrando a mensagem original do Supabase.
             setErrorMsg(error.message);
         }
-        
-        // --- FIM DA NOSSA ADAPTAÇÃO ---
 
     } else {
         setSuccessMsg("Inscrição realizada! Por favor, verifique seu e-mail para confirmar sua conta e poder fazer o login.");
