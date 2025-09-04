@@ -83,42 +83,54 @@ const fetchMyData = async () => {
         <>
             <AnimatedPage>
             <div className="max-w-7xl mx-auto space-y-8">
-            <div className="bg-zinc-900 p-6 rounded-lg flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div className="bg-zinc-900 p-6 sm:p-8 rounded-lg grid grid-cols-12 items-center gap-y-6 md:gap-x-6">
 
-                {/* Bloco de Informações do Parceiro (agora flexível e controlado) */}
-                <div className="flex items-center gap-5 flex-1">
-                    {/* Avatar com tamanho fixo e um pouco maior */}
+                {/* --- COLUNA 1: O AVATAR --- */}
+                {/* Em telas pequenas (col-span-12), ocupa a largura toda. Em médias (md), ocupa 2 de 12 colunas. */}
+                <div className="col-span-12 md:col-span-2 flex justify-center">
                     <button onClick={() => setIsProfileModalOpen(true)} className="relative group/avatar flex-shrink-0" title="Editar foto de perfil">
                         <img 
                             src={profile?.creatorAvatar || `https://ui-avatars.com/api/?name=${profile?.username?.charAt(0)}&background=f1c40f&color=000`} 
                             alt={profile?.username}
-                            className="w-20 h-20 rounded-full object-cover border-2 border-zinc-700 transition-opacity group-hover/avatar:opacity-70"
+                            // Um pouco maior e com uma sombra sutil para dar profundidade
+                            className="w-24 h-24 rounded-full object-cover border-4 border-zinc-700/50 transition-all duration-300 group-hover/avatar:border-[#f1c40f] shadow-lg shadow-black/30"
                         />
-                        <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
                             <span className="text-white text-xs font-bold">Editar</span>
                         </div>
                     </button>
-
-                    {/* Textos com melhor hierarquia e espaçamento */}
-                    <div className="flex-1">
-                        <p className="text-sm font-bold text-[#f1c40f] tracking-wider">PAINEL DO PARCEIRO</p>
-                        <h1 className="text-3xl font-bold text-white mt-1">Olá, {profile?.username || 'Criador'}!</h1>
-                        <p className="text-gray-300 text-sm mt-2 max-w-xl">{profile?.bio || 'Bem-vindo(a) ao seu painel.'}</p>
-                    </div>
                 </div>
 
-                {/* Botão de Upload Aprimorado */}
-                <button 
-                    onClick={onUploadClick} 
-                    title="Fazer Upload de Vídeo" 
-                    className="bg-[#f1c40f] text-black font-bold rounded-lg hover:bg-opacity-90 transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 px-4 py-3 self-start md:self-center flex-shrink-0"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                    </svg>
-                    {/* O texto some em telas muito pequenas para não quebrar o layout */}
-                    <span className="hidden sm:inline">Novo Vídeo</span>
-                </button>
+                {/* --- COLUNA 2: OS TEXTOS --- */}
+                {/* Em telas pequenas, ocupa a largura toda e centraliza o texto. Em médias, ocupa 7 de 12 colunas e alinha à esquerda. */}
+                <div className="col-span-12 md:col-span-7 text-center md:text-left">
+                    <p className="text-sm font-bold text-[#f1c40f] tracking-wider">PAINEL DO PARCEIRO</p>
+                    <div className="flex items-center gap-3 justify-center md:justify-start">
+                        <h1 className="text-3xl lg:text-4xl font-bold text-white mt-1">Olá, {profile?.username || 'Criador'}!</h1>
+                        {/* --- NOSSO NOVO BOTÃO --- */}
+                        <button onClick={() => setIsProfileModalOpen(true)} title="Editar nome e descrição" className="text-zinc-400 hover:text-white transition-colors mt-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <p className="text-gray-300 text-sm mt-3 leading-relaxed">{profile?.bio || 'Bem-vindo(a) ao seu painel.'}</p>
+                </div>
+
+                {/* --- COLUNA 3: O BOTÃO --- */}
+                {/* Em telas pequenas, ocupa a largura toda. Em médias, ocupa 3 de 12 colunas e alinha à direita. */}
+                <div className="col-span-12 md:col-span-3 flex justify-center md:justify-end">
+                    <button 
+                        onClick={onUploadClick} 
+                        title="Fazer Upload de Vídeo" 
+                        className="bg-[#f1c40f] text-black font-bold rounded-lg hover:bg-opacity-90 transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 px-5 py-3 w-full md:w-auto"
+                    >
+                        <svg xmlns="http://www.w.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                        </svg>
+                        <span className="hidden sm:inline">Novo Vídeo</span>
+                    </button>
+                </div>
             </div>
 
                 {/* --- ATUALIZAÇÃO: Cards de Estatísticas agora mostram dados reais --- */}
