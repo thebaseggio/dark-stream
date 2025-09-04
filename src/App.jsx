@@ -13,7 +13,6 @@ import CreatorUploadForm from './pages/CreatorUploadForm';
 import { Dialog, Transition } from '@headlessui/react';
 import PartnerPage from './pages/PartnerPage';
 import SignupPage from './pages/SignupPage';
-import DashboardRouter from './components/DashboardRouter';
 
 export default function App() {
     const [user, setUser] = useState(null);
@@ -39,6 +38,7 @@ export default function App() {
             fetchProfile(user.id);
         }
     };
+    // --- FIM DA SEÇÃO DE FUNÇÕES ---
 
     useEffect(() => {
         const fetchAllVideos = async () => {
@@ -93,7 +93,6 @@ export default function App() {
         <Route path="/video/:id" element={<VideoPlayer user={user} />} />
         <Route path="/caso/:id" element={<VideoPlayer user={user} />} />
         <Route path="/parceiro/:id" element={<PartnerPage currentUser={user} />} />
-        <Route path="/dashboard" element={<DashboardRouter />} />
 
         {/* --- Rota Privada (Apenas para usuários logados) --- */}
         {/* O componente CreatorDashboard deve ter sua própria lógica para redirecionar se o usuário não estiver logado */}

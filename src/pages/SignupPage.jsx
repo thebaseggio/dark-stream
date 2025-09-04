@@ -22,44 +22,36 @@ export default function SignupPage() {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
 
-const handleSignup = async (e) => {
-    e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-        setErrorMsg("As senhas não correspondem.");
-        return;
-    }
-    setLoading(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
+    const handleSignup = async (e) => {
+        e.preventDefault();
+        if (formData.password !== formData.confirmPassword) {
+            setErrorMsg("As senhas não correspondem.");
+            return;
+        }
+        setLoading(true);
+        setErrorMsg(null);
+        setSuccessMsg(null);
 
-    const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-            data: {
-                username: formData.username,
-                bio: 'Novo Parceiro do Dark Stream!',
+        const { data, error } = await supabase.auth.signUp({
+            email: formData.email,
+            password: formData.password,
+            options: {
+                data: {
+                    username: formData.username,
+                    bio: 'Novo Parceiro do Dark Stream!',
+                }
             }
-        }
-    });
+        });
 
-    if (error) {
-        // --- INÍCIO DA NOSSA INVESTIGAÇÃO ---
-        console.log("Objeto de erro completo do Supabase:", error);
-        console.log("A mensagem de erro exata é:", error.message);
-        // --- FIM DA NOSSA INVESTIGAÇÃO ---
-
-        if (error.message.includes('Password should be at least')) {
-            setErrorMsg("Sua senha é muito fraca. Ela deve conter no mínimo 8 caracteres, incluindo letras maiúsculas, minúsculas, números e um símbolo especial.");
-        } else {
+        if (error) {
             setErrorMsg(error.message);
+        } else {
+            setSuccessMsg("Inscrição realizada! Por favor, verifique seu e-mail para confirmar sua conta e poder fazer o login.");
         }
+        setLoading(false);
+    };
 
-    } else {
-        setSuccessMsg("Inscrição realizada! Por favor, verifique seu e-mail para confirmar sua conta e poder fazer o login.");
-    }
-    setLoading(false);
-};
+// src/pages/SignupPage.jsx
 
 return (
     <AnimatedPage>
@@ -68,6 +60,7 @@ return (
         <Link to="/" className="absolute top-6 left-6 z-20 hover:opacity-80 transition-opacity" title="Voltar para a Home">
         <img src="/LogoT.png" alt="Dark Stream Home" className="h-16 w-auto" />
         </Link>
+        {/* 👇 A MUDANÇA ESTÁ AQUI 👇 */}
         <div 
             className="absolute inset-0 bg-contain bg-left bg-no-repeat" 
             style={{ backgroundImage: "url('/signup-bg.jpg')" }}
@@ -85,7 +78,7 @@ return (
                 <div className="space-y-3">
                     <input name="username" type="text" placeholder="Nome de Usuário" onChange={handleChange} required className="w-full p-3 bg-zinc-800 rounded text-white focus:outline-none focus:border-[#f1c40f] border-2 border-transparent transition-colors"/>
                     <input name="email" type="email" placeholder="Email" onChange={handleChange} required className="w-full p-3 bg-zinc-800 rounded text-white focus:outline-none focus:border-[#f1c40f] border-2 border-transparent transition-colors"/>
-                    <input name="password" type="password" placeholder="Senha (mínimo 8 caracteres)" onChange={handleChange} required className="w-full p-3 bg-zinc-800 rounded text-white focus:outline-none focus:border-[#f1c40f] border-2 border-transparent transition-colors"/>
+                    <input name="password" type="password" placeholder="Senha (mínimo 6 caracteres)" onChange={handleChange} required className="w-full p-3 bg-zinc-800 rounded text-white focus:outline-none focus:border-[#f1c40f] border-2 border-transparent transition-colors"/>
                     <input name="confirmPassword" type="password" placeholder="Confirmar Senha" onChange={handleChange} required className="w-full p-3 bg-zinc-800 rounded text-white focus:outline-none focus:border-[#f1c40f] border-2 border-transparent transition-colors"/>
                 </div>
 
