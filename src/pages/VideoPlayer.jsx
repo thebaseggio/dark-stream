@@ -386,72 +386,74 @@ return (
                     {/* Coluna Principal da Esquerda */}
                     <div className="md:col-span-2">
                         <h1 className="text-3xl font-bold text-white mb-2">{video.title}</h1>
-                        <p className="text-sm text-zinc-400 mb-4">Postado em {new Date(video.created_at).toLocaleDateString()}</p>
+                        <p className="text-sm text-zinc-400 mb-4">Postado em {new Date(video.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
 
                     {/* --- NOVA BARRA DE AÇÕES UNIFICADA --- */}
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 py-4">
                         {/* Bloco do Canal (Avatar, Nome, Inscritos e Botão Seguir) */}
-                        <div className="flex items-center gap-4">
-                            <Link to={`/parceiro/${video.creator_id.id}`}>
-                                <img src={video.creator_id.creatorAvatar || `...`} alt={video.creator_id.username} className="w-12 h-12 rounded-full object-cover"/>
-                            </Link>
-                            <div className="flex-grow">
-                                <Link to={`/parceiro/${video.creator_id.id}`} className="font-bold text-white hover:text-[#f1c40f]">{video.creator_id.username}</Link>
-                                <p className="text-xs text-zinc-400">{subscriberCount.toLocaleString('pt-BR')} seguidores</p>
-                            </div>
-                            {user?.id !== video.creator_id.id && (
-                                <button
-                                    onClick={handleFollowToggle}
-                                    disabled={isProcessingFollow}
-                                    className={`font-semibold px-4 py-2 rounded-lg transition-all duration-200 w-32 text-center text-sm ${isSubscribed ? 'bg-zinc-700 hover:bg-zinc-600' : 'bg-white text-black'}`}
-                                >
-                                    {isProcessingFollow ? '...' : (isSubscribed ? 'Seguindo ✓' : 'Seguir')}
-                                </button>
-                            )}
+                    <div className="flex items-center gap-4 flex-grow">
+                        <Link to={`/parceiro/${video.creator_id.id}`}>
+                            <img src={video.creator_id.creatorAvatar || `https://ui-avatars.com/api/?name=${video.creator_id.username.charAt(0)}&background=f1c40f&color=000`} alt={video.creator_id.username} className="w-12 h-12 rounded-full object-cover"/>
+                        </Link>
+                        <div className="flex-grow">
+                            <Link to={`/parceiro/${video.creator_id.id}`} className="font-bold text-white hover:text-[#f1c40f] transition-colors">{video.creator_id.username}</Link>
+                            <p className="text-xs text-zinc-400">{subscriberCount.toLocaleString('pt-BR')} seguidores</p>
                         </div>
+                        {user?.id !== video.creator_id.id && (
+                            <button
+                                onClick={handleFollowToggle}
+                                disabled={isProcessingFollow}
+                                className={`font-semibold px-4 py-2 rounded-lg transition-all duration-200 w-32 text-center text-sm ${isSubscribed ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-white hover:bg-zinc-200 text-black'}`}
+                            >
+                                {isProcessingFollow ? '...' : (isSubscribed ? 'Inscrito ✓' : 'Inscrever-se')}
+                            </button>
+                        )}
+                    </div>
                         
                         {/* Bloco de Ações do Vídeo (Likes, etc) */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                             <button onClick={handleLikeToggle} disabled={isProcessingLike} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isLiked ? 'bg-red-500/20 text-red-400' : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'}`}>
                                 {isLiked ? <HeartSolidIcon className="w-5 h-5" /> : <HeartIcon className="w-5 h-5" />}
                                 <span className="font-semibold text-sm">{likeCount.toLocaleString('pt-BR')}</span>
                             </button>
-                            {/* Futuramente, botão de Compartilhar aqui */}
+                            {/* Futuramente, um botão de Compartilhar pode vir aqui */}
                         </div>
                     </div>
 
                     {/* --- NOVA SEÇÃO DE DESCRIÇÃO --- */}
-                    <div className="mt-4 py-4 border-y border-zinc-800">
-                        <p className="text-white whitespace-pre-wrap leading-relaxed">
-                            {video.description || 'Nenhuma descrição fornecida.'}
-                        </p>
-                    </div>
+                            <div className="mt-6">
+                                <p className="text-white whitespace-pre-wrap leading-relaxed">
+                                    {video.description || 'Nenhuma descrição fornecida.'}
+                                </p>
+                            </div>
                             <div className="mt-8">
                                 <h3 className="text-xl font-bold text-white mb-4">{comments.length} Comentários</h3>
                                 {user ? (
-                                    <form onSubmit={handleCommentSubmit} className="flex items-start gap-3">
-                                        <img src={user.user_metadata?.avatar_url || `...`} alt="Seu avatar" className="w-10 h-10 rounded-full"/>
+                                    <form onSubmit={handleCommentSubmit} className="flex items-start gap-4 mb-8">
+                                        {/* ATENÇÃO AQUI: Precisamos buscar o avatar do seu perfil de usuário logado */}
+                                        <img src={user.profile?.creatorAvatar || `https://ui-avatars.com/api/?name=${user.email.charAt(0)}&background=8e44ad&color=FFF`} alt="Seu avatar" className="w-10 h-10 rounded-full"/>
                                         <div className="flex-1">
-                                            <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Adicione um comentário..." rows="2" className="w-full bg-zinc-800 border-zinc-700 rounded-md p-2" />
+                                            <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Adicione um comentário..." rows="2" className="w-full bg-zinc-800 border border-zinc-700 rounded-md p-3 text-white focus:outline-none focus:border-[#f1c40f] transition-colors" />
                                             <div className="text-right mt-2">
-                                                <button type="submit" disabled={isPostingComment} className="bg-[#f1c40f] text-black font-bold px-4 py-2 rounded-md">{isPostingComment ? "Enviando..." : "Comentar"}</button>
+                                                <button type="submit" disabled={isPostingComment || !newComment.trim()} className="bg-[#f1c40f] text-black font-bold px-5 py-2 rounded-md transition-colors disabled:bg-zinc-600 disabled:cursor-not-allowed">{isPostingComment ? "Enviando..." : "Comentar"}</button>
                                             </div>
                                         </div>
                                     </form>
-                                ) : ( <p className="text-zinc-400">Você precisa <Link to="/login" className="text-[#f1c40f] hover:underline">fazer login</Link> para comentar.</p> )}
-                            </div>
-                            <div className="mt-8 space-y-6">
-                                {isLoadingComments ? ( <p>Carregando comentários...</p> ) : (
-                                    comments.map(comment => (
-                                        <div key={comment.id} className="flex items-start gap-3">
-                                            <img src={comment.user_id.creatorAvatar || `...`} alt={comment.user_id.username} className="w-10 h-10 rounded-full"/>
-                                            <div>
-                                                <p className="font-bold text-sm text-white">{comment.user_id.username} <span className="text-xs text-zinc-400 font-normal">{new Date(comment.created_at).toLocaleDateString()}</span></p>
-                                                <p className="text-zinc-300 mt-1">{comment.content}</p>
+                                ) : ( <p className="text-zinc-400 mb-8">Você precisa <Link to="/login" className="text-[#f1c40f] hover:underline">fazer login</Link> para comentar.</p> )}
+                                
+                                <div className="space-y-6">
+                                    {isLoadingComments ? ( <p className="text-zinc-400">Carregando comentários...</p> ) : (
+                                        comments.map(comment => (
+                                            <div key={comment.id} className="flex items-start gap-4">
+                                                <img src={comment.user_id.creatorAvatar || `https://ui-avatars.com/api/?name=${comment.user_id.username.charAt(0)}&background=f1c40f&color=000`} alt={comment.user_id.username} className="w-10 h-10 rounded-full"/>
+                                                <div>
+                                                    <p className="font-bold text-sm text-white">{comment.user_id.username} <span className="text-xs text-zinc-400 font-normal ml-2">{new Date(comment.created_at).toLocaleDateString('pt-BR')}</span></p>
+                                                    <p className="text-zinc-300 mt-1">{comment.content}</p>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))
-                                )}
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div className="md:col-span-1">

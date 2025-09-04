@@ -25,12 +25,11 @@ const PrivateRoute = ({ children, user }) => {
 export default function App() {
     const [user, setUser] = useState(null);
     const [profile, setProfile] = useState(null);
-    const [videos, setVideos] = useState([]);
+    // O estado 'videos' pode ser removido se nenhum outro componente global o utilizar. Por segurança, vamos mantê-lo por enquanto.
+    const [videos, setVideos] = useState([]); 
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [videoToEdit, setVideoToEdit] = useState(null);
-
-
     const [notification, setNotification] = useState({ isOpen: false, type: 'success', message: '' });
 
     const showNotification = (type, message) => {
@@ -41,7 +40,6 @@ export default function App() {
         setNotification({ ...notification, isOpen: false });
     };
 
-
     const closeModal = () => { setIsModalOpen(false); setTimeout(() => setVideoToEdit(null), 300); };
     const openUploadModal = () => { setVideoToEdit(null); setIsModalOpen(true); };
     const openEditModal = (video) => { setVideoToEdit(video); setIsModalOpen(true); };
@@ -49,6 +47,8 @@ export default function App() {
 
     const fetchProfile = async (userId) => {
         const { data: profileData } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        // Adicionamos o perfil do usuário ao próprio objeto do usuário para fácil acesso global
+        setUser(currentUser => ({...currentUser, profile: profileData}));
         setProfile(profileData);
     };
 
@@ -59,12 +59,6 @@ export default function App() {
     };
 
     useEffect(() => {
-        const fetchAllVideos = async () => {
-            const { data, error } = await supabase.from('videos').select('*, creator_id (id, username, creatorAvatar)').order('created_at', { ascending: false });
-            if(error) console.error("Erro ao carregar vídeos:", error);
-            else setVideos(data);
-        };
-        
         const fetchSessionAndProfile = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             setUser(session?.user ?? null);
@@ -74,7 +68,7 @@ export default function App() {
             setLoading(false);
         };
 
-        fetchAllVideos();
+        // A busca de todos os vídeos foi removida daqui.
         fetchSessionAndProfile();
 
         const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -104,13 +98,15 @@ export default function App() {
 
                 {/* --- Rotas Públicas dentro do Layout Principal --- */}
                 <Route element={<MainLayout user={user} profile={profile} />}>
-                    <Route path="/casos" element={<Explore videos={videos} />} />
-                    <Route path="/explorar" element={<Explore videos={videos} />} />
+                    {/* As props 'videos' foram removidas daqui */}
+                    <Route path="/casos" element={<Explore />} />
+                    <Route path="/explorar" element={<Explore />} />
+                    
+                    {/* Passando o objeto 'user' completo (que agora inclui o perfil) para o VideoPlayer */}
                     <Route path="/video/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/caso/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/parceiro/:id" element={<PartnerPage currentUser={user} />} />
 
-                    {/* --- ROTAS PRIVADAS E CONDICIONAIS --- */}
                     <Route path="/meu-perfil" element={
                         <PrivateRoute user={user}>
                             {profile?.role === 'partner' ? (
@@ -120,14 +116,14 @@ export default function App() {
                                     onProfileUpdate={handleProfileUpdate}
                                     onUploadClick={openUploadModal} 
                                     onEditClick={openEditModal} 
-                                    onSuccess={showNotification} // <-- MUDANÇA AQUI
+                                    onSuccess={showNotification}
                                 />
                             ) : (
                                 <VisitorProfilePage
                                     user={user}
                                     profile={profile}
                                     onProfileUpdate={handleProfileUpdate}
-                                    onSuccess={showNotification} // <-- MUDANÇA AQUI
+                                    onSuccess={showNotification}
                                 />
                             )}
                         </PrivateRoute>
@@ -144,7 +140,6 @@ export default function App() {
                 message={notification.message}
             />
 
-            {/* O Modal de Upload/Edição continua aqui, pois é global */}
             <Transition appear show={isModalOpen} as={Fragment}>
                 <Dialog as="div" className="relative z-50" onClose={closeModal}>
                     <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">

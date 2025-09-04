@@ -1,107 +1,138 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// src/pages/Explore.jsx
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
 import PageTransition from '../components/PageTransition';
 import SkeletonCard from './SkeletonCard';
-import { Link } from 'react-router-dom';
 
-const categories = [
-    { key: 'Nacionais', label: 'Nacionais' }, { key: 'Internacionais', label: 'Internacionais' },
-    { key: 'Não solucionados', label: 'Não solucionados' }, { key: 'Solucionados', label: 'Solucionados' },
-    { key: 'Serial Killers', label: 'Serial Killers' }, { key: 'Documentários', label: 'Documentários' },
-    { key: 'Sobrenaturais', label: 'Sobrenaturais' },
-];
+const categories = [ 'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados', 'Serial Killers', 'Documentários', 'Sobrenaturais'];
+
+// Em src/pages/Explore.jsx
 
 function VideoCard({ video, onNavigate }) {
     const creator = video.creator_id; 
     const videoPath = `/video/${video.id}`;
+    
     return (
-        // O card inteiro agora é um grande botão para o player
-        <div onClick={() => onNavigate(videoPath)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 flex flex-col h-full group cursor-pointer transition-all duration-300 hover:border-[#f1c40f]/50 hover:shadow-lg hover:shadow-[#f1c40f]/10">
-            <div className="block">
-                <div className="relative w-full aspect-video mb-3 overflow-hidden rounded-md">
-                    <img src={video.thumbnail || `https://placehold.co/480x360/111/FFF?text=IMG`} alt={video.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"/>
-                </div>
-                <h2 className="font-bold text-sm text-white capitalize leading-snug line-clamp-2 flex-grow group-hover:text-[#f1c40f] transition-colors">{video.title}</h2>
+        <div onClick={() => onNavigate(videoPath)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col h-full group cursor-pointer transition-all duration-300 hover:border-[#f1c40f]/50 hover:shadow-lg hover:shadow-[#f1c40f]/10">
+            {/* Bloco da Imagem */}
+            <div className="relative w-full aspect-video mb-4 overflow-hidden rounded-md">
+                <img src={video.thumbnail || `https://placehold.co/480x360/111/FFF?text=IMG`} alt={video.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"/>
             </div>
-            {/* --- NOVO: Seção do Parceiro --- */}
-            {creator && (
-                <div className="mt-3 pt-3 border-t border-zinc-800 flex items-center gap-2">
-                    <Link 
-                        to={`/parceiro/${creator.id}`} 
-                        onClick={(e) => e.stopPropagation()} // Impede que o clique navegue para o vídeo
-                        className="flex items-center gap-2 group/creator"
-                    >
-                        <img src={creator.creatorAvatar || `...`} alt={creator.username} className="w-6 h-6 rounded-full object-cover"/>
-                        <p className="text-xs text-gray-400 group-hover/creator:text-white transition-colors">{creator.username}</p>
-                    </Link>
-                </div>
-            )}
 
-            <div className="mt-auto flex justify-end items-center pt-2">
-                <button onClick={() => onNavigate(`/video/${video.id}`)} className="bg-[#8e44ad] hover:bg-[#803d9c] text-white font-semibold py-1 px-4 rounded-md text-xs transition-colors">Assistir</button>
+            {/* --- NOVA ESTRUTURA PARA O CONTEÚDO --- */}
+            {/* Este div vai crescer e empurrar as informações do Parceiro para o final */}
+            <div className="flex flex-col flex-grow">
+                {/* O título agora tem espaço para crescer */}
+                <h2 className="font-bold text-base text-white capitalize leading-snug group-hover:text-[#f1c40f] transition-colors">
+                    {video.title}
+                </h2>
+                
+                {/* Este div vazio com flex-grow atua como um espaçador mágico */}
+                <div className="flex-grow"></div> 
+
+                {/* Bloco do Parceiro, sempre alinhado na base */}
+                {creator && (
+                    <div className="mt-4 pt-3 border-t border-zinc-800 flex items-center gap-2">
+                        <Link 
+                            to={`/parceiro/${creator.id}`} 
+                            onClick={(e) => e.stopPropagation()} 
+                            className="flex items-center gap-2 group/creator"
+                        >
+                            <img src={creator.creatorAvatar || `https://ui-avatars.com/api/?name=${creator.username.charAt(0)}&background=f1c40f&color=000`} alt={creator.username} className="w-6 h-6 rounded-full object-cover"/>
+                            <p className="text-xs text-gray-400 group-hover/creator:text-white transition-colors">{creator.username}</p>
+                        </Link>
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
-export default function Explore({ videos = [] }) {
+export default function Explore() { // Não recebe mais a prop 'videos'
     const navigate = useNavigate();
+    const [videos, setVideos] = useState([]); // Gerencia seu próprio estado de vídeos
+    const [loading, setLoading] = useState(true);
     const [isNavigating, setIsNavigating] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+
+    // --- NOVA LÓGICA DE BUSCA ---
+    useEffect(() => {
+        const fetchVideos = async () => {
+            setLoading(true);
+            
+            let query = supabase
+                .from('videos')
+                .select('*, creator_id (id, username, creatorAvatar)')
+                .order('created_at', { ascending: false });
+
+            // Aplica filtro de categoria se houver
+            if (selectedCategory) {
+                query = query.eq('category', selectedCategory);
+            }
+
+            // Aplica filtro de busca por título se houver
+            if (searchTerm) {
+                query = query.ilike('title', `%${searchTerm}%`); // ilike é case-insensitive
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error("Erro ao buscar vídeos:", error);
+            } else {
+                setVideos(data);
+            }
+            setLoading(false);
+        };
+
+        // Adiciona um pequeno delay para não buscar a cada tecla digitada
+        const debounceTimer = setTimeout(() => {
+            fetchVideos();
+        }, 300); // 300ms de espera
+
+        return () => clearTimeout(debounceTimer); // Limpa o timer
+    }, [selectedCategory, searchTerm]); // Roda a busca sempre que os filtros mudam
 
     const handleNavigation = (path) => {
         setIsNavigating(true);
         setTimeout(() => { navigate(path); }, 500);
     };
 
-        const playClickSound = () => {
-        // O caminho é relativo à pasta 'public'
-        const sound = new Audio('/sounds/click.mp3');
-        sound.volume = 0.5; // Ajuste o volume se necessário
-        sound.play();
-    };
-
-    const filteredVideos = videos.filter((v) =>
-        (!selectedCategory || v.category === selectedCategory) &&
-        (!searchTerm || v.title.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-
     return (
         <AnimatedPage>
             {isNavigating && <PageTransition />}
             <div className="space-y-8">
-                        <div onClick={() => {
-                playClickSound();
-                onNavigate(videoPath);
-            }} className="p-4 bg-zinc-900 rounded-lg flex flex-col md:flex-row items-center gap-4">
-                    <h3 className="font-semibold flex-shrink-0">Filtros:</h3>
+                <div className="p-4 bg-zinc-900 rounded-lg flex flex-col md:flex-row items-center gap-4">
+                    <h3 className="font-semibold flex-shrink-0 text-white">Filtros:</h3>
                     <div className="flex flex-wrap gap-2">
                         {categories.map((c) => (
-                            <button key={c.key} onClick={() => setSelectedCategory(prev => prev === c.key ? '' : c.key)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedCategory === c.key ? 'bg-[#f1c40f] text-black font-bold' : 'bg-zinc-700 hover:bg-zinc-600 text-white'}`}>
-                                {c.label}
+                            <button key={c} onClick={() => setSelectedCategory(prev => prev === c ? '' : c)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedCategory === c ? 'bg-[#f1c40f] text-black font-bold' : 'bg-zinc-700 hover:bg-zinc-600 text-white'}`}>
+                                {c}
                             </button>
                         ))}
                         {selectedCategory && (<button onClick={() => setSelectedCategory('')} className="w-8 h-8 flex items-center justify-center text-sm rounded-full bg-red-600 hover:bg-red-500 text-white font-bold" title="Limpar filtro">&times;</button>)}
                     </div>
-                    <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por título..." className="w-full md:w-auto md:ml-auto bg-zinc-800 border border-zinc-700 text-white px-3 py-1.5 rounded focus:outline-none focus:border-[#f1c40f]"/>
+                    <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por título..." className="w-full md:w-auto md:ml-auto bg-zinc-800 border border-zinc-700 text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-[#f1c40f]"/>
                 </div>
                 <div>
-                    <h2 className="font-anton text-white text-2xl mb-6 text-left">Casos em destaque</h2>
-                    {videos.length === 0 ? (
+                    <h2 className="font-anton text-white text-2xl mb-6 text-left">Todos os Casos</h2>
+                    {loading ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-10">
                             {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
                         </div>
                     ) : (
-                        filteredVideos.length > 0 ? (
+                        videos.length > 0 ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-10">
-                                {filteredVideos.map((video) => (
+                                {videos.map((video) => (
                                     <VideoCard key={video.id} video={video} onNavigate={handleNavigation} />
                                 ))}
                             </div>
                         ) : (
-                            <p className="col-span-full text-gray-400 text-center py-10">Nenhum vídeo encontrado para os filtros selecionados.</p>
+                            <p className="col-span-full text-gray-400 text-center py-10">Nenhum caso encontrado para os filtros selecionados.</p>
                         )
                     )}
                 </div>
