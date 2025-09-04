@@ -13,20 +13,21 @@
    const [errorMsg, setErrorMsg] = useState(null);
    const [loading, setLoading] = useState(false);
  
-   const handleLogin = async (e) => {
-     e.preventDefault();
-     setLoading(true);
-     setErrorMsg(null);
-     const { error } = await supabase.auth.signInWithPassword({ email, password });
-     if (error) {
-       setErrorMsg(error.message);
-     } else {
-       navigate('/painel');
-     }
-     setLoading(false);
-   };
- 
 // src/pages/LoginPage.jsx
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setErrorMsg(error.message);
+    } else {
+      // ALTERAÇÃO AQUI:
+      navigate('/casos'); // Mude de '/painel' para '/casos'
+    }
+    setLoading(false);
+  };
 
 return (
   <AnimatedPage>

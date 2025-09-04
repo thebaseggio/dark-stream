@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabase';
 
-export default function ProfileEditor({ user, profile, onUploadSuccess }) {
+// A prop 'onSuccess' foi adicionada para nos permitir mostrar notificações customizadas.
+export default function ProfileEditor({ user, profile, onUploadSuccess, onSuccess }) {
   const [uploading, setUploading] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(profile?.creatorAvatar || null);
@@ -17,8 +18,9 @@ export default function ProfileEditor({ user, profile, onUploadSuccess }) {
   };
 
   const handleUpload = async () => {
+    // MODIFICAÇÃO 1: Substituímos o 'alert' por uma chamada à função 'onSuccess'.
     if (!avatarFile) {
-      alert("Por favor, selecione uma imagem primeiro.");
+      if (onSuccess) onSuccess('error', 'Por favor, selecione uma imagem primeiro.');
       return;
     }
 
@@ -26,29 +28,24 @@ export default function ProfileEditor({ user, profile, onUploadSuccess }) {
       setUploading(true);
 
       const fileExt = avatarFile.name.split('.').pop();
-      // The file path is structured as `public/folderName/fileName`
-      // Our policy requires the folderName to be the user's ID.
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
-      // Upload the file to the 'avatars' bucket
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, avatarFile, {
-            upsert: true // This will overwrite the file if it already exists
+          upsert: true
         });
 
       if (uploadError) {
         throw uploadError;
       }
 
-      // Get the public URL of the uploaded file
       const { data: urlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
       const newAvatarUrl = urlData.publicUrl;
 
-      // Update the 'creatorAvatar' column in the user's profile
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ creatorAvatar: newAvatarUrl })
@@ -58,12 +55,16 @@ export default function ProfileEditor({ user, profile, onUploadSuccess }) {
         throw updateError;
       }
 
-      alert('Foto de perfil atualizada com sucesso!');
+      // MODIFICAÇÃO 2: Substituímos o 'alert' de sucesso pela chamada à função 'onSuccess'.
+      if (onSuccess) onSuccess('success', 'Foto de perfil atualizada com sucesso!');
+      
+      // onUploadSuccess ainda é útil para avisar o componente pai que os dados precisam ser recarregados.
       if (onUploadSuccess) {
-        onUploadSuccess(newAvatarUrl); // Send the new URL back to the parent
+        onUploadSuccess(newAvatarUrl);
       }
     } catch (error) {
-      alert(`Erro ao atualizar a foto: ${error.message}`);
+      // MODIFICAÇÃO 3: Substituímos o 'alert' de erro pela chamada à função 'onSuccess'.
+      if (onSuccess) onSuccess('error', `Erro ao atualizar a foto: ${error.message}`);
     } finally {
       setUploading(false);
     }

@@ -1,5 +1,7 @@
+// src/App.jsx
+
 import React, { useState, useEffect, Fragment } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabase';
 
 // Componentes e Páginas
@@ -13,6 +15,12 @@ import CreatorUploadForm from './pages/CreatorUploadForm';
 import { Dialog, Transition } from '@headlessui/react';
 import PartnerPage from './pages/PartnerPage';
 import SignupPage from './pages/SignupPage';
+import NotificationModal from './components/NotificationModal.jsx';
+import VisitorProfilePage from './pages/VisitorProfilePage'; 
+
+const PrivateRoute = ({ children, user }) => {
+    return user ? children : <Navigate to="/login" />;
+};
 
 export default function App() {
     const [user, setUser] = useState(null);
@@ -22,7 +30,18 @@ export default function App() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [videoToEdit, setVideoToEdit] = useState(null);
 
-    // --- SEÇÃO DE FUNÇÕES (LOCAL CORRETO) ---
+
+    const [notification, setNotification] = useState({ isOpen: false, type: 'success', message: '' });
+
+    const showNotification = (type, message) => {
+        setNotification({ isOpen: true, type, message });
+    };
+
+    const closeNotification = () => {
+        setNotification({ ...notification, isOpen: false });
+    };
+
+
     const closeModal = () => { setIsModalOpen(false); setTimeout(() => setVideoToEdit(null), 300); };
     const openUploadModal = () => { setVideoToEdit(null); setIsModalOpen(true); };
     const openEditModal = (video) => { setVideoToEdit(video); setIsModalOpen(true); };
@@ -38,7 +57,6 @@ export default function App() {
             fetchProfile(user.id);
         }
     };
-    // --- FIM DA SEÇÃO DE FUNÇÕES ---
 
     useEffect(() => {
         const fetchAllVideos = async () => {
@@ -51,7 +69,6 @@ export default function App() {
             const { data: { session } } = await supabase.auth.getSession();
             setUser(session?.user ?? null);
             if (session?.user) {
-                // Reutiliza a função que já criamos
                 await fetchProfile(session.user.id);
             }
             setLoading(false);
@@ -76,41 +93,58 @@ export default function App() {
         return <div className="bg-black text-white min-h-screen flex items-center justify-center">Carregando...</div>;
     }
 
-  return (
+ return (
     <Router>
         <>
-<Routes>
-    {/* --- Rotas 100% Públicas (Não usam o MainLayout) --- */}
-    <Route path="/" element={<LandingPage />} />
-    <Route path="/login" element={<LoginPage />} />
-    <Route path="/inscrever-se" element={<SignupPage />} />
+            <Routes>
+                {/* --- Rotas 100% Públicas --- */}
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/inscrever-se" element={<SignupPage />} />
 
-    {/* --- Rotas Públicas que usam o MainLayout --- */}
-    {/* Todas estas páginas podem ser vistas por qualquer um, mas aparecem dentro do seu layout principal */}
-    <Route element={<MainLayout user={user} profile={profile} />}>
-        <Route path="/casos" element={<Explore videos={videos} />} />
-        <Route path="/explorar" element={<Explore videos={videos} />} />
-        <Route path="/video/:id" element={<VideoPlayer user={user} />} />
-        <Route path="/caso/:id" element={<VideoPlayer user={user} />} />
-        <Route path="/parceiro/:id" element={<PartnerPage currentUser={user} />} />
+                {/* --- Rotas Públicas dentro do Layout Principal --- */}
+                <Route element={<MainLayout user={user} profile={profile} />}>
+                    <Route path="/casos" element={<Explore videos={videos} />} />
+                    <Route path="/explorar" element={<Explore videos={videos} />} />
+                    <Route path="/video/:id" element={<VideoPlayer user={user} />} />
+                    <Route path="/caso/:id" element={<VideoPlayer user={user} />} />
+                    <Route path="/parceiro/:id" element={<PartnerPage currentUser={user} />} />
 
-        {/* --- Rota Privada (Apenas para usuários logados) --- */}
-        {/* O componente CreatorDashboard deve ter sua própria lógica para redirecionar se o usuário não estiver logado */}
-<Route path="/painel" element={
-    <CreatorDashboard 
-        user={user} 
-        profile={profile} 
-        onProfileUpdate={handleProfileUpdate} // <-- Pass the new function
-        onUploadClick={openUploadModal} 
-        onEditClick={openEditModal} 
-    />} 
-/>
-    </Route>
+                    {/* --- ROTAS PRIVADAS E CONDICIONAIS --- */}
+                    <Route path="/meu-perfil" element={
+                        <PrivateRoute user={user}>
+                            {profile?.role === 'partner' ? (
+                                <CreatorDashboard 
+                                    user={user} 
+                                    profile={profile} 
+                                    onProfileUpdate={handleProfileUpdate}
+                                    onUploadClick={openUploadModal} 
+                                    onEditClick={openEditModal} 
+                                    onSuccess={showNotification} // <-- MUDANÇA AQUI
+                                />
+                            ) : (
+                                <VisitorProfilePage
+                                    user={user}
+                                    profile={profile}
+                                    onProfileUpdate={handleProfileUpdate}
+                                    onSuccess={showNotification} // <-- MUDANÇA AQUI
+                                />
+                            )}
+                        </PrivateRoute>
+                    } />
+                </Route>
+                
+                <Route path="*" element={<div><h1>404 - Página não encontrada</h1></div>} />
+            </Routes>
 
-    {/* Rota para página não encontrada */}
-    <Route path="*" element={<div><h1>404 - Página não encontrada</h1></div>} />
-</Routes>
+            <NotificationModal 
+                isOpen={notification.isOpen}
+                onClose={closeNotification}
+                type={notification.type}
+                message={notification.message}
+            />
 
+            {/* O Modal de Upload/Edição continua aqui, pois é global */}
             <Transition appear show={isModalOpen} as={Fragment}>
                 <Dialog as="div" className="relative z-50" onClose={closeModal}>
                     <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">

@@ -9,7 +9,7 @@ import RecentComments from "../components/RecentComments";
 import { Dialog, Transition } from '@headlessui/react';
 import ProfileEditor from '../components/ProfileEditor';
 
-export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick, onProfileUpdate }) {  
+export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick, onProfileUpdate, onSuccess }) {
     const navigate = useNavigate();
     const [myVideos, setMyVideos] = useState([]);
     const [isLoadingVideos, setIsLoadingVideos] = useState(true);
@@ -82,30 +82,44 @@ const fetchMyData = async () => {
     return (
         <>
             <AnimatedPage>
-                <div className="max-w-7xl mx-auto space-y-8">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div className="flex items-center gap-4">
-                            {/* --- ESTRUTURA CORRIGIDA DO PERFIL --- */}
-                            <button onClick={() => setIsProfileModalOpen(true)} className="relative group/avatar" title="Editar foto de perfil">
-                                <img 
-                                    src={profile?.creatorAvatar || `https://ui-avatars.com/api/?name=${profile?.username?.charAt(0)}&background=f1c40f&color=000`} 
-                                    alt={profile?.username}
-                                    className="w-16 h-16 rounded-full object-cover border-2 border-zinc-700 transition-opacity group-hover/avatar:opacity-70"
-                                />
-                                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
-                                    <span className="text-white text-xs font-bold">Editar</span>
-                                </div>
-                            </button>
-                            {/* O Título e a Bio ficam aqui, como irmãos do botão */}
-                            <div>
-                                <h1 className="text-2xl md:text-3xl font-bold">Olá, {profile?.username || 'Criador'}!</h1>
-                                <p className="text-sm text-gray-400">{profile?.bio || 'Bem-vindo(a) ao seu painel.'}</p>
-                            </div>
+            <div className="max-w-7xl mx-auto space-y-8">
+            <div className="bg-zinc-900 p-6 rounded-lg flex flex-col md:flex-row items-start md:items-center gap-6">
+
+                {/* Bloco de Informações do Parceiro (agora flexível e controlado) */}
+                <div className="flex items-center gap-5 flex-1">
+                    {/* Avatar com tamanho fixo e um pouco maior */}
+                    <button onClick={() => setIsProfileModalOpen(true)} className="relative group/avatar flex-shrink-0" title="Editar foto de perfil">
+                        <img 
+                            src={profile?.creatorAvatar || `https://ui-avatars.com/api/?name=${profile?.username?.charAt(0)}&background=f1c40f&color=000`} 
+                            alt={profile?.username}
+                            className="w-20 h-20 rounded-full object-cover border-2 border-zinc-700 transition-opacity group-hover/avatar:opacity-70"
+                        />
+                        <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+                            <span className="text-white text-xs font-bold">Editar</span>
                         </div>
-                        <button onClick={onUploadClick} title="Fazer Upload de Vídeo" className="bg-[#f1c40f] text-black font-bold rounded-lg hover:bg-opacity-90 transition-all duration-200 hover:scale-105 flex items-center justify-center w-12 h-12">
-                            <span className="text-3xl pb-1">+</span>
-                        </button>
+                    </button>
+
+                    {/* Textos com melhor hierarquia e espaçamento */}
+                    <div className="flex-1">
+                        <p className="text-sm font-bold text-[#f1c40f] tracking-wider">PAINEL DO PARCEIRO</p>
+                        <h1 className="text-3xl font-bold text-white mt-1">Olá, {profile?.username || 'Criador'}!</h1>
+                        <p className="text-gray-300 text-sm mt-2 max-w-xl">{profile?.bio || 'Bem-vindo(a) ao seu painel.'}</p>
                     </div>
+                </div>
+
+                {/* Botão de Upload Aprimorado */}
+                <button 
+                    onClick={onUploadClick} 
+                    title="Fazer Upload de Vídeo" 
+                    className="bg-[#f1c40f] text-black font-bold rounded-lg hover:bg-opacity-90 transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 px-4 py-3 self-start md:self-center flex-shrink-0"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    </svg>
+                    {/* O texto some em telas muito pequenas para não quebrar o layout */}
+                    <span className="hidden sm:inline">Novo Vídeo</span>
+                </button>
+            </div>
 
                 {/* --- ATUALIZAÇÃO: Cards de Estatísticas agora mostram dados reais --- */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -226,6 +240,7 @@ const fetchMyData = async () => {
                                         setIsProfileModalOpen(false);
                                         onProfileUpdate(); // Avisa o App.jsx para re-buscar o perfil
                                     }}
+                                    onSuccess={onSuccess}
                                 />
                             </Dialog.Panel>
                         </div>
