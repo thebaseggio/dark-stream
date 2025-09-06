@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
+import UploadStatus from '../components/UploadStatus';
 
 // Dentro de src/pages/MainLayout.jsx
 
@@ -78,6 +79,7 @@ export default function MainLayout({ user, profile }) {
                     <Outlet />
                 </div>
             </main>
+            <UploadStatus />
             <Footer />
         </div>
     );

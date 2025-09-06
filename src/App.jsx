@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Fragment } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './supabase';
+import { NotificationProvider } from './contexts/NotificationProvider.jsx';
 
 // Componentes e Páginas
 import MainLayout from './pages/MainLayout';
@@ -16,7 +17,8 @@ import { Dialog, Transition } from '@headlessui/react';
 import PartnerPage from './pages/PartnerPage';
 import SignupPage from './pages/SignupPage';
 import NotificationModal from './components/NotificationModal.jsx';
-import VisitorProfilePage from './pages/VisitorProfilePage'; 
+import VisitorProfilePage from './pages/VisitorProfilePage';
+import { UploadProvider } from './contexts/UploadProvider.jsx'; 
 
 const PrivateRoute = ({ children, user }) => {
     return user ? children : <Navigate to="/login" />;
@@ -88,8 +90,10 @@ export default function App() {
     }
 
  return (
-    <Router>
-        <>
+    <NotificationProvider showNotification={showNotification}>
+        <UploadProvider>
+            <Router>
+            <>
             <Routes>
                 {/* --- Rotas 100% Públicas --- */}
                 <Route path="/" element={<LandingPage />} />
@@ -158,6 +162,8 @@ export default function App() {
                 </Dialog>
             </Transition>
         </>
-    </Router>
+        </Router>
+  </UploadProvider>
+</NotificationProvider>
   );
 }

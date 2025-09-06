@@ -16,6 +16,11 @@ const ErrorIcon = () => (
   </svg>
 );
 
+const InfoIcon = () => (
+  <svg className="h-12 w-12 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
 
 export default function NotificationModal({ isOpen, onClose, type = 'success', message }) {
   return (
@@ -47,11 +52,12 @@ export default function NotificationModal({ isOpen, onClose, type = 'success', m
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-zinc-900 p-6 text-left align-middle shadow-xl transition-all border border-zinc-700">
                 <div className="flex flex-col items-center text-center gap-4">
                   
-                  {/* Ícone dinâmico */}
-                  {type === 'success' ? <SuccessIcon /> : <ErrorIcon />}
+                  {/* VERSÃO CORRETA E ÚNICA DO ÍCONE */}
+                  {type === 'success' ? <SuccessIcon /> : type === 'error' ? <ErrorIcon /> : <InfoIcon />}
 
-                  <Dialog.Title as="h3" className={`text-lg font-bold leading-6 ${type === 'success' ? 'text-white' : 'text-red-400'}`}>
-                    {type === 'success' ? 'Sucesso!' : 'Ocorreu um Erro'}
+                  {/* VERSÃO CORRETA E ÚNICA DO TÍTULO */}
+                  <Dialog.Title as="h3" className={`text-lg font-bold leading-6 ${type === 'success' ? 'text-white' : type === 'error' ? 'text-red-400' : 'text-white'}`}>
+                    {type === 'success' ? 'Sucesso!' : type === 'error' ? 'Ocorreu um Erro' : 'Aviso'}
                   </Dialog.Title>
                   
                   <div className="mt-2">
@@ -61,10 +67,13 @@ export default function NotificationModal({ isOpen, onClose, type = 'success', m
                   </div>
 
                   <div className="mt-4">
+                    {/* VERSÃO CORRETA E ÚNICA DO BOTÃO */}
                     <button
                       type="button"
                       className={`inline-flex justify-center rounded-md border border-transparent px-8 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 
-                        ${type === 'success' ? 'bg-[#f1c40f] text-black hover:bg-yellow-400 focus-visible:ring-yellow-500' : 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500'}`}
+                        ${type === 'success' ? 'bg-[#f1c40f] text-black hover:bg-yellow-400 focus-visible:ring-yellow-500' 
+                        : type === 'error' ? 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500' 
+                        : 'bg-zinc-600 text-white hover:bg-zinc-700 focus-visible:ring-blue-500'}`}
                       onClick={onClose}
                     >
                       Ok
