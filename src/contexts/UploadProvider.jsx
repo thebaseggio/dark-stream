@@ -20,8 +20,44 @@ export const UploadProvider = ({ children }) => {
 
   const workerRef = useRef(null);
 
+const handleUploadSuccess = async (videoUrl) => {
+    console.log('✅ DETETIVE 1: handleUploadSuccess foi chamada com a URL:', videoUrl);
+
+    if (!uploadState.videoMetadata) {
+      console.error('❌ ERRO: Metadados do vídeo não encontrados no estado.');
+      showNotification('error', "Metadados não encontrados para salvar.");
+      return;
+    }
+    
+    try {
+      const finalMetadata = { ...uploadState.videoMetadata, videoUrl };
+      console.log('🕵️ DETETIVE 2: Tentando inserir estes metadados no banco:', finalMetadata);
+
+      const { error } = await supabase.from('videos').insert([finalMetadata]);
+      
+      if (error) {
+        console.error('❌ ERRO DO SUPABASE ao inserir:', error);
+        throw error;
+      }
+
+      console.log('🎉 DETETIVE 3: Inserção no banco de dados foi um SUCESSO.');
+      setUploadState(prev => ({ ...prev, status: 'success', progress: 100 }));
+      showNotification('success', 'Vídeo publicado com sucesso no seu painel!');
+    
+    } catch (error) {
+      console.error('💥 ERRO no bloco CATCH:', error.message);
+      setUploadState(prev => ({ ...prev, status: 'error', error: `Erro ao salvar no banco: ${error.message}` }));
+      showNotification('error', `Erro ao publicar o vídeo: ${error.message}`);
+    }
+  };
+
+  const handleSuccessRef = useRef(handleUploadSuccess);
+
   useEffect(() => {
-    // << 2. NOVA FORMA DE CRIAR O WORKER (MAIS SIMPLES)
+    handleSuccessRef.current = handleUploadSuccess;
+  }, [handleUploadSuccess]);
+
+  useEffect(() => {
     workerRef.current = new Worker();
 
     workerRef.current.onmessage = (event) => {
@@ -31,9 +67,8 @@ export const UploadProvider = ({ children }) => {
           setUploadState(prev => ({ ...prev, status: 'uploading', progress: payload.percentage }));
           break;
         case 'success':
-          // A notificação de sucesso é chamada aqui!
           showNotification('success', 'Upload concluído! Salvando informações...');
-          handleUploadSuccess(payload.finalUrl);
+          handleSuccessRef.current(payload.finalUrl);
           break;
         case 'error':
           showNotification('error', `Falha no upload: ${payload}`);
@@ -45,27 +80,8 @@ export const UploadProvider = ({ children }) => {
     };
 
     return () => workerRef.current.terminate();
-  }, []); // Adicionada a dependência correta
+  }, []);
 
-  const handleUploadSuccess = async (videoUrl) => {
-    // A LINHA DO ALERT FOI REMOVIDA DAQUI
-    if (!uploadState.videoMetadata) {
-      setUploadState(prev => ({ ...prev, status: 'error', error: "Metadados não encontrados para salvar." }));
-      showNotification('error', "Metadados não encontrados para salvar.");
-      return;
-    }
-    
-    try {
-      const finalMetadata = { ...uploadState.videoMetadata, videoUrl };
-      const { error } = await supabase.from('videos').insert([finalMetadata]);
-      if (error) throw error;
-      setUploadState(prev => ({ ...prev, status: 'success', progress: 100 }));
-      showNotification('success', 'Vídeo publicado com sucesso no seu painel!');
-    } catch (error) {
-      setUploadState(prev => ({ ...prev, status: 'error', error: `Erro ao salvar no banco: ${error.message}` }));
-      showNotification('error', `Erro ao publicar o vídeo: ${error.message}`);
-    }
-  };
 
   const startUpload = useCallback((uploadData, metadata) => {
     if (workerRef.current) {
