@@ -19,16 +19,20 @@ function VideoCard({ video, onNavigate }) {
         <div onClick={() => onNavigate(videoPath)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col h-full group cursor-pointer transition-all duration-300 hover:border-[#f1c40f]/50 hover:shadow-lg hover:shadow-[#f1c40f]/10">
             {/* Bloco da Imagem */}
             <div className="relative w-full aspect-video mb-4 overflow-hidden rounded-md">
-                <img src={video.thumbnail || `https://placehold.co/480x360/111/FFF?text=IMG`} alt={video.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"/>
+                <img 
+                src={video.thumbnail || `https://placehold.co/480x360/111/FFF?text=IMG`} 
+                alt={video.title} 
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                />
             </div>
 
             {/* --- NOVA ESTRUTURA PARA O CONTEÚDO --- */}
             {/* Este div vai crescer e empurrar as informações do Parceiro para o final */}
             <div className="flex flex-col flex-grow">
                 {/* O título agora tem espaço para crescer */}
-                <h2 className="font-bold text-base text-white capitalize leading-snug group-hover:text-[#f1c40f] transition-colors">
-                    {video.title}
-                </h2>
+            <h2 className="font-bold text-base text-white uppercase leading-snug group-hover:text-[#f1c40f] transition-colors">
+                {video.title}
+            </h2>
                 
                 {/* Este div vazio com flex-grow atua como um espaçador mágico */}
                 <div className="flex-grow"></div> 
@@ -106,18 +110,6 @@ export default function Explore() { // Não recebe mais a prop 'videos'
         <AnimatedPage>
             {isNavigating && <PageTransition />}
             <div className="space-y-8">
-                <div className="p-4 bg-zinc-900 rounded-lg flex flex-col md:flex-row items-center gap-4">
-                    <h3 className="font-semibold flex-shrink-0 text-white">Filtros:</h3>
-                    <div className="flex flex-wrap gap-2">
-                        {categories.map((c) => (
-                            <button key={c} onClick={() => setSelectedCategory(prev => prev === c ? '' : c)} className={`px-3 py-1 text-sm rounded-full transition-colors ${selectedCategory === c ? 'bg-[#f1c40f] text-black font-bold' : 'bg-zinc-700 hover:bg-zinc-600 text-white'}`}>
-                                {c}
-                            </button>
-                        ))}
-                        {selectedCategory && (<button onClick={() => setSelectedCategory('')} className="w-8 h-8 flex items-center justify-center text-sm rounded-full bg-red-600 hover:bg-red-500 text-white font-bold" title="Limpar filtro">&times;</button>)}
-                    </div>
-                    <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar por título..." className="w-full md:w-auto md:ml-auto bg-zinc-800 border border-zinc-700 text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-[#f1c40f]"/>
-                </div>
                 <div>
                     <h2 className="font-anton text-white text-2xl mb-6 text-left">Todos os Casos</h2>
                     {loading ? (

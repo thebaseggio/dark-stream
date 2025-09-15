@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import UploadStatus from '../components/UploadStatus';
+import Searchbar from '../components/Searchbar';
 
 // Dentro de src/pages/MainLayout.jsx
 
@@ -20,6 +21,9 @@ function Header({ user, profile }) {
                         <Link to="/casos">
                             <img src="/LogoT.png" alt="Dark Stream" className="h-16 w-auto" />
                         </Link>
+                    </div>
+                    <div className="flex-1 flex justify-center px-2 lg:ml-6 lg:justify-end">
+                      <Searchbar />
                     </div>
 
                     <div className="flex items-center gap-4">

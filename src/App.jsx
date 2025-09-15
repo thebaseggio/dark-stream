@@ -19,6 +19,7 @@ import SignupPage from './pages/SignupPage';
 import NotificationModal from './components/NotificationModal.jsx';
 import VisitorProfilePage from './pages/VisitorProfilePage';
 import { UploadProvider } from './contexts/UploadProvider.jsx'; 
+import SearchResults from './pages/SearchResults';
 
 const PrivateRoute = ({ children, user }) => {
     return user ? children : <Navigate to="/login" />;
@@ -110,6 +111,8 @@ export default function App() {
                     <Route path="/video/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/caso/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/parceiro/:id" element={<PartnerPage currentUser={user} />} />
+
+                    <Route path="/busca" element={<SearchResults />} />
 
                     <Route path="/meu-perfil" element={
                         <PrivateRoute user={user}>
