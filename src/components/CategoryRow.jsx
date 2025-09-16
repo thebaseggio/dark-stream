@@ -34,7 +34,7 @@ export default function CategoryRow({ title, videos, onNavigate }) {
     };
 
     return (
-        <div className="space-y-4 relative group/row">
+        <div className="space-y-4 relative mb-12">
             <div onClick={() => onNavigate(`/categoria/${encodeURIComponent(title)}`)} className="cursor-pointer">
                 <h2 className="font-anton text-white text-2xl hover:text-[#f1c40f] transition-colors inline-block">
                     {title}

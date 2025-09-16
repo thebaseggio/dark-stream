@@ -24,6 +24,7 @@ export default function VideoPlayer({ user }) {
 
     // --- SEÇÃO DE ESTADOS (VERSÃO CORRIGIDA E LIMPA) ---
     const [video, setVideo] = useState(null);
+    const [updateShorts, setUpdateShorts] = useState([]); 
     const [relatedVideos, setRelatedVideos] = useState([]);
     const [loading, setLoading] = useState(true);
     const [comments, setComments] = useState([]);
@@ -70,23 +71,29 @@ export default function VideoPlayer({ user }) {
         const fetchData = async () => {
             if (!videoId) return;
             setLoading(true);
-            const { data: videoData, error: videoError } = await supabase.from('videos').select('*, creator_id (id, username, creatorAvatar)').eq('id', videoId).single();
+            
+            // 1. Busca o vídeo principal
+            const { data: videoData, error: videoError } = await supabase.from('videos').select('*, creator_id (id, username, "creatorAvatar")').eq('id', videoId).single();
             if (videoError || !videoData) { console.error("Erro ao buscar vídeo:", videoError); setLoading(false); return; }
             setVideo(videoData);
 
             const creatorId = videoData.creator_id.id;
-            const [commentsRes, subsCountRes, userSubRes, userRatingRes] = await Promise.all([
-                supabase.from('comments').select('*, user_id (id, username, creatorAvatar)').eq('video_id', videoId).order('created_at', { ascending: false }),
+
+            // 2. Busca todos os outros dados em paralelo
+            const [commentsRes, subsCountRes, userSubRes, userRatingRes, shortsRes] = await Promise.all([
+                supabase.from('comments').select('*, user_id (id, username, "creatorAvatar")').eq('video_id', videoId).order('created_at', { ascending: false }),
                 supabase.from('subscriptions').select('*', { count: 'exact', head: true }).eq('creator_id', creatorId),
                 user ? supabase.from('subscriptions').select('id').eq('creator_id', creatorId).eq('follower_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
-                // Nova busca: pega a avaliação do usuário para este vídeo
-                user ? supabase.from('ratings').select('rating_value').eq('video_id', videoId).eq('user_id', user.id).single() : Promise.resolve({ data: null })
+                user ? supabase.from('ratings').select('rating_value').eq('video_id', videoId).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+                // << NOVA BUSCA: Encontra os shorts que são "filhos" deste vídeo >>
+                supabase.from('videos').select('id, title, thumbnail').eq('parent_video_id', videoId).eq('is_short', true).order('created_at', { ascending: true })
             ]);
 
             setComments(commentsRes.data || []);
             setSubscriberCount(subsCountRes.count || 0);
             setIsSubscribed(!!userSubRes.data);
-            setUserRating(userRatingRes.data?.rating_value || 0); // Define o estado da avaliação
+            setUserRating(userRatingRes.data?.rating_value || 0);
+            setUpdateShorts(shortsRes.data || []); // << SALVA OS SHORTS NO ESTADO
 
             setLoading(false);
             setIsLoadingComments(false);
@@ -94,12 +101,13 @@ export default function VideoPlayer({ user }) {
         fetchData();
     }, [videoId, user]);
 
-    useEffect(() => {
+useEffect(() => {
     const registerView = async () => {
         if (videoId) {
-            // Chamamos a função 'increment_views' que criamos no Supabase
+            // A chamada correta para a nova função 'increment_views'
             const { error } = await supabase.rpc('increment_views', {
-                video_row_id: videoId
+                video_row_id: videoId,
+                viewer_id: user?.id // Passa o ID do usuário, ou null se não logado
             });
 
             if (error) {
@@ -108,8 +116,15 @@ export default function VideoPlayer({ user }) {
         }
     };
     
-    registerView();
-}, [videoId]); // A lista de dependências com [videoId] garante que isso rode apenas uma vez por vídeo.
+    // Usamos um pequeno timeout para não registrar a view imediatamente
+    // caso o usuário saia da página muito rápido.
+    const timer = setTimeout(() => {
+        registerView();
+    }, 2000); // A view é registrada após 2 segundos
+
+    return () => clearTimeout(timer); // Limpa o timer se o componente for desmontado
+
+}, [videoId, user]); // A lista de dependências com [videoId] garante que isso rode apenas uma vez por vídeo.
 
 
 const handleRatingSubmit = async (newRating) => {
@@ -160,16 +175,24 @@ const handleRatingSubmit = async (newRating) => {
     useEffect(() => { const v = videoRef.current; if (v) { const onPlay = () => setIsPlaying(true); const onPause = () => setIsPlaying(false); const setVideoDuration = () => setDuration(v.duration); const onTimeUpdate = () => { setCurrentTime(v.currentTime); setProgress((v.currentTime / v.duration) * 100 || 0); }; v.addEventListener('play', onPlay); v.addEventListener('pause', onPause); v.addEventListener('timeupdate', onTimeUpdate); v.addEventListener('loadedmetadata', setVideoDuration); return () => { v.removeEventListener('play', onPlay); v.removeEventListener('pause', onPause); v.removeEventListener('timeupdate', onTimeUpdate); v.removeEventListener('loadedmetadata', setVideoDuration); }; } }, [!showIntro]);
     useEffect(() => { const handleKeyDown = (e) => { const target = e.target; if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return; switch (e.key.toLowerCase()) { case ' ': e.preventDefault(); togglePlayPause(); break; case 'f': toggleFullScreen(); break; case 'm': toggleMute(); break; case 'arrowright': if (videoRef.current) videoRef.current.currentTime += 5; break; case 'arrowleft': if (videoRef.current) videoRef.current.currentTime -= 5; break; default: break; } }; window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown); }, [video]);
 
-    // --- RENDERIZAÇÃO ---
-    if (loading) { return <div className="bg-black text-white min-h-screen flex items-center justify-center"><LoadingSpinner /></div>; }
-    if (!video) { return <div className="bg-black text-white min-h-screen flex items-center justify-center"><p>Vídeo não encontrado.</p></div>; }
+    if (loading) {
+        return <div className="bg-black text-white min-h-screen flex items-center justify-center"><LoadingSpinner /></div>;
+    }
+    if (!video) {
+        return <div className="bg-black text-white min-h-screen flex items-center justify-center"><p>Vídeo não encontrado.</p></div>;
+    }
     if (showIntro) {
         return (
             <div className="bg-black w-full h-full fixed inset-0 flex items-center justify-center z-50 overflow-hidden">
                 {introStep === 1 ? (
-                    <div className={`text-center text-white p-4 animate-fade-in ${fadeOutFirstPart ? 'animate-fade-out' : ''}`}><p className="text-3xl font-anton text-gray-300">Dark Stream & <span className="text-[#f1c40f]">{video.creator_id?.username || 'Criador'}</span></p><p className="text-xl text-gray-300 mt-1">Apresentam:</p></div>
+                    <div className={`text-center text-white p-4 animate-fade-in ${fadeOutFirstPart ? 'animate-fade-out' : ''}`}>
+                        <p className="text-3xl font-anton text-gray-300">Dark Stream & <span className="text-[#f1c40f]">{video.creator_id?.username || 'Criador'}</span></p>
+                        <p className="text-xl text-gray-300 mt-1">Apresentam:</p>
+                    </div>
                 ) : (
-                    <div className={`text-center text-white p-4 animate-fade-in ${fadeOutSecondPart ? 'animate-fade-out' : ''}`}><h1 className="text-4xl md:text-6xl font-anton">{video.title}</h1></div>
+                    <div className={`text-center text-white p-4 animate-fade-in ${fadeOutSecondPart ? 'animate-fade-out' : ''}`}>
+                        <h1 className="text-4xl md:text-6xl font-anton">{video.title}</h1>
+                    </div>
                 )}
                 <button onClick={() => setShowIntro(false)} className="absolute bottom-6 right-6 bg-black/50 text-white text-xs font-semibold px-4 py-2 rounded-full hover:bg-white/20 transition-colors">PULAR INTRO</button>
             </div>
@@ -182,32 +205,43 @@ const handleRatingSubmit = async (newRating) => {
                 {/* O Player de Vídeo */}
                 <div ref={playerContainerRef} className={`relative w-full aspect-video bg-black rounded-lg overflow-hidden group mb-6 ${!areControlsVisible && !videoRef.current?.paused ? 'cursor-none' : ''}`} onMouseMove={handleActivity} onMouseLeave={() => setAreControlsVisible(false)} onTouchStart={handleActivity}>
                     <video ref={videoRef} onClick={togglePlayPause} onDoubleClick={toggleFullScreen} className="w-full h-full object-cover" src={video.videoUrl} />
-                    <div className={`absolute top-0 left-0 right-0 p-4 lg:p-6 flex items-center gap-4 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${areControlsVisible ? 'opacity-100' : 'opacity-0'}`}><button onClick={() => navigate(-1)} className="text-white hover:bg-white/20 rounded-full p-2 transition-colors" title="Voltar"><BackIcon className="w-6 h-6" /></button><h1 className="text-white text-xl font-bold truncate">{video.title}</h1></div>
-                    <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent transition-opacity duration-300 ${areControlsVisible ? 'opacity-100' : 'opacity-0'}`}><input type="range" min="0" max={duration} value={currentTime} onChange={handleProgressChange} className="w-full h-1.5 custom-range" /><div className="flex items-center justify-between mt-2 text-white"><div className="flex items-center gap-4"><button onClick={togglePlayPause} className="w-6 h-6">{isPlaying ? <PauseIcon /> : <PlayIcon />}</button><div className="flex items-center gap-2"><button onClick={toggleMute} className="w-6 h-6">{isMuted || volume === 0 ? <VolumeMuteIcon /> : <VolumeHighIcon />}</button><input type="range" min="0" max="1" step="0.05" value={isMuted ? 0 : volume} onChange={handleVolumeChange} className="w-24 h-1 custom-range" /></div><span className="text-xs font-mono">{formatTime(currentTime)} / {formatTime(duration)}</span></div><button onClick={toggleFullScreen} className="w-6 h-6"><FullscreenIcon /></button></div></div>
+                    <div className={`absolute top-0 left-0 right-0 p-4 lg:p-6 flex items-center gap-4 bg-gradient-to-b from-black/70 to-transparent transition-opacity duration-300 ${areControlsVisible ? 'opacity-100' : 'opacity-0'}`}>
+                        <button onClick={() => navigate(-1)} className="text-white hover:bg-white/20 rounded-full p-2 transition-colors" title="Voltar"><BackIcon className="w-6 h-6" /></button>
+                        <h1 className="text-white text-xl font-bold truncate">{video.title}</h1>
+                    </div>
+                    <div className={`absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent transition-opacity duration-300 ${areControlsVisible ? 'opacity-100' : 'opacity-0'}`}>
+                        <input type="range" min="0" max={duration} value={currentTime} onChange={handleProgressChange} className="w-full h-1.5 custom-range" />
+                        <div className="flex items-center justify-between mt-2 text-white">
+                            <div className="flex items-center gap-4">
+                                <button onClick={togglePlayPause} className="w-6 h-6">{isPlaying ? <PauseIcon /> : <PlayIcon />}</button>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={toggleMute} className="w-6 h-6">{isMuted || volume === 0 ? <VolumeMuteIcon /> : <VolumeHighIcon />}</button>
+                                    <input type="range" min="0" max="1" step="0.05" value={isMuted ? 0 : volume} onChange={handleVolumeChange} className="w-24 h-1 custom-range" />
+                                </div>
+                                <span className="text-xs font-mono">{formatTime(currentTime)} / {formatTime(duration)}</span>
+                            </div>
+                            <button onClick={toggleFullScreen} className="w-6 h-6"><FullscreenIcon /></button>
+                        </div>
+                    </div>
                 </div>
                 
-                {/* --- NOSSO NOVO LAYOUT DE CINEMA --- */}
+                {/* --- NOSSO NOVO LAYOUT DE DUAS COLUNAS --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-8 gap-y-10">
+                    
+                    {/* --- COLUNA PRINCIPAL (ESQUERDA) --- */}
                     <div className="lg:col-span-2">
                         <h1 className="text-3xl font-bold text-white leading-tight">{video.title}</h1>
                         
-                        {/* --- NOVO GRUPO DE BOTÕES DE AVALIAÇÃO --- */}
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4">
                             <p className="text-sm text-zinc-400">Postado em {new Date(video.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                            
                             <div className="flex items-center gap-2 mt-4 sm:mt-0 bg-zinc-900 border border-zinc-800 rounded-full p-1">
-                                <button onClick={() => handleRatingSubmit(1)} disabled={isProcessingRating} className={`p-2 rounded-full transition-colors ${userRating === 1 ? 'bg-[#f1c40f] text-black' : 'hover:bg-zinc-700 text-zinc-300'}`} title="Gostei">
-                                    <ThumbsUpIcon className="w-5 h-5" />
-                                </button>
-                                <button onClick={() => handleRatingSubmit(2)} disabled={isProcessingRating} className={`p-2 rounded-full transition-colors ${userRating === 2 ? 'bg-purple-500 text-white' : 'hover:bg-zinc-700 text-zinc-300'}`} title="Gostei muito">
-                                    <SuperLikeIcon className="w-5 h-5" />
-                                </button>
-                                <div className="w-px h-6 bg-zinc-700 mx-1"></div> {/* Divisor */}
-                                <button onClick={() => handleRatingSubmit(-1)} disabled={isProcessingRating} className={`p-2 rounded-full transition-colors ${userRating === -1 ? 'bg-red-600 text-white' : 'hover:bg-zinc-700 text-zinc-300'}`} title="Não gostei">
-                                    <ThumbsDownIcon className="w-5 h-5" />
-                                </button>
+                                <button onClick={() => handleRatingSubmit(1)} disabled={isProcessingRating} className={`p-2 rounded-full transition-colors ${userRating === 1 ? 'bg-[#f1c40f] text-black' : 'hover:bg-zinc-700 text-zinc-300'}`} title="Gostei"><ThumbsUpIcon className="w-5 h-5" /></button>
+                                <button onClick={() => handleRatingSubmit(2)} disabled={isProcessingRating} className={`p-2 rounded-full transition-colors ${userRating === 2 ? 'bg-purple-500 text-white' : 'hover:bg-zinc-700 text-zinc-300'}`} title="Gostei muito"><SuperLikeIcon className="w-5 h-5" /></button>
+                                <div className="w-px h-6 bg-zinc-700 mx-1"></div>
+                                <button onClick={() => handleRatingSubmit(-1)} disabled={isProcessingRating} className={`p-2 rounded-full transition-colors ${userRating === -1 ? 'bg-red-600 text-white' : 'hover:bg-zinc-700 text-zinc-300'}`} title="Não gostei"><ThumbsDownIcon className="w-5 h-5" /></button>
                             </div>
                         </div>
+
                         <div className="flex items-center gap-4 my-6 py-4 border-y border-zinc-800">
                             <Link to={`/parceiro/${video.creator_id.id}`}>
                                 <img src={video.creator_id.creatorAvatar || `https://ui-avatars.com/api/?name=${video.creator_id.username.charAt(0)}&background=f1c40f&color=000`} alt={video.creator_id.username} className="w-14 h-14 rounded-full object-cover"/>
@@ -217,11 +251,10 @@ const handleRatingSubmit = async (newRating) => {
                                 <p className="text-sm text-zinc-400">{subscriberCount.toLocaleString('pt-BR')} seguidores</p>
                             </div>
                             {user?.id !== video.creator_id.id && (
-                                <button onClick={handleFollowToggle} disabled={isProcessingFollow} className={`font-semibold px-6 py-2 rounded-lg transition-all duration-200 w-40 text-center text-sm ${isSubscribed ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-white hover:bg-zinc-200 text-black'}`}>
-                                    {isProcessingFollow ? '...' : (isSubscribed ? 'Inscrito ✓' : 'Inscrever-se')}
-                                </button>
+                                <button onClick={handleFollowToggle} disabled={isProcessingFollow} className={`font-semibold px-6 py-2 rounded-lg transition-all duration-200 w-40 text-center text-sm ${isSubscribed ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-white hover:bg-zinc-200 text-black'}`}>{isProcessingFollow ? '...' : (isSubscribed ? 'Inscrito ✓' : 'Inscrever-se')}</button>
                             )}
                         </div>
+
                         <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-lg">
                             <p className="text-white whitespace-pre-wrap leading-relaxed">{video.description || 'Nenhuma descrição fornecida.'}</p>
                         </div>
@@ -255,25 +288,43 @@ const handleRatingSubmit = async (newRating) => {
                     </div>
                     {/* --- BARRA LATERAL --- */}
                     <div className="lg:col-span-1">
-                        <div className="bg-zinc-900 rounded-lg p-4 sticky top-24">
-                            <h4 className="font-bold text-white mb-4">Mais de {video.creator_id.username}</h4>
-                            <div className="space-y-4">
-                                {relatedVideos.length > 0 ? (
-                                    relatedVideos.map(related => (
-                                        <Link to={`/video/${related.id}`} key={related.id} className="flex items-center gap-4 group">
-                                            <div className="w-28 flex-shrink-0">
-                                                <img src={related.thumbnail} alt={related.title} className="w-full aspect-video object-cover rounded-md" />
-                                            </div>
-                                            <div>
-                                                <h5 className="text-sm font-bold text-white leading-tight line-clamp-2 group-hover:text-[#f1c40f] transition-colors">{related.title}</h5>
-                                                <p className="text-xs text-zinc-400 mt-1">{related.creator_id.username}</p>
-                                            </div>
-                                        </Link>
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-zinc-400">Nenhum outro caso encontrado deste Parceiro.</p>
-                                )}
+                        <div className="bg-zinc-900 rounded-lg p-4 sticky top-24 space-y-8">
+                            
+                            {/* 1. Seção de Updates (Shorts) */}
+                            {updateShorts.length > 0 && (
+                                <div>
+                                    <h4 className="font-bold text-white mb-4">Updates do Caso (Shorts)</h4>
+                                    <div className="space-y-4">
+                                        {updateShorts.map(short => (
+                                            <Link to={`/video/${short.id}`} key={short.id} className="flex items-center gap-4 group">
+                                                <div className="w-28 flex-shrink-0"><img src={short.thumbnail} alt={short.title} className="w-full aspect-video object-cover rounded-md" /></div>
+                                                <div><h5 className="text-sm font-bold text-white leading-tight line-clamp-2 group-hover:text-[#f1c40f]">{short.title}</h5></div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 2. Seção "Mais de..." */}
+                            <div>
+                                <h4 className="font-bold text-white mb-4">Mais de {video.creator_id.username}</h4>
+                                <div className="space-y-4">
+                                    {relatedVideos.length > 0 ? (
+                                        relatedVideos.map(related => (
+                                            <Link to={`/video/${related.id}`} key={related.id} className="flex items-center gap-4 group">
+                                                <div className="w-28 flex-shrink-0"><img src={related.thumbnail} alt={related.title} className="w-full aspect-video object-cover rounded-md" /></div>
+                                                <div>
+                                                    <h5 className="text-sm font-bold text-white leading-tight line-clamp-2 group-hover:text-[#f1c40f]">{related.title}</h5>
+                                                    <p className="text-xs text-zinc-400 mt-1">{related.creator_id.username}</p>
+                                                </div>
+                                            </Link>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-zinc-400">Nenhum outro caso encontrado deste Parceiro.</p>
+                                    )}
+                                </div>
                             </div>
+
                         </div>
                     </div>
                 </div>

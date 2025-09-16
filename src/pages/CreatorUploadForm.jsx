@@ -13,6 +13,30 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
     const [videoFile, setVideoFile] = useState(null);
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [parentVideos, setParentVideos] = useState([]);
+
+        useEffect(() => {
+        if (videoToEdit) return;
+
+        const fetchUserVideos = async () => {
+            if (!user) return;
+            
+            const { data, error } = await supabase
+                .from('videos')
+                .select('id, title')
+                .eq('creator_id', user.id)
+                .eq('is_short', false)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("Erro ao buscar vídeos do usuário:", error);
+            } else {
+                setParentVideos(data);
+            }
+        };
+
+        fetchUserVideos();
+    }, [user, videoToEdit]);
 
     useEffect(() => {
         if (videoToEdit) {
@@ -27,7 +51,6 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
 
     const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
-    // ADICIONANDO A FUNÇÃO DE VOLTA
         const handleFileChange = (e) => {
         const { name, files } = e.target;
         if (files[0]) {
@@ -127,7 +150,10 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                   tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
                   thumbnail: thumbnailUrl,
                   creator_id: user.id,
-                  views: 0, gostei_muito: 0, gostei: 0, nao_gostei: 0
+                  views: 0, gostei_muito: 0, gostei: 0, nao_gostei: 0,
+                  // Adicionando os novos campos
+                  is_short: formData.is_short || false,
+                  parent_video_id: formData.is_short ? formData.parent_video_id : null,
               };
 
               const workerData = {
@@ -151,7 +177,7 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
 
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
             <div>
                 <label htmlFor="title" className="block text-sm font-medium mb-1">Título do Caso</label>
                 <input type="text" name="title" value={formData.title} onChange={handleChange} disabled={isSubmitting || uploadState.status === 'uploading'} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f] disabled:opacity-50" />
@@ -184,6 +210,38 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                 <label htmlFor="description" className="block text-sm font-medium mb-1">Descrição</label>
                 <textarea name="description" rows="4" value={formData.description} onChange={handleChange} disabled={isSubmitting} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 disabled:opacity-50"></textarea>
             </div>
+                    <div className="space-y-2">
+            <div className="flex items-center gap-2">
+                <input
+                    type="checkbox"
+                    id="is_short"
+                    name="is_short"
+                    checked={formData.is_short || false}
+                    onChange={handleChange}
+                    className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+                />
+                <label htmlFor="is_short" className="text-sm font-medium">Este vídeo é um update (short)?</label>
+            </div>
+
+            {/* Dropdown condicional que só aparece se 'is_short' for marcado */}
+            {formData.is_short && (
+                <div className="pl-6">
+                    <label htmlFor="parent_video_id" className="block text-sm font-medium mb-1">Selecione o caso principal</label>
+                    <select
+                        name="parent_video_id"
+                        id="parent_video_id"
+                        value={formData.parent_video_id || ''}
+                        onChange={handleChange}
+                        className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f]"
+                    >
+                        <option value="">Selecione um vídeo...</option>
+                        {parentVideos.map(video => (
+                            <option key={video.id} value={video.id}>{video.title}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+        </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2"> {/* Ocupa a largura inteira */}
