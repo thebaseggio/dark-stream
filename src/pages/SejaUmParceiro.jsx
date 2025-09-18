@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import AnimatedPage from '../AnimatedPage';
 import { supabase } from '../supabase';
+import { useNotification } from '../contexts/NotificationProvider';
 
 export default function SejaUmParceiro() {
   const [formData, setFormData] = useState({ name: '', email: '', channelUrl: '', message: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState('');
   const [formStatus, setFormStatus] = useState({ message: '', type: '' });
+  const { showNotification } = useNotification();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -16,21 +18,18 @@ export default function SejaUmParceiro() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setFormStatus({ message: '', type: '' });
 
-    // Chamada real para a nossa Edge Function
-    const { data, error } = await supabase.functions.invoke('send-partner-application', {
+    const { error } = await supabase.functions.invoke('send-partner-application', {
       body: formData,
     });
 
+    // ✨ 3. Use o sistema de notificação em vez da mensagem de texto ✨
     if (error) {
-      // Em caso de erro, exibe uma mensagem de erro
-      setFormStatus({ message: 'Ocorreu um erro ao enviar sua inscrição. Tente novamente.', type: 'error' });
+      showNotification('error', 'Ocorreu um erro ao enviar sua inscrição. Tente novamente.');
       console.error("Erro ao chamar a Edge Function:", error);
     } else {
-      // Em caso de sucesso, exibe a mensagem de sucesso
-      setFormStatus({ message: 'Obrigado pelo seu interesse! Entraremos em contato em breve.', type: 'success' });
-      setFormData({ name: '', email: '', channelUrl: '', message: '' }); // Limpa o formulário
+      showNotification('success', 'Obrigado pelo seu interesse! Entraremos em contato em breve.');
+      setFormData({ name: '', email: '', channelUrl: '', message: '' });
     }
 
     setIsSubmitting(false);
