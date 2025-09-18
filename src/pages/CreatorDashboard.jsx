@@ -237,7 +237,7 @@ return (
 
                 {/* --- 6. Comentários Recentes --- */}
                 <div className="pt-6 border-t border-zinc-800">
-                    <RecentComments userId={user?.id} />
+                    <RecentComments userId={user?.id} user={user} />
                 </div>
                     {/* Seção para o Conteúdo */}
     <div className="pt-6 border-t border-zinc-800 bg-zinc-900 p-6 rounded-lg">

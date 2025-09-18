@@ -17,6 +17,37 @@ const ThumbsUpIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="curr
 const ThumbsDownIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"></path></svg> );
 const SuperLikeIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg> );
 
+function ReplyItem({ reply }) {
+    if (!reply.author) return null;
+    return (
+        <div className="flex items-start space-x-3 mt-4">
+            <img className="h-10 w-10 rounded-full object-cover" src={reply.author.creatorAvatar || `...`} alt={reply.author.username} />
+            <div className="flex-1">
+                <p className="font-bold text-sm text-white">{reply.author.username} <span className="text-xs text-zinc-400 font-normal ml-2">{new Date(reply.created_at).toLocaleDateString('pt-BR')}</span></p>
+                <p className="text-zinc-300 mt-1">{reply.content}</p>
+            </div>
+        </div>
+    );
+}
+
+function CommentWithReplies({ comment }) {
+    return (
+        <div className="flex items-start gap-4">
+            <img src={comment.author.creatorAvatar || `...`} alt={comment.author.username} className="w-10 h-10 rounded-full"/>
+            <div className="flex-1">
+                <p className="font-bold text-sm text-white">{comment.author.username} <span className="text-xs text-zinc-400 font-normal ml-2">{new Date(comment.created_at).toLocaleDateString('pt-BR')}</span></p>
+                <p className="text-zinc-300 mt-1">{comment.content}</p>
+
+                {/* Renderiza as respostas se elas existirem */}
+                {comment.comment_replies?.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-zinc-800 space-y-4">
+                        {comment.comment_replies.map(reply => <ReplyItem key={reply.id} reply={reply} />)}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export default function VideoPlayer({ user }) {
     const { id: videoId } = useParams();
@@ -81,11 +112,20 @@ export default function VideoPlayer({ user }) {
 
             // 2. Busca todos os outros dados em paralelo
             const [commentsRes, subsCountRes, userSubRes, userRatingRes, shortsRes] = await Promise.all([
-                supabase.from('comments').select('*, user_id (id, username, "creatorAvatar")').eq('video_id', videoId).order('created_at', { ascending: false }),
+                // A query de comentários agora busca as respostas aninhadas
+                supabase.from('comments')
+                    .select(`
+                        *,
+                        author:user_id ( id, username, creatorAvatar ),
+                        comment_replies ( *, author:user_id ( id, username, creatorAvatar ) )
+                    `)
+                    .eq('video_id', videoId)
+                    .order('created_at', { ascending: false }),
+                
+                // O resto das buscas continua igual
                 supabase.from('subscriptions').select('*', { count: 'exact', head: true }).eq('creator_id', creatorId),
                 user ? supabase.from('subscriptions').select('id').eq('creator_id', creatorId).eq('follower_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
                 user ? supabase.from('ratings').select('rating_value').eq('video_id', videoId).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
-                // << NOVA BUSCA: Encontra os shorts que são "filhos" deste vídeo >>
                 supabase.from('videos').select('id, title, thumbnail').eq('parent_video_id', videoId).eq('is_short', true).order('created_at', { ascending: true })
             ]);
 
@@ -259,8 +299,7 @@ const handleRatingSubmit = async (newRating) => {
                             <p className="text-white whitespace-pre-wrap leading-relaxed">{video.description || 'Nenhuma descrição fornecida.'}</p>
                         </div>
                         <div className="mt-10">
-                            <h3 className="text-xl font-bold text-white mb-6">{comments.length.toLocaleString('pt-BR')} Comentários</h3>
-                            {user ? (
+                            <h3 className="text-xl font-bold text-white mb-6">{comments.length.toLocaleString('pt-BR')} Comentários</h3>                            {user ? (
                                 <form onSubmit={handleCommentSubmit} className="flex items-start gap-4 mb-8">
                                     <img src={user.profile?.creatorAvatar || `https://ui-avatars.com/api/?name=${user.email.charAt(0)}&background=8e44ad&color=FFF`} alt="Seu avatar" className="w-10 h-10 rounded-full"/>
                                     <div className="flex-1">
@@ -271,20 +310,15 @@ const handleRatingSubmit = async (newRating) => {
                                     </div>
                                 </form>
                             ) : ( <p className="text-zinc-400 mb-8">Você precisa <Link to="/login" className="text-[#f1c40f] hover:underline">fazer login</Link> para comentar.</p> )}
-                            <div className="space-y-6">
-                                {isLoadingComments ? ( <p className="text-zinc-400">Carregando comentários...</p> ) : (
-                                    comments.map(comment => (
-                                        <div key={comment.id} className="flex items-start gap-4">
-                                            <img src={comment.user_id.creatorAvatar || `https://ui-avatars.com/api/?name=${comment.user_id.username.charAt(0)}&background=f1c40f&color=000`} alt={comment.user_id.username} className="w-10 h-10 rounded-full"/>
-                                            <div>
-                                                <p className="font-bold text-sm text-white">{comment.user_id.username} <span className="text-xs text-zinc-400 font-normal ml-2">{new Date(comment.created_at).toLocaleDateString('pt-BR')}</span></p>
-                                                <p className="text-zinc-300 mt-1">{comment.content}</p>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
+                    <div className="space-y-6">
+                        {isLoadingComments ? ( <p>Carregando...</p> ) : (
+                            // Usamos o novo sub-componente para renderizar os comentários e suas respostas
+                            comments.map(comment => (
+                                <CommentWithReplies key={comment.id} comment={comment} />
+                            ))
+                        )}
+                    </div>
+                </div>
                     </div>
                     {/* --- BARRA LATERAL --- */}
                     <div className="lg:col-span-1">
