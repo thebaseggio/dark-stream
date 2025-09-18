@@ -1,4 +1,4 @@
-// src/components/CategoryRow.jsx (versão final e corrigida)
+// src/components/CategoryRow.jsx
 
 import React, { useRef } from 'react';
 import { Link } from 'react-router-dom';
@@ -13,7 +13,6 @@ function MiniVideoCard({ video, onNavigate }) {
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                 />
             </div>
-            {/* CORREÇÃO AQUI: Adicionadas as classes 'uppercase' e 'h-10' */}
             <h3 className="mt-2 text-sm text-white font-semibold uppercase h-10 group-hover:text-[#f1c40f]">
                 {video.title}
             </h3>
@@ -34,7 +33,8 @@ export default function CategoryRow({ title, videos, onNavigate }) {
     };
 
     return (
-        <div className="space-y-4 relative mb-12">
+        // ✨ A CORREÇÃO ESTÁ AQUI: Adicionamos 'group/row' ✨
+        <div className="group/row space-y-4 relative mb-12">
             <div onClick={() => onNavigate(`/categoria/${encodeURIComponent(title)}`)} className="cursor-pointer">
                 <h2 className="font-anton text-white text-2xl hover:text-[#f1c40f] transition-colors inline-block">
                     {title}
@@ -43,13 +43,13 @@ export default function CategoryRow({ title, videos, onNavigate }) {
             
             <button 
                 onClick={() => scroll('left')} 
-                className="absolute left-0 top-1/2 -translate-x-4 z-10 p-2 bg-black/60 rounded-full text-white opacity-0 group-hover/row:opacity-100 transition-all hover:bg-[#f1c40f] hover:text-black disabled:opacity-0"
+                className="absolute left-0 top-1/2 -translate-x-4 -translate-y-1/2 z-10 p-2 bg-black/60 rounded-full text-white opacity-0 group-hover/row:opacity-100 transition-all hover:bg-[#f1c40f] hover:text-black disabled:opacity-0"
             >
                 &lt;
             </button>
             <button 
                 onClick={() => scroll('right')} 
-                className="absolute right-0 top-1/2 translate-x-4 z-10 p-2 bg-black/60 rounded-full text-white opacity-0 group-hover/row:opacity-100 transition-all hover:bg-[#f1c40f] hover:text-black"
+                className="absolute right-0 top-1/2 translate-x-4 -translate-y-1/2 z-10 p-2 bg-black/60 rounded-full text-white opacity-0 group-hover/row:opacity-100 transition-all hover:bg-[#f1c40f] hover:text-black"
             >
                 &gt;
             </button>
