@@ -3,8 +3,7 @@ import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import UploadStatus from '../components/UploadStatus';
 import Searchbar from '../components/Searchbar';
-
-// Dentro de src/pages/MainLayout.jsx
+import Footer from '../components/Footer';
 
 function Header({ user, profile }) {
     const navigate = useNavigate();
@@ -29,7 +28,6 @@ function Header({ user, profile }) {
                     <div className="flex items-center gap-4">
                         {user ? (
                             <>
-                                {/* --- LÓGICA CONDICIONAL DO BOTÃO --- */}
                                 <Link to="/meu-perfil">
                                     <button className="bg-[#8e44ad] hover:bg-opacity-90 text-white font-semibold px-4 py-1.5 rounded-md text-sm transition-colors">
                                         {/* Se for parceiro, mostra "Painel". Senão, "Meu Perfil". */}
@@ -62,16 +60,6 @@ function Header({ user, profile }) {
     );
 }
 
-function Footer() {
-    return (
-        <footer className="bg-black">
-            <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
-                <p>© 2025 Dark Stream. Todos os direitos reservados.</p>
-            </div>
-        </footer>
-    );
-}
-
 export default function MainLayout({ user, profile }) {
     return (
         <div className="min-h-screen flex flex-col bg-black text-white font-sans">
@@ -79,7 +67,6 @@ export default function MainLayout({ user, profile }) {
             <main className="flex-grow">
                 {/* O contêiner central que define o espaçamento das páginas */}
                 <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-                    {/* 👇 A PEÇA FUNDAMENTAL QUE FALTAVA 👇 */}
                     <Outlet />
                 </div>
             </main>

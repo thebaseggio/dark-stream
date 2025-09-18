@@ -26,17 +26,12 @@ const itemVariants = {
 
 export default function LandingPage() {
   return (
-    // 1. O CONTAINER PRINCIPAL DA PÁGINA
-    // Ele agora é relativo para posicionar os filhos absolutos dentro dele.
-    <div className="relative flex flex-col min-h-screen bg-black text-white">
-      
-      {/* 2. O FUNDO E O FILTRO (OVERLAY) */}
-      {/* Esta div aplica a imagem de fundo */}
+    <div className="relative flex flex-col min-h-screen bg-black text-white overflow-hidden">
+      {/* O FUNDO E O FILTRO (OVERLAY) */}
       <div 
-        className="absolute inset-0 bg-cover bg-center" 
+        className="absolute inset-0 bg-cover bg-center animate-kenburns"
         style={{ backgroundImage: "url('/landing-bg.jpg')" }}
       ></div>
-      {/* Esta div cria o filtro escuro por cima da imagem */}
       <div className="absolute inset-0 bg-black opacity-60"></div>
 
 
@@ -66,7 +61,7 @@ export default function LandingPage() {
 
         <main className="flex-grow flex items-center justify-center text-center px-4">
           <motion.div
-            className="relative"
+            className="flex flex-col items-center"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
@@ -77,9 +72,10 @@ export default function LandingPage() {
             <motion.p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8" variants={itemVariants}>
               A maior comunidade de criadores e fãs de True Crime do Brasil.
             </motion.p>
+            
             <motion.div variants={itemVariants}>
-              <Link to="/casos" className="bg-[#f1c40f] hover:bg-[#f1c40f]/90 text-black font-bold py-3 px-8 rounded-lg text-lg inline-block transition-transform duration-200 hover:scale-105">
-                Comece a Explorar
+              <Link to="/casos" className="bg-[#f1c40f] hover:bg-opacity-90 text-black font-bold py-3 px-8 rounded-lg text-lg inline-block transition-transform duration-200 hover:scale-105">
+                Investigue Agora
               </Link>
             </motion.div>
           </motion.div>

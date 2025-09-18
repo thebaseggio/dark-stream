@@ -1,6 +1,6 @@
 // src/components/CategoryRow.jsx
 
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 function MiniVideoCard({ video, onNavigate }) {
@@ -22,6 +22,32 @@ function MiniVideoCard({ video, onNavigate }) {
 
 export default function CategoryRow({ title, videos, onNavigate }) {
     const scrollContainerRef = useRef(null);
+    // ✨ NOVO ESTADO para controlar a visibilidade das setas ✨
+    const [showScroll, setShowScroll] = useState(false);
+
+    // ✨ NOVA LÓGICA para verificar se a rolagem é necessária ✨
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        const checkScroll = () => {
+            // Mostra as setas apenas se a largura do conteúdo for maior que a largura visível
+            if (container.scrollWidth > container.clientWidth) {
+                setShowScroll(true);
+            } else {
+                setShowScroll(false);
+            }
+        };
+
+        checkScroll(); // Verifica na montagem inicial
+
+        // Usa ResizeObserver para verificar novamente se o tamanho da janela mudar
+        const resizeObserver = new ResizeObserver(checkScroll);
+        resizeObserver.observe(container);
+
+        // Limpa o observer quando o componente é desmontado
+        return () => resizeObserver.unobserve(container);
+    }, [videos]); // Roda novamente se a lista de vídeos mudar
 
     if (!videos || videos.length === 0) return null;
 
@@ -33,12 +59,9 @@ export default function CategoryRow({ title, videos, onNavigate }) {
     };
 
     return (
-        // ✨ A CORREÇÃO ESTÁ AQUI: Adicionamos 'group/row' ✨
         <div className="group/row space-y-4 relative mb-12">
             <div onClick={() => onNavigate(`/categoria/${encodeURIComponent(title)}`)} className="cursor-pointer">
-                <h2 className="font-anton text-white text-2xl hover:text-[#f1c40f] transition-colors inline-block">
-                    {title}
-                </h2>
+                <h2 className="font-anton text-white text-2xl hover:text-[#f1c40f] transition-colors inline-block">{title}</h2>
             </div>
             
             <button 
@@ -55,9 +78,7 @@ export default function CategoryRow({ title, videos, onNavigate }) {
             </button>
 
             <div ref={scrollContainerRef} className="flex space-x-4 overflow-x-auto pb-4 scrollbar-hide">
-                {videos.map(video => (
-                    <MiniVideoCard key={video.id} video={video} onNavigate={onNavigate} />
-                ))}
+                {videos.map(video => <MiniVideoCard key={video.id} video={video} onNavigate={onNavigate} />)}
             </div>
         </div>
     );
