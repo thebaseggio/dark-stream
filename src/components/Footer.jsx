@@ -1,5 +1,3 @@
-// src/components/Footer.jsx
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 
@@ -12,7 +10,6 @@ export default function Footer() {
           &copy; {new Date().getFullYear()} Dark Stream. Todos os direitos reservados.
         </p>
         
-        {/* Links adicionados aqui */}
         <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 order-1 sm:order-2">
           <Link to="/nossa-missao" className="text-sm hover:text-[#f1c40f] transition-colors">
             Nossa Missão
@@ -23,8 +20,9 @@ export default function Footer() {
           <Link to="/politica-de-privacidade" className="text-sm hover:text-[#f1c40f] transition-colors">
             Política de Privacidade
           </Link>
-          <Link to="/meu-perfil" className="text-sm hover:text-[#f1c40f] transition-colors">
-            Painel do Parceiro
+          {/* ✨ LINK ATUALIZADO ✨ */}
+          <Link to="/seja-um-parceiro" className="text-sm hover:text-[#f1c40f] transition-colors">
+            Seja um Parceiro
           </Link>
         </nav>
 

@@ -24,6 +24,7 @@ import CategoryPage from './pages/CategoryPage';
 import NossaMissao from './pages/NossaMissao';
 import TermosDeServico from './pages/TermosDeServico';
 import PoliticaDePrivacidade from './pages/PoliticaDePrivacidade';
+import SejaUmParceiro from './pages/SejaUmParceiro';
 
 
 const PrivateRoute = ({ children, user }) => {
@@ -122,6 +123,7 @@ export default function App() {
                     <Route path="/nossa-missao" element={<NossaMissao />} />
                     <Route path="/termos-de-servico" element={<TermosDeServico />} />
                     <Route path="/politica-de-privacidade" element={<PoliticaDePrivacidade />} />
+                    <Route path="/seja-um-parceiro" element={<SejaUmParceiro />} />
 
                     <Route path="/meu-perfil" element={
                         <PrivateRoute user={user}>
