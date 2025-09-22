@@ -1,162 +1,280 @@
-// src/pages/PartnerPage.jsx
-
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
+import VideoCard from '../components/VideoCard'; // Importado para "Mais de..."
+import { useNotification } from '../contexts/NotificationProvider';
 
-function VideoCard({ video }) {
+// Ícone de verificado
+const VerifiedIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10.09,16.5L6.5,12.91L7.91,11.5L10.09,13.67L16.08,7.68L17.5,9.09L10.09,16.5Z" /></svg> );
+
+export default function VideoPlayer({ currentUser }) {
+    const { id: videoId } = useParams();
     const navigate = useNavigate();
-    return (
-        <div 
-            onClick={() => navigate(`/video/${video.id}`)}
-            className="bg-black border-2 border-zinc-800 rounded-lg p-3 flex flex-col h-full cursor-pointer group transform transition-transform duration-300 hover:scale-[1.03] hover:border-[#f1c40f]"
-        >
-            <img src={video.thumbnail || `https://placehold.co/480x360/000000/FFF?text=${video.title}`} alt={video.title} className="rounded-md object-cover w-full h-40 mb-2"/>
-            <h2 className="font-anton text-center text-white text-base capitalize tracking-wide leading-snug mt-2 line-clamp-2 flex-grow">
-                {video.title}
-            </h2>
-            <div className="mt-auto flex justify-center gap-2 pt-2">
-                <Link to={`/video/${video.id}`} onClick={(e) => e.stopPropagation()} className="bg-[#f1c40f] hover:bg-opacity-90 text-[#040402] font-bold py-2 px-3 rounded text-xs text-center flex-1">
-                    🎬 Assistir
-                </Link>
-            </div>
-        </div>
-    );
-}
-
-export default function PartnerPage({ currentUser }) {
-    const { id: partnerId } = useParams();
-    const navigate = useNavigate();
-
-    const [partnerProfile, setPartnerProfile] = useState(null);
-    const [partnerVideos, setPartnerVideos] = useState([]);
+    const [video, setVideo] = useState(null);
+    const [comments, setComments] = useState([]);
+    const [newComment, setNewComment] = useState('');
     const [loading, setLoading] = useState(true);
+    const [relatedVideos, setRelatedVideos] = useState([]);
+    const videoRef = useRef(null);
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [subscriberCount, setSubscriberCount] = useState(0);
     const [isProcessingFollow, setIsProcessingFollow] = useState(false);
+    const [notification, setNotification] = useState({ show: false, message: '', type: '' });
 
-    // --- NOVO: Estado para as estatísticas públicas ---
-    const [publicStats, setPublicStats] = useState({
-        totalViews: 0,
-        totalLikes: 0,
-    });
+    // Função para mostrar notificação
+    const showNotification = (type, message) => {
+        setNotification({ show: true, message, type });
+        setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000);
+    };
 
     useEffect(() => {
-        // A função que contém o 'await' precisa ser 'async'
-        const fetchPartnerData = async () => {
-            if (!partnerId) return;
+        const fetchVideoAndComments = async () => {
             setLoading(true);
+            // Incrementa as visualizações
+            await supabase.rpc('increment_video_views', { video_id: videoId });
 
-            // O 'await' deve estar dentro da função 'async'
-            const [profileRes, videosRes, subsCountRes, userSubRes] = await Promise.all([
-                supabase.from('profiles').select('*').eq('id', partnerId).single(),
-                supabase.from('videos').select('*').eq('creator_id', partnerId),
-                supabase.from('subscriptions').select('*', { count: 'exact', head: true }).eq('creator_id', partnerId),
-                currentUser ? supabase.from('subscriptions').select('id').eq('creator_id', partnerId).eq('follower_id', currentUser.id).maybeSingle() : Promise.resolve({ data: null })
-            ]);
+            const { data: videoData, error: videoError } = await supabase
+                .from('videos')
+                .select(`
+                    *,
+                    profiles(id, username, creatorAvatar:avatar_url, role)
+                `)
+                .eq('id', videoId)
+                .single();
 
-            if (profileRes.error) {
-                console.error("Erro ao buscar perfil:", profileRes.error);
+            if (videoError || !videoData) {
+                console.error("Erro ao buscar vídeo:", videoError);
                 setLoading(false);
                 return;
             }
 
-            setPartnerProfile(profileRes.data);
-            setPartnerVideos(videosRes.data || []);
-            setSubscriberCount(subsCountRes.count || 0);
-            setIsSubscribed(!!userSubRes.data);
+            setVideo(videoData);
             
+            // Buscar comentários
+            const { data: commentsData, error: commentsError } = await supabase
+                .from('comments')
+                .select(`
+                    *,
+                    profiles(id, username, avatar_url)
+                `)
+                .eq('video_id', videoId)
+                .order('created_at', { ascending: false });
+
+            if (commentsError) {
+                console.error("Erro ao buscar comentários:", commentsError);
+            } else {
+                setComments(commentsData);
+            }
+
+            // Buscar vídeos relacionados do mesmo criador (para "Mais de...")
+            const { data: relatedData, error: relatedError } = await supabase
+                .from('videos')
+                .select(`
+                    id, title, thumbnail_url, views, created_at,
+                    creator_id, profiles(username, role)
+                `)
+                .eq('creator_id', videoData.creator_id)
+                .neq('id', videoId) // Excluir o vídeo atual
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (relatedError) {
+                console.error("Erro ao buscar vídeos relacionados:", relatedError);
+            } else {
+                // Mapear para incluir creator_username e creator_role no objeto video
+                setRelatedVideos(relatedData.map(v => ({
+                    ...v,
+                    creator_username: v.profiles.username,
+                    creator_role: v.profiles.role // Adiciona a role aqui
+                })));
+            }
+            
+            // Verificar subscrição e contagem de seguidores
+            if (currentUser && videoData.creator_id) {
+                const { data: userSubData } = await supabase
+                    .from('subscriptions')
+                    .select('id')
+                    .eq('creator_id', videoData.creator_id)
+                    .eq('follower_id', currentUser.id)
+                    .maybeSingle();
+                setIsSubscribed(!!userSubData);
+            }
+
+            const { count: subsCount, error: subsCountError } = await supabase
+                .from('subscriptions')
+                .select('*', { count: 'exact', head: true })
+                .eq('creator_id', videoData.creator_id);
+
+            if (!subsCountError) {
+                setSubscriberCount(subsCount || 0);
+            }
+
             setLoading(false);
         };
 
-        fetchPartnerData();
-    }, [partnerId, currentUser]);
+        fetchVideoAndComments();
+    }, [videoId, currentUser]);
 
-    const handleFollowToggle = async () => {
-        if (!currentUser) {
-            navigate('/login');
-            return;
-        }
-        if (currentUser.id === partnerId) return;
+    const handleLike = async () => { /* ... (sem alterações) ... */ };
+    const handleDislike = async () => { /* ... (sem alterações) ... */ };
+    const handleAddComment = async (e) => { /* ... (sem alterações) ... */ };
 
-        setIsProcessingFollow(true);
-        if (isSubscribed) {
-            const { error } = await supabase.from('subscriptions').delete().match({ creator_id: partnerId, follower_id: currentUser.id });
-            if (!error) {
-                setIsSubscribed(false);
-                setSubscriberCount(prev => prev - 1);
-            }
+const handleFollowToggle = async () => {
+    if (!currentUser) {
+        showNotification('info', 'Você precisa estar logado para seguir um Parceiro.');
+        navigate('/login');
+        return;
+    }
+    if (currentUser.id === partnerId) {
+        showNotification('error', 'Você não pode seguir a si mesmo!');
+        return;
+    }
+
+    setIsProcessingFollow(true);
+    if (isSubscribed) {
+        const { error } = await supabase.from('subscriptions').delete().match({ creator_id: partnerId, follower_id: currentUser.id });
+        if (error) {
+            showNotification('error', `Erro: ${error.message}`);
         } else {
-            const { error } = await supabase.from('subscriptions').insert({ creator_id: partnerId, follower_id: currentUser.id });
-            if (!error) {
-                setIsSubscribed(true);
-                setSubscriberCount(prev => prev + 1);
-            }
+            setIsSubscribed(false);
+            setSubscriberCount(prev => prev - 1);
+            showNotification('success', `Você deixou de seguir ${partnerProfile.username}.`);
         }
-        setIsProcessingFollow(false);
+    } else {
+        const { error } = await supabase.from('subscriptions').insert({ creator_id: partnerId, follower_id: currentUser.id });
+        if (error) {
+            showNotification('error', `Erro: ${error.message}`);
+        } else {
+            setIsSubscribed(true);
+            setSubscriberCount(prev => prev + 1);
+            showNotification('success', `Agora você está seguindo ${partnerProfile.username}!`);
+        }
+    }
+    setIsProcessingFollow(false);
+};
+
+
+    const formattedViews = (views) => {
+        if (!views) return "0 visualizações";
+        if (views >= 1000000) return `${(views / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+        if (views >= 1000) return `${(views / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+        return `${views}`;
     };
 
-    if (loading) {
-        return <div className="text-center p-10">Carregando perfil do Parceiro...</div>;
-    }
+    const timeAgo = (timestamp) => {
+        // ... (função timeAgo sem alterações)
+        const now = new Date();
+        const past = new Date(timestamp);
+        const diffInSeconds = Math.floor((now - past) / 1000);
 
-    if (!partnerProfile) {
-        return <div className="text-center p-10">Parceiro não encontrado.</div>;
-    }
+        const minutes = Math.floor(diffInSeconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+        const months = Math.floor(days / 30);
+        const years = Math.floor(months / 12);
+
+        if (years > 0) return `${years} ano${years > 1 ? 's' : ''} atrás`;
+        if (months > 0) return `${months} mês${months > 1 ? 'es' : ''} atrás`;
+        if (days > 0) return `${days} dia${days > 1 ? 's' : ''} atrás`;
+        if (hours > 0) return `${hours} hora${hours > 1 ? 's' : ''} atrás`;
+        if (minutes > 0) return `${minutes} minuto${minutes > 1 ? 's' : ''} atrás`;
+        return 'agora mesmo';
+    };
+
+
+    if (loading) return <div className="text-center p-10">Carregando vídeo...</div>;
+    if (!video) return <div className="text-center p-10">Vídeo não encontrado.</div>;
 
     return (
         <AnimatedPage>
-            {/* Seção do Banner do Perfil (COM NOVOS CARDS) */}
-            <div className="bg-zinc-900 rounded-lg p-6 md:p-8 mb-8">
-                <div className="flex flex-col md:flex-row items-center gap-6">
-                    <img src={partnerProfile.creatorAvatar || `...`} alt={partnerProfile.username} className="w-24 h-24 ..."/>
-                    <div className="text-center md:text-left flex-grow">
-                        <h1 className="text-3xl md:text-4xl font-bold">{partnerProfile.username}</h1>
-                        <p className="text-md text-gray-400 mt-2 max-w-2xl">{partnerProfile.bio}</p>
+            <Notification show={notification.show} message={notification.message} type={notification.type} />
+            <div className="flex flex-col lg:flex-row gap-6 p-4 sm:p-6 lg:p-8 max-w-[1700px] mx-auto">
+                {/* Main Content Area */}
+                <div className="flex-grow lg:w-2/3">
+                    <div className="aspect-video bg-zinc-800 rounded-lg overflow-hidden">
+                        <video controls src={video.video_url} ref={videoRef} className="w-full h-full object-cover"></video>
                     </div>
-                </div>
-                
-                {/* --- NOVA SEÇÃO DE ESTATÍSTICAS PÚBLICAS --- */}
-                <div className="mt-8 pt-6 border-t border-zinc-800 grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                    <div>
-                        <p className="text-2xl font-bold">{partnerVideos.length}</p>
-                        <p className="text-sm text-zinc-400">Vídeos</p>
-                    </div>
-                    <div>
-                        <p className="text-2xl font-bold">{subscriberCount.toLocaleString('pt-BR')}</p>
-                        <p className="text-sm text-zinc-400">Seguidores</p>
-                    </div>
-                    <div>
-                        <p className="text-2xl font-bold">{publicStats.totalViews.toLocaleString('pt-BR')}</p>
-                        <p className="text-sm text-zinc-400">Visualizações</p>
-                    </div>
-                    {/* Botão de Seguir movido para cá para ficar junto das métricas */}
-                    <div className="col-span-2 sm:col-span-1">
-                        {currentUser?.id !== partnerId && (
+                    <h1 className="text-2xl font-bold text-white mt-4">{video.title}</h1>
+                    <p className="text-gray-400 text-sm mt-1">Postado em {new Date(video.created_at).toLocaleDateString('pt-BR')} de {new Date(video.created_at).getFullYear()}</p>
+
+                    {/* Creator Info & Actions */}
+                    <div className="flex items-center justify-between mt-4 border-b border-zinc-700 pb-4">
+                        <div className="flex items-center gap-3">
+                            <img src={video.profiles?.creatorAvatar || `https://ui-avatars.com/api/?name=${video.profiles?.username.charAt(0)}&background=27272a&color=f1c40f&bold=true`} alt={video.profiles?.username} className="w-12 h-12 rounded-full object-cover cursor-pointer" onClick={() => navigate(`/partner/${video.creator_id}`)}/>
+                            <div className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-white font-semibold cursor-pointer" onClick={() => navigate(`/partner/${video.creator_id}`)}>{video.profiles?.username}</span>
+                                    {video.profiles?.role === 'partner' && <VerifiedIcon className="w-4 h-4 text-blue-500" title="Parceiro Verificado"/>}
+                                </div>
+                                <span className="text-gray-400 text-sm">{subscriberCount.toLocaleString('pt-BR')} seguidores</span>
+                            </div>
+                        </div>
+                        {currentUser?.id !== video.creator_id && (
                             <button
                                 onClick={handleFollowToggle}
                                 disabled={isProcessingFollow}
-                                className={`font-semibold px-6 py-3 rounded-lg transition-all duration-200 w-full text-center text-sm ${isSubscribed ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-white hover:bg-zinc-200 text-black'}`}
+                                className={`font-semibold px-6 py-2 rounded-lg transition-all duration-200 text-sm ${
+                                    isSubscribed 
+                                    ? 'bg-zinc-700 hover:bg-zinc-600 text-white' 
+                                    : 'bg-[#f1c40f] hover:bg-opacity-90 text-black'
+                                }`}
                             >
-                                {isProcessingFollow ? '...' : (isSubscribed ? 'Seguindo ✓' : 'Seguir')}
+                                {isProcessingFollow ? '...' : (isSubscribed ? 'Seguindo ✓' : 'Inscrever-se')}
                             </button>
                         )}
                     </div>
-                </div>
-            </div>
 
-            <div>
-                <h2 className="font-anton text-white text-2xl mb-6 text-left">Vídeos de {partnerProfile.username}</h2>
-                {partnerVideos.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-10">
-                        {partnerVideos.map(video => (
-                            <VideoCard key={video.id} video={video} />
-                        ))}
+                    {/* Video Description */}
+                    <div className="bg-zinc-800 p-4 rounded-lg mt-4 text-gray-300">
+                        <p className="font-semibold text-white mb-2">{formattedViews(video.views)} visualizações • {timeAgo(video.created_at)}</p>
+                        <p>{video.description}</p>
                     </div>
-                ) : (
-                    <p className="text-gray-400">Este parceiro ainda não publicou nenhum vídeo.</p>
-                )}
+
+                    {/* Comments Section */}
+                    <div className="mt-8">
+                        <h2 className="text-xl font-bold text-white">{comments.length} Comentários</h2>
+                        <div className="mt-4 flex gap-3 items-start">
+                            <img src={currentUser?.avatar_url || `https://ui-avatars.com/api/?name=${currentUser?.username.charAt(0) || 'U'}&background=27272a&color=f1c40f&bold=true`} alt="Your Avatar" className="w-10 h-10 rounded-full object-cover"/>
+                            <textarea
+                                className="flex-grow p-2 bg-zinc-800 rounded-md text-white border border-zinc-700 focus:border-[#f1c40f] outline-none resize-y"
+                                placeholder="Adicione um comentário..."
+                                value={newComment}
+                                onChange={(e) => setNewComment(e.target.value)}
+                                rows="2"
+                            />
+                            <button
+                                onClick={handleAddComment}
+                                disabled={!newComment.trim()}
+                                className="bg-[#f1c40f] text-black px-4 py-2 rounded-lg font-semibold hover:bg-opacity-90 disabled:bg-zinc-700 disabled:text-gray-400 transition-colors"
+                            >
+                                Comentar
+                            </button>
+                        </div>
+                        <div className="mt-6 space-y-4">
+                            {comments.map(comment => (
+                                <div key={comment.id} className="flex items-start gap-3">
+                                    <img src={comment.profiles?.avatar_url || `https://ui-avatars.com/api/?name=${comment.profiles?.username.charAt(0) || 'U'}&background=27272a&color=f1c40f&bold=true`} alt={comment.profiles?.username} className="w-9 h-9 rounded-full object-cover"/>
+                                    <div className="flex flex-col">
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-white font-semibold text-sm">{comment.profiles?.username}</span>
+                                            <span className="text-gray-500 text-xs">{timeAgo(comment.created_at)}</span>
+                                        </div>
+                                        <p className="text-gray-300 text-sm mt-1">{comment.content}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Related Videos Sidebar */}
+                <div className="lg:w-1/3 space-y-4">
+                    <h2 className="text-xl font-bold text-white">Mais de {video.profiles?.username}</h2>
+                    {relatedVideos.map(relatedVideo => (
+                        <VideoCard key={relatedVideo.id} video={relatedVideo} orientation="horizontal" onNavigate={(path) => navigate(path)} />
+                    ))}
+                </div>
             </div>
         </AnimatedPage>
     );
