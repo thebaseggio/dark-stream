@@ -31,17 +31,19 @@ export default function VideoPlayer({ currentUser }) {
     useEffect(() => {
         const fetchVideoAndComments = async () => {
             setLoading(true);
-            // Incrementa as visualizações
-            await supabase.rpc('increment_video_views', { video_id: videoId });
+            supabase.rpc('increment_views', { video_row_id: videoId })
+            .then(({ error }) => {
+                if (error) {
+                // Usamos console.warn para indicar que é um erro não-crítico
+                console.warn('Falha ao registrar view (não-crítico):', error);
+                }
+            });
 
             const { data: videoData, error: videoError } = await supabase
                 .from('videos')
-                .select(`
-                    *,
-                    profiles(id, username, creatorAvatar:avatar_url, role)
-                `)
+                .select('*, profiles (id, username, creatorAvatar)')
                 .eq('id', videoId)
-                .single();
+                .maybeSingle();
 
             if (videoError || !videoData) {
                 console.error("Erro ao buscar vídeo:", videoError);
@@ -56,7 +58,7 @@ export default function VideoPlayer({ currentUser }) {
                 .from('comments')
                 .select(`
                     *,
-                    profiles(id, username, avatar_url)
+                    profiles(id, username, creatorAvatar) // <--- CORRIGIDO
                 `)
                 .eq('video_id', videoId)
                 .order('created_at', { ascending: false });
@@ -235,7 +237,7 @@ const handleFollowToggle = async () => {
                     <div className="mt-8">
                         <h2 className="text-xl font-bold text-white">{comments.length} Comentários</h2>
                         <div className="mt-4 flex gap-3 items-start">
-                            <img src={currentUser?.avatar_url || `https://ui-avatars.com/api/?name=${currentUser?.username.charAt(0) || 'U'}&background=27272a&color=f1c40f&bold=true`} alt="Your Avatar" className="w-10 h-10 rounded-full object-cover"/>
+                            <img src={currentUser?.creatorAvatar || `https://ui-avatars.com/api/?name=${currentUser?.username.charAt(0) || 'U'}&background=27272a&color=f1c40f&bold=true`} alt="Your Avatar" className="w-10 h-10 rounded-full object-cover"/>
                             <textarea
                                 className="flex-grow p-2 bg-zinc-800 rounded-md text-white border border-zinc-700 focus:border-[#f1c40f] outline-none resize-y"
                                 placeholder="Adicione um comentário..."

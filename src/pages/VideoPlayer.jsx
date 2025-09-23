@@ -104,7 +104,7 @@ export default function VideoPlayer({ user }) {
             setLoading(true);
             
             // 1. Busca o vídeo principal
-            const { data: videoData, error: videoError } = await supabase.from('videos').select('*, creator_id (id, username, "creatorAvatar")').eq('id', videoId).single();
+            const { data: videoData, error: videoError } = await supabase.from('videos').select('*, creator_id (id, username, creatorAvatar)').eq('id', videoId).single();
             if (videoError || !videoData) { console.error("Erro ao buscar vídeo:", videoError); setLoading(false); return; }
             setVideo(videoData);
 
