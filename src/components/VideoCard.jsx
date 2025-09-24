@@ -41,20 +41,40 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical',
         return 'agora mesmo';
     };
 
-    if (orientation === 'horizontal') {
-        return (
-            <div className="flex items-center gap-3 cursor-pointer bg-zinc-800 hover:bg-zinc-700 rounded-lg p-2 transition-colors" onClick={handleCardClick}>
-                <img src={video.thumbnail_url} alt={video.title} className="w-32 h-20 object-cover rounded-md flex-shrink-0"/>
-                <div className="flex flex-col flex-grow">
-                    <h3 className="text-white text-sm font-semibold line-clamp-2 leading-tight">{video.title}</h3>
-                    <div className="flex items-center text-gray-400 text-xs mt-1">
-                        <span>{video.creator_username}</span>
-                        {video.creator_role === 'partner' && <VerifiedIcon className="ml-1 w-3 h-3 text-blue-500" title="Parceiro Verificado"/>}
-                    </div>
+// Substitua todo o bloco 'if (orientation === 'horizontal')' por este:
+
+if (orientation === 'horizontal') {
+    return (
+        <div 
+            className="flex gap-4 cursor-pointer group" 
+            onClick={handleCardClick}
+        >
+            {/* Thumbnail */}
+            <div className="w-40 flex-shrink-0">
+                <img 
+                    src={video.thumbnail} 
+                    alt={video.title} 
+                    className="w-full aspect-video object-cover rounded-lg transition-transform duration-300 group-hover:scale-105"
+                />
+            </div>
+            {/* Informações */}
+            <div className="flex flex-col justify-center">
+                <h3 className="text-white text-md font-semibold line-clamp-2 leading-tight group-hover:text-[#f1c40f]">
+                    {video.title}
+                </h3>
+                <div className="flex items-center text-gray-400 text-sm mt-2 gap-2">
+                    {/* Usamos 'video.creator' pois foi assim que nomeamos no select da aba Histórico */}
+                    <img 
+                        src={video.creator?.creatorAvatar || `https://ui-avatars.com/api/?name=${video.creator?.username.charAt(0)}`}
+                        alt={video.creator?.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                    />
+                    <span>{video.creator?.username}</span>
                 </div>
             </div>
-        );
-    }
+        </div>
+    );
+}
 
         if (variant === 'short') {
         return (

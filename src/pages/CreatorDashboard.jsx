@@ -303,7 +303,7 @@ return (
                     <div className="flex min-h-full items-center justify-center p-4">
                         <Dialog.Panel className="w-full max-w-md transform rounded-2xl bg-zinc-900 p-6 text-left align-middle shadow-xl transition-all">
                             <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-white mb-6">Editar Perfil</Dialog.Title>
-                            <ProfileEditor user={user} profile={profile} onSuccess={onSuccess} onUploadSuccess={() => { setIsProfileModalOpen(false); onProfileUpdate(); }} />
+                            <ProfileEditor user={user} profile={profile} onSuccess={onSuccess} onUploadSuccess={() => { setIsProfileModalOpen(false); onProfileUpdate(); }} mode="partner" />
                         </Dialog.Panel>
                     </div>
                 </div>
