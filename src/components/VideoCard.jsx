@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 // Ícone de verificado
 const VerifiedIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10.09,16.5L6.5,12.91L7.91,11.5L10.09,13.67L16.08,7.68L17.5,9.09L10.09,16.5Z" /></svg> );
 
-export default function VideoCard({ video, onNavigate, orientation = 'vertical' }) {
+export default function VideoCard({ video, onNavigate, orientation = 'vertical', variant = 'default' }) {
     const navigate = useNavigate();
 
     const handleCardClick = () => {
@@ -23,7 +23,6 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical' 
     };
 
     const timeAgo = (timestamp) => {
-        // Implementação da função timeAgo (sem alterações)
         const now = new Date();
         const past = new Date(timestamp);
         const diffInSeconds = Math.floor((now - past) / 1000);
@@ -57,9 +56,23 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical' 
         );
     }
 
+        if (variant === 'short') {
+        return (
+            <div className="w-44 flex-shrink-0 cursor-pointer group" onClick={handleCardClick}>
+                <div className="relative">
+                    <img src={video.thumbnail_url} alt={video.title} className="w-full aspect-[9/16] object-cover rounded-lg transition-transform duration-300 group-hover:scale-105"/>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent rounded-lg"></div>
+                    <div className="absolute bottom-2 left-2 right-2">
+                        <h3 className="text-white text-sm font-semibold line-clamp-2 leading-tight">{video.title}</h3>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="w-full cursor-pointer" onClick={handleCardClick}>
-            <img src={video.thumbnail_url} alt={video.title} className="w-full h-40 object-cover rounded-lg"/>
+        <div className="w-full cursor-pointer group" onClick={handleCardClick}>
+            <img src={video.thumbnail_url} alt={video.title} className="w-full h-40 object-cover rounded-lg transition-transform duration-300 group-hover:scale-105"/>
             <div className="flex items-start gap-3 mt-3">
                 <img src={video.creator_avatar_url || `https://ui-avatars.com/api/?name=${video.creator_username.charAt(0)}&background=27272a&color=f1c40f&bold=true`} alt={video.creator_username} className="w-8 h-8 rounded-full object-cover"/>
                 <div className="flex-grow">

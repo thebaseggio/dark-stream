@@ -13,10 +13,25 @@ export default function Explore() {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isNavigating, setIsNavigating] = useState(false);
+    const [shorts, setShorts] = useState([]);
 
     useEffect(() => {
         const fetchInitialData = async () => {
             setLoading(true);
+
+            // Busca os shorts primeiro (ou em paralelo)
+            const { data: shortsData, error: shortsError } = await supabase
+                .from('videos')
+                .select('*, creator_id (id, username, "creatorAvatar")')
+                .eq('is_short', true)
+                .order('created_at', { ascending: false })
+                .limit(10); // Limita para não buscar todos de uma vez
+
+            if (shortsError) {
+                console.error("Erro ao buscar shorts:", shortsError);
+            } else {
+                setShorts(shortsData || []);
+            }
             
             const { data: categoriesData, error: categoriesError } = await supabase
                 .from('categories')
@@ -37,11 +52,15 @@ export default function Explore() {
             if (videosError) {
                 console.error("Erro ao buscar vídeos:", videosError);
             } else {
+                // FILTRE OS SHORTS DA LISTA PRINCIPAL
+                const regularVideos = videos.filter(video => !video.is_short); 
+
                 const categoryOrder = categoriesData.map(c => c.name);
                 const groups = {};
                 categoryOrder.forEach(cat => { groups[cat] = []; });
-
-                videos.forEach(video => {
+                
+                // USE A LISTA FILTRADA PARA MONTAR OS GRUPOS
+                regularVideos.forEach(video => { 
                     if (Array.isArray(video.category)) {
                         video.category.forEach(cat => {
                             if (groups[cat]) {
@@ -81,14 +100,29 @@ export default function Explore() {
                         </div>
                     ))
                 ) : (
-                    categories.map(category => (
-                        <CategoryRow 
-                            key={category} 
-                            title={category} 
-                            videos={groupedVideos[category]} 
-                            onNavigate={handleNavigation} 
-                        />
-                    ))
+                    <> {/* Usamos um fragmento para agrupar as fileiras */}
+                        
+                        {/* ADICIONE A NOVA FILEIRA DE SHORTS AQUI */}
+                        {shorts.length > 0 && (
+                            <CategoryRow 
+                                key="shorts-updates" 
+                                title="Atualizações e Shorts" 
+                                videos={shorts} 
+                                onNavigate={handleNavigation}
+                                variant="short" 
+                            />
+                        )}
+
+                        {/* O MAP DAS OUTRAS CATEGORIAS CONTINUA ABAIXO */}
+                        {categories.map(category => (
+                            <CategoryRow 
+                                key={category} 
+                                title={category} 
+                                videos={groupedVideos[category]} 
+                                onNavigate={handleNavigation} 
+                            />
+                        ))}
+                    </>
                 )}
             </div>
         </AnimatedPage>

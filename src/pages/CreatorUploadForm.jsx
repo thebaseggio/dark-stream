@@ -9,7 +9,14 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
     const { startUpload, uploadState } = useUpload();
     const { showNotification } = useNotification();
 
-    const [formData, setFormData] = useState({ title: '', description: '', category: [], tags: '' });
+    const [formData, setFormData] = useState({ 
+    title: '', 
+    description: '', 
+    category: [], 
+    tags: '',
+    is_short: false, 
+    short_type: null 
+});
     const [videoFile, setVideoFile] = useState(null);
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -151,8 +158,8 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                   thumbnail: thumbnailUrl,
                   creator_id: user.id,
                   views: 0, gostei_muito: 0, gostei: 0, nao_gostei: 0,
-                  // Adicionando os novos campos
                   is_short: formData.is_short || false,
+                  short_type: formData.is_short ? formData.short_type : null,
                   parent_video_id: formData.is_short ? formData.parent_video_id : null,
               };
 
@@ -211,17 +218,43 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                 <textarea name="description" rows="4" value={formData.description} onChange={handleChange} disabled={isSubmitting} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 disabled:opacity-50"></textarea>
             </div>
                     <div className="space-y-2">
-            <div className="flex items-center gap-2">
-                <input
-                    type="checkbox"
-                    id="is_short"
-                    name="is_short"
-                    checked={formData.is_short || false}
-                    onChange={handleChange}
-                    className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
-                />
-                <label htmlFor="is_short" className="text-sm font-medium">Este vídeo é um update (short)?</label>
+<div className="space-y-4 rounded-lg border border-zinc-700 p-4">
+    <div className="flex items-center gap-3">
+        <input
+            type="checkbox"
+            id="is_short"
+            name="is_short"
+            checked={formData.is_short || false}
+            onChange={(e) => setFormData(prev => ({ ...prev, is_short: e.target.checked, short_type: e.target.checked ? prev.short_type : null }))}
+            className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+        />
+        <label htmlFor="is_short" className="text-sm font-medium">Este vídeo é um Short?</label>
+    </div>
+
+    {/* Opções de Tipo de Short (só aparecem se 'is_short' estiver marcado) */}
+    {formData.is_short && (
+        <div className="pl-7 space-y-2">
+            <p className="text-sm text-zinc-400">Qual o tipo de Short?</p>
+            <div className="flex flex-wrap gap-2">
+                {/* Opção UPDATE */}
+                <button type="button" onClick={() => setFormData(prev => ({...prev, short_type: 'update'}))} 
+                    className={`px-3 py-1 text-sm rounded-full ${formData.short_type === 'update' ? 'bg-blue-500 text-white font-bold' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
+                    Update
+                </button>
+                {/* Opção PRÉVIA */}
+                <button type="button" onClick={() => setFormData(prev => ({...prev, short_type: 'intro'}))} 
+                    className={`px-3 py-1 text-sm rounded-full ${formData.short_type === 'intro' ? 'bg-purple-600 text-white font-bold' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
+                    Prévia
+                </button>
+                {/* Opção FLASH */}
+                <button type="button" onClick={() => setFormData(prev => ({...prev, short_type: 'flash'}))} 
+                    className={`px-3 py-1 text-sm rounded-full ${formData.short_type === 'flash' ? 'bg-yellow-500 text-black font-bold' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
+                    Flash
+                </button>
             </div>
+        </div>
+    )}
+</div>
 
             {/* Dropdown condicional que só aparece se 'is_short' for marcado */}
             {formData.is_short && (
