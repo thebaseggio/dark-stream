@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useUpload } from '../contexts/UploadProvider';
 import { useNotification } from '../contexts/NotificationProvider.jsx';
+import Select from 'react-select';
 
 const allCategories = [ 'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados', 'Serial Killers', 'Documentários', 'Sobrenaturais'];
 
@@ -21,6 +22,7 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
     const [thumbnailFile, setThumbnailFile] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [parentVideos, setParentVideos] = useState([]);
+
 
         useEffect(() => {
         if (videoToEdit) return;
@@ -160,8 +162,8 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
                   views: 0, gostei_muito: 0, gostei: 0, nao_gostei: 0,
                   is_short: formData.is_short || false,
                   short_type: formData.is_short ? formData.short_type : null,
-                  parent_video_id: formData.is_short ? formData.parent_video_id : null,
-              };
+                  parent_video_id: (formData.short_type === 'update' || formData.short_type === 'intro') ? formData.parent_video_id : null,
+                  };
 
               const workerData = {
                   file: videoFile,
@@ -181,6 +183,15 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
           setIsSubmitting(false);
       }
   };
+
+  const videoOptions = parentVideos.map(video => ({
+    value: video.id,
+    label: video.title
+}));
+
+const handleParentVideoChange = (selectedOption) => {
+    setFormData(prev => ({ ...prev, parent_video_id: selectedOption ? selectedOption.value : null }));
+};
 
 
     return (
@@ -231,51 +242,61 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
         <label htmlFor="is_short" className="text-sm font-medium">Este vídeo é um Short?</label>
     </div>
 
-    {/* Opções de Tipo de Short (só aparecem se 'is_short' estiver marcado) */}
+    {/* Conteúdo que só aparece quando 'is_short' está marcado */}
     {formData.is_short && (
-        <div className="pl-7 space-y-2">
-            <p className="text-sm text-zinc-400">Qual o tipo de Short?</p>
-            <div className="flex flex-wrap gap-2">
-                {/* Opção UPDATE */}
-                <button type="button" onClick={() => setFormData(prev => ({...prev, short_type: 'update'}))} 
-                    className={`px-3 py-1 text-sm rounded-full ${formData.short_type === 'update' ? 'bg-blue-500 text-white font-bold' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
-                    Update
-                </button>
-                {/* Opção PRÉVIA */}
-                <button type="button" onClick={() => setFormData(prev => ({...prev, short_type: 'intro'}))} 
-                    className={`px-3 py-1 text-sm rounded-full ${formData.short_type === 'intro' ? 'bg-purple-600 text-white font-bold' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
-                    Prévia
-                </button>
-                {/* Opção FLASH */}
-                <button type="button" onClick={() => setFormData(prev => ({...prev, short_type: 'flash'}))} 
-                    className={`px-3 py-1 text-sm rounded-full ${formData.short_type === 'flash' ? 'bg-yellow-500 text-black font-bold' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
-                    Flash
-                </button>
+        <div className="pl-7 space-y-4">
+            {/* Seletor de Tipo de Short */}
+            <div>
+                <p className="text-sm text-zinc-400 mb-2">Qual o tipo de Short?</p>
+                <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setFormData(prev => ({...prev, short_type: 'update'}))} 
+                        className={`px-3 py-1 text-sm rounded-full ${formData.short_type === 'update' ? 'bg-blue-500 text-white font-bold' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
+                        Update
+                    </button>
+                    <button type="button" onClick={() => setFormData(prev => ({...prev, short_type: 'intro'}))} 
+                        className={`px-3 py-1 text-sm rounded-full ${formData.short_type === 'intro' ? 'bg-purple-600 text-white font-bold' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
+                        Prévia
+                    </button>
+                    <button type="button" onClick={() => setFormData(prev => ({...prev, short_type: 'flash'}))} 
+                        className={`px-3 py-1 text-sm rounded-full ${formData.short_type === 'flash' ? 'bg-yellow-500 text-black font-bold' : 'bg-zinc-700 hover:bg-zinc-600'}`}>
+                        Flash
+                    </button>
+                </div>
             </div>
-        </div>
-    )}
-</div>
 
-            {/* Dropdown condicional que só aparece se 'is_short' for marcado */}
-            {formData.is_short && (
-                <div className="pl-6">
+            {/* Dropdown condicional para selecionar o vídeo principal */}
+            {(formData.short_type === 'update' || formData.short_type === 'intro') && (
+                <div>
                     <label htmlFor="parent_video_id" className="block text-sm font-medium mb-1">Selecione o caso principal</label>
-                    <select
-                        name="parent_video_id"
+                    <Select
                         id="parent_video_id"
-                        value={formData.parent_video_id || ''}
-                        onChange={handleChange}
-                        className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f]"
-                    >
-                        <option value="">Selecione um vídeo...</option>
-                        {parentVideos.map(video => (
-                            <option key={video.id} value={video.id}>{video.title}</option>
-                        ))}
-                    </select>
+                        name="parent_video_id"
+                        options={videoOptions}
+                        isClearable
+                        isSearchable
+                        placeholder="Digite para buscar um vídeo..."
+                        onChange={handleParentVideoChange}
+                        value={videoOptions.find(option => option.value === formData.parent_video_id)}
+                        styles={{
+                            control: (base) => ({ ...base, backgroundColor: '#27272a', borderColor: '#3f3f46' }),
+                            singleValue: (base) => ({ ...base, color: 'white' }),
+                            input: (base) => ({ ...base, color: 'white' }),
+                            menu: (base) => ({ ...base, backgroundColor: '#27272a' }),
+                            option: (base, { isFocused }) => ({
+                                ...base,
+                                backgroundColor: isFocused ? '#3f3f46' : '#27272a',
+                                color: 'white',
+                                ':active': { backgroundColor: '#52525b' },
+                            }),
+                        }}
+                    />
                 </div>
             )}
         </div>
-            
+    )}
+</div>
+</div>
+    
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2"> {/* Ocupa a largura inteira */}
                     <label className="block text-sm font-medium mb-2">Categoria(s)</label>
