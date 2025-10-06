@@ -27,7 +27,6 @@ const itemVariants = {
 export default function LandingPage() {
   return (
     <div className="relative flex flex-col min-h-screen bg-black text-white overflow-hidden">
-      {/* O FUNDO E O FILTRO (OVERLAY) */}
       <div 
         className="absolute inset-0 bg-cover bg-center animate-kenburns"
         style={{ backgroundImage: "url('/landing-bg.jpg')" }}
@@ -66,12 +65,18 @@ export default function LandingPage() {
             initial="hidden"
             animate="visible"
           >
-            <motion.h1 className="text-5xl md:text-7xl font-bold mb-4" variants={itemVariants}>
-              Histórias que precisam ser contadas.
-            </motion.h1>
-            <motion.p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8" variants={itemVariants}>
-              A maior comunidade de criadores e fãs de True Crime do Brasil.
-            </motion.p>
+          <motion.h1 className="text-5xl md:text-7xl font-bold mb-4" variants={itemVariants}>
+            Histórias que precisam ser contadas.
+          </motion.h1>
+
+          {/* --- CRÉDITO ADICIONADO AQUI --- */}
+          <motion.p className="text-sm text-gray-400 -mt-2 mb-6" variants={itemVariants}>
+          <Link to="/parceiro/d0781217-8eb0-4d8d-b32b-ce785dbb6227" className="font-semibold text-white hover:text-[#f1c40f] hover:underline transition-colors">Marcos Campos</Link>
+          </motion.p>
+
+          <motion.p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8" variants={itemVariants}>
+            A maior comunidade de criadores e fãs de True Crime do Brasil.
+          </motion.p>
             
             <motion.div variants={itemVariants}>
               <Link to="/casos" className="bg-[#f1c40f] hover:bg-opacity-90 text-black font-bold py-3 px-8 rounded-lg text-lg inline-block transition-transform duration-200 hover:scale-105">
