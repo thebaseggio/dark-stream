@@ -21,31 +21,37 @@ export const UploadProvider = ({ children }) => {
   const workerRef = useRef(null);
 
 const handleUploadSuccess = async (videoUrl) => {
-    console.log('✅ DETETIVE 1: handleUploadSuccess foi chamada com a URL:', videoUrl);
-
     if (!uploadState.videoMetadata) {
-      console.error('❌ ERRO: Metadados do vídeo não encontrados no estado.');
-      showNotification('error', "Metadados não encontrados para salvar.");
+      showNotification('error', 'Metadados não encontrados para salvar.');
       return;
     }
-    
-    try {
-      const finalMetadata = { ...uploadState.videoMetadata, videoUrl };
-      console.log('🕵️ DETETIVE 2: Tentando inserir estes metadados no banco:', finalMetadata);
 
-      const { error } = await supabase.from('videos').insert([finalMetadata]);
-      
-      if (error) {
-        console.error('❌ ERRO DO SUPABASE ao inserir:', error);
-        throw error;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const creatorId = uploadState.videoMetadata.creator_id;
+
+      if (!session || session.user.id !== creatorId) {
+        throw new Error('Sessão inválida para publicar o vídeo.');
       }
 
-      console.log('🎉 DETETIVE 3: Inserção no banco de dados foi um SUCESSO.');
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', creatorId)
+        .single();
+
+      if (profileError || profileData?.role !== 'partner') {
+        throw new Error('Apenas parceiros podem publicar vídeos.');
+      }
+
+      const finalMetadata = { ...uploadState.videoMetadata, videoUrl };
+      const { error } = await supabase.from('videos').insert([finalMetadata]);
+
+      if (error) throw error;
+
       setUploadState(prev => ({ ...prev, status: 'success', progress: 100 }));
       showNotification('success', 'Vídeo publicado com sucesso no seu painel!');
-    
     } catch (error) {
-      console.error('💥 ERRO no bloco CATCH:', error.message);
       setUploadState(prev => ({ ...prev, status: 'error', error: `Erro ao salvar no banco: ${error.message}` }));
       showNotification('error', `Erro ao publicar o vídeo: ${error.message}`);
     }

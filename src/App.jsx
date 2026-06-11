@@ -50,8 +50,16 @@ export default function App() {
     };
 
     const closeModal = () => { setIsModalOpen(false); setTimeout(() => setVideoToEdit(null), 300); };
-    const openUploadModal = () => { setVideoToEdit(null); setIsModalOpen(true); };
-    const openEditModal = (video) => { setVideoToEdit(video); setIsModalOpen(true); };
+    const openUploadModal = () => {
+        if (profile?.role !== 'partner') return;
+        setVideoToEdit(null);
+        setIsModalOpen(true);
+    };
+    const openEditModal = (video) => {
+        if (profile?.role !== 'partner') return;
+        setVideoToEdit(video);
+        setIsModalOpen(true);
+    };
     const handleFormSuccess = () => closeModal();
 
     const fetchProfile = async (userId) => {
@@ -169,7 +177,7 @@ export default function App() {
                                 <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-white mb-6">
                                     {videoToEdit ? 'Editar Vídeo' : 'Adicionar Novo Vídeo'}
                                 </Dialog.Title>
-                                <CreatorUploadForm user={user} onSuccess={handleFormSuccess} videoToEdit={videoToEdit} />
+                                <CreatorUploadForm user={user} profile={profile} onSuccess={handleFormSuccess} videoToEdit={videoToEdit} />
                             </Dialog.Panel>
                         </div>
                     </div>

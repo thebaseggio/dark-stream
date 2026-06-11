@@ -6,7 +6,7 @@ import Select from 'react-select';
 
 const allCategories = [ 'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados', 'Serial Killers', 'Documentários', 'Sobrenaturais'];
 
-export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
+export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdit }) {
     const { startUpload, uploadState } = useUpload();
     const { showNotification } = useNotification();
 
@@ -83,6 +83,14 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
       setIsSubmitting(true);
 
       try {
+          if (profile?.role !== 'partner') {
+              throw new Error('Apenas parceiros podem publicar ou editar vídeos.');
+          }
+
+          if (videoToEdit?.creator_id && videoToEdit.creator_id !== user.id) {
+              throw new Error('Você não tem permissão para editar este vídeo.');
+          }
+
           if (videoToEdit) {
               const dataToUpdate = {
                   title: formData.title,
@@ -126,7 +134,11 @@ export default function CreatorUploadForm({ user, onSuccess, videoToEdit }) {
               }
 
               // 3. Atualiza os metadados no banco de dados
-              const { error } = await supabase.from('videos').update(dataToUpdate).eq('id', videoToEdit.id);
+              const { error } = await supabase
+                  .from('videos')
+                  .update(dataToUpdate)
+                  .eq('id', videoToEdit.id)
+                  .eq('creator_id', user.id);
               if (error) throw error;
               
               showNotification('success', 'Informações do vídeo atualizadas com sucesso!');

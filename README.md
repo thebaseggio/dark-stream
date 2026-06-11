@@ -84,6 +84,22 @@ Deploy da function:
 npx supabase functions deploy send-partner-application
 ```
 
+A function valida campos, escapa HTML nos e-mails, limita a 3 envios por hora por IP e retorna erro genérico em falhas internas.
+
+## Segurança (RLS)
+
+Políticas recomendadas estão em `supabase/migrations/`. **Revise no Dashboard antes de aplicar** — o banco remoto pode já ter políticas equivalentes.
+
+```bash
+# Exportar schema real (requer senha do banco)
+npx supabase db pull
+
+# Revisar e aplicar políticas recomendadas
+# SQL Editor no Dashboard ou: npx supabase db push
+```
+
+Consulte `supabase/migrations/README.md` para o checklist completo de auditoria RLS.
+
 ## Deploy na Vercel
 
 1. Importe o repositório [thebaseggio/dark-stream](https://github.com/thebaseggio/dark-stream) na Vercel.
