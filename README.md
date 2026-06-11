@@ -1,12 +1,136 @@
-# React + Vite
+# Dark Stream
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Plataforma de streaming de conteúdo investigativo e true crime — [darkstream.tv](https://darkstream.tv).
 
-Currently, two official plugins are available:
+Frontend em React + Vite, backend em Supabase (auth, banco, storage e edge functions), deploy na Vercel.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Stack
 
-## Expanding the ESLint configuration
+- **Frontend:** React 18, Vite 6, Tailwind CSS, Framer Motion, React Router
+- **Backend:** Supabase (PostgreSQL, Auth, Storage, Edge Functions)
+- **Upload de vídeo:** tus-js-client (upload resumível)
+- **Deploy:** Vercel (SPA)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Pré-requisitos
+
+- [Node.js](https://nodejs.org/) 18 ou superior
+- Conta no [Supabase](https://supabase.com/)
+- Conta na [Vercel](https://vercel.com/) (para deploy)
+
+## Setup local
+
+```bash
+git clone https://github.com/thebaseggio/dark-stream.git
+cd dark-stream
+npm install
+cp .env.example .env
+```
+
+Edite o `.env` com as credenciais do seu projeto Supabase (Settings → API):
+
+| Variável | Onde encontrar |
+|----------|----------------|
+| `VITE_SUPABASE_URL` | Project URL |
+| `VITE_SUPABASE_ANON_KEY` | anon / public key |
+
+Inicie o servidor de desenvolvimento:
+
+```bash
+npm run dev
+```
+
+Acesse [http://localhost:5173](http://localhost:5173).
+
+## Scripts
+
+| Comando | Descrição |
+|---------|-----------|
+| `npm run dev` | Servidor de desenvolvimento (porta 5173) |
+| `npm run build` | Build de produção em `dist/` |
+| `npm run preview` | Preview local do build |
+
+## Supabase
+
+### Projeto linkado
+
+Se ainda não linkou o CLI ao projeto remoto:
+
+```bash
+npx supabase login
+npx supabase link --project-ref SEU_PROJECT_REF
+```
+
+O `project-ref` aparece na URL do dashboard: `https://supabase.com/dashboard/project/<project-ref>`.
+
+### Edge Function: formulário de parceiros
+
+A página `/seja-um-parceiro` chama a function `send-partner-application`, que envia e-mail via [Resend](https://resend.com/).
+
+Configure os secrets no Supabase (Dashboard → Edge Functions → Secrets, ou via CLI):
+
+```bash
+npx supabase secrets set RESEND_API_KEY=re_xxxxxxxx
+npx supabase secrets set TO_EMAIL_ADDRESS=seu-email@exemplo.com
+```
+
+| Secret | Descrição |
+|--------|-----------|
+| `RESEND_API_KEY` | API key do Resend |
+| `TO_EMAIL_ADDRESS` | E-mail que recebe as candidaturas de parceiros |
+
+Deploy da function:
+
+```bash
+npx supabase functions deploy send-partner-application
+```
+
+## Deploy na Vercel
+
+1. Importe o repositório [thebaseggio/dark-stream](https://github.com/thebaseggio/dark-stream) na Vercel.
+2. Framework preset: **Vite**
+3. Build command: `npm run build`
+4. Output directory: `dist`
+5. Em **Settings → Environment Variables**, adicione:
+
+| Variável | Ambiente |
+|----------|----------|
+| `VITE_SUPABASE_URL` | Production, Preview, Development |
+| `VITE_SUPABASE_ANON_KEY` | Production, Preview, Development |
+
+6. Configure o domínio customizado (`darkstream.tv`) em **Settings → Domains**.
+
+O `vercel.json` já inclui o rewrite SPA para o React Router.
+
+## Estrutura do projeto
+
+```
+src/
+  App.jsx              # Rotas e auth global
+  supabase.js          # Cliente Supabase
+  contexts/            # Providers (upload, notificações)
+  pages/               # Páginas da aplicação
+  components/          # Componentes reutilizáveis
+  worker.js            # Web Worker para upload TUS
+public/                # Assets estáticos (imagens, áudio)
+supabase/
+  functions/           # Edge Functions
+  config.toml          # Configuração do Supabase CLI
+```
+
+## Rotas principais
+
+| Rota | Descrição |
+|------|-----------|
+| `/` | Landing page |
+| `/casos`, `/explorar` | Explorar conteúdo |
+| `/video/:id`, `/caso/:id` | Player de vídeo |
+| `/parceiro/:id` | Perfil público do parceiro |
+| `/meu-perfil` | Dashboard (parceiro) ou perfil (visitante) |
+| `/seja-um-parceiro` | Formulário de candidatura |
+| `/login`, `/inscrever-se` | Autenticação |
+
+## Links
+
+- Repositório: https://github.com/thebaseggio/dark-stream
+- Preview Vercel: https://dark-stream.vercel.app
+- Site: https://darkstream.tv
