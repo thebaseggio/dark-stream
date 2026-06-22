@@ -13,7 +13,7 @@ Frontend em React + Vite, backend em Supabase (auth, banco, storage e edge funct
 
 ## Pré-requisitos
 
-- [Node.js](https://nodejs.org/) 18 ou superior
+- [Node.js](https://nodejs.org/) 22
 - Conta no [Supabase](https://supabase.com/)
 - Conta na [Vercel](https://vercel.com/) (para deploy)
 
