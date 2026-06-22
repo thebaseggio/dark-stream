@@ -14,6 +14,8 @@ export default function UploadStatus() {
     switch (uploadState.status) {
       case 'uploading':
         return `Enviando vídeo... ${uploadState.progress}%`;
+      case 'saving':
+        return 'Upload concluído. Salvando informações...';
       case 'success':
         return 'Upload concluído com sucesso!';
       case 'error':
@@ -26,7 +28,7 @@ export default function UploadStatus() {
   return (
     <div className="fixed bottom-4 right-4 bg-zinc-800 text-white p-4 rounded-lg shadow-lg w-72 z-50 border border-zinc-700">
       <p className="font-semibold text-sm mb-2">{getStatusMessage()}</p>
-      {uploadState.status === 'uploading' && (
+      {(uploadState.status === 'uploading' || uploadState.status === 'saving') && (
         <div className="w-full bg-zinc-600 rounded-full h-2">
           <div className="bg-[#f1c40f] h-2 rounded-full" style={{ width: `${uploadState.progress}%` }}></div>
         </div>

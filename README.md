@@ -46,8 +46,13 @@ Acesse [http://localhost:5173](http://localhost:5173).
 | Comando | Descrição |
 |---------|-----------|
 | `npm run dev` | Servidor de desenvolvimento (porta 5173) |
+| `npm run lint` | Verificação estática com ESLint |
+| `npm test` | Testes unitários com Jest |
+| `npm run check` | Lint, testes e build em sequência |
 | `npm run build` | Build de produção em `dist/` |
 | `npm run preview` | Preview local do build |
+
+> Para rodar `npm run build` localmente, configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no `.env`.
 
 ## Supabase
 
@@ -99,6 +104,17 @@ npx supabase db pull
 ```
 
 Consulte `supabase/migrations/README.md` para o checklist completo de auditoria RLS.
+
+## Upload de vídeos
+
+O formulário de upload valida os arquivos antes de enviar para o Supabase:
+
+| Arquivo | Formatos aceitos | Limite |
+|---------|------------------|--------|
+| Vídeo | `video/mp4`, `video/webm` | 2 GB |
+| Thumbnail | `image/jpeg`, `image/png`, `image/webp` | 5 MB |
+
+Ao substituir o arquivo de um vídeo existente, o banco só é atualizado depois que o novo upload termina com sucesso.
 
 ## Deploy na Vercel
 

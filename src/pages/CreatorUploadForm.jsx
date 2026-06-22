@@ -3,12 +3,46 @@ import { supabase } from '../supabase';
 import { useUpload } from '../contexts/UploadProvider';
 import { useNotification } from '../contexts/NotificationProvider.jsx';
 import Select from 'react-select';
+import {
+    ACCEPTED_THUMBNAIL_TYPES,
+    ACCEPTED_VIDEO_TYPES,
+    validateThumbnailFile,
+    validateVideoFile,
+} from '../utils/uploadValidation.js';
 
 const allCategories = [ 'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados', 'Serial Killers', 'Documentários', 'Sobrenaturais'];
+const uploadBusyStatuses = ['uploading', 'saving'];
+const fallbackExtensionsByType = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+};
+
+function getFileExtension(file) {
+    return file.name.split('.').pop()?.toLowerCase() || fallbackExtensionsByType[file.type] || 'bin';
+}
+
+function normalizeVideoFields(formData, creatorId) {
+    return {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        category: formData.category,
+        tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+        creator_id: creatorId,
+        is_short: formData.is_short || false,
+        short_type: formData.is_short ? formData.short_type : null,
+        parent_video_id: formData.is_short && (formData.short_type === 'update' || formData.short_type === 'intro')
+            ? formData.parent_video_id
+            : null,
+    };
+}
 
 export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdit }) {
     const { startUpload, uploadState } = useUpload();
     const { showNotification } = useNotification();
+    const isUploadBusy = uploadBusyStatuses.includes(uploadState.status);
 
     const [formData, setFormData] = useState({ 
     title: '', 
@@ -54,6 +88,9 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
                 description: videoToEdit.description || '',
                 category: Array.isArray(videoToEdit.category) ? videoToEdit.category : [],
                 tags: Array.isArray(videoToEdit.tags) ? videoToEdit.tags.join(', ') : '',
+                is_short: videoToEdit.is_short || false,
+                short_type: videoToEdit.short_type || null,
+                parent_video_id: videoToEdit.parent_video_id || null,
             });
         }
     }, [videoToEdit]);
@@ -63,8 +100,21 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
         const handleFileChange = (e) => {
         const { name, files } = e.target;
         if (files[0]) {
-            if (name === 'videoFile') setVideoFile(files[0]);
-            else if (name === 'thumbnailFile') setThumbnailFile(files[0]);
+            const selectedFile = files[0];
+            const validationError = name === 'videoFile'
+                ? validateVideoFile(selectedFile)
+                : validateThumbnailFile(selectedFile);
+
+            if (validationError) {
+                showNotification('error', validationError);
+                e.target.value = '';
+                if (name === 'videoFile') setVideoFile(null);
+                else if (name === 'thumbnailFile') setThumbnailFile(null);
+                return;
+            }
+
+            if (name === 'videoFile') setVideoFile(selectedFile);
+            else if (name === 'thumbnailFile') setThumbnailFile(selectedFile);
         }
     };
 
@@ -83,112 +133,123 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
       setIsSubmitting(true);
 
       try {
+          if (!user) {
+              throw new Error('Você precisa estar logado para publicar ou editar vídeos.');
+          }
+
           if (profile?.role !== 'partner') {
               throw new Error('Apenas parceiros podem publicar ou editar vídeos.');
           }
+
+          if (!formData.title.trim()) {
+              throw new Error('O título do caso é obrigatório.');
+          }
+
+          if (formData.is_short && !formData.short_type) {
+              throw new Error('Selecione o tipo do Short.');
+          }
+
+          if (formData.is_short && ['update', 'intro'].includes(formData.short_type) && !formData.parent_video_id) {
+              throw new Error('Selecione o caso principal para este Short.');
+          }
+
+          const videoValidationError = validateVideoFile(videoFile);
+          if (videoValidationError) throw new Error(videoValidationError);
+
+          const thumbnailValidationError = validateThumbnailFile(thumbnailFile);
+          if (thumbnailValidationError) throw new Error(thumbnailValidationError);
 
           if (videoToEdit?.creator_id && videoToEdit.creator_id !== user.id) {
               throw new Error('Você não tem permissão para editar este vídeo.');
           }
 
+          if (!videoToEdit && !videoFile) {
+              throw new Error('Um arquivo de vídeo é obrigatório.');
+          }
+
+          if (isUploadBusy) {
+              throw new Error('Aguarde o upload atual terminar antes de enviar outro.');
+          }
+
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error('Sessão inválida.');
+
+          const baseVideoFields = normalizeVideoFields(formData, user.id);
+          let thumbnailUrl = videoToEdit?.thumbnail || '';
+
+          if (thumbnailFile) {
+              const thumbFileExt = getFileExtension(thumbnailFile);
+              const thumbFileName = `thumb-${user.id}-${Date.now()}.${thumbFileExt}`;
+              const { error: uploadThumbError } = await supabase.storage
+                  .from('thumbnails')
+                  .upload(thumbFileName, thumbnailFile, { upsert: Boolean(videoToEdit) });
+              if (uploadThumbError) throw uploadThumbError;
+
+              const { data: thumbUrlData } = supabase.storage.from('thumbnails').getPublicUrl(thumbFileName);
+              thumbnailUrl = thumbUrlData.publicUrl;
+          }
+
           if (videoToEdit) {
               const dataToUpdate = {
-                  title: formData.title,
-                  description: formData.description,
-                  category: formData.category,
-                  tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+                  ...baseVideoFields,
+                  thumbnail: thumbnailUrl,
               };
 
-              // 1. Verifica se uma nova thumbnail foi enviada
-              if (thumbnailFile) {
-                  const thumbFileExt = thumbnailFile.name.split('.').pop();
-                  const thumbFileName = `thumb-${user.id}-${Date.now()}.${thumbFileExt}`;
-                  // Usamos 'upsert: true' para sobrescrever o arquivo antigo se existir um com mesmo nome
-                  const { error: uploadThumbError } = await supabase.storage.from('thumbnails').upload(thumbFileName, thumbnailFile, { upsert: true });
-                  if (uploadThumbError) throw uploadThumbError;
-                  
-                  const { data: thumbUrlData } = supabase.storage.from('thumbnails').getPublicUrl(thumbFileName);
-                  dataToUpdate.thumbnail = thumbUrlData.publicUrl;
-              }
-
-              // 2. Verifica se um novo vídeo foi enviado
               if (videoFile) {
-                  // Se um novo vídeo for enviado, usamos o sistema de worker
-                  const { data: { session } } = await supabase.auth.getSession();
-                  if (!session) throw new Error('Sessão inválida.');
-
-                  const videoFileExt = videoFile.name.split('.').pop();
+                  const videoFileExt = getFileExtension(videoFile);
                   const videoFileName = `video-${user.id}-${Date.now()}.${videoFileExt}`;
-                  
-                  // Atualizamos a URL do vídeo nos dados a serem salvos
-                  const { data: videoUrlData } = supabase.storage.from('videos').getPublicUrl(videoFileName);
-                  dataToUpdate.videoUrl = videoUrlData.publicUrl;
 
-                   startUpload({
+                  startUpload({
                       file: videoFile,
                       token: session.access_token,
                       supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
                       bucketName: 'videos',
-                      objectName: videoFileName
+                      objectName: videoFileName,
+                  }, {
+                      action: 'update',
+                      id: videoToEdit.id,
+                      ...dataToUpdate,
                   });
+
+                  showNotification('info', 'Novo arquivo em upload. As informações serão salvas ao concluir.');
+                  if (onSuccess) onSuccess();
+                  return;
               }
 
-              // 3. Atualiza os metadados no banco de dados
               const { error } = await supabase
                   .from('videos')
                   .update(dataToUpdate)
                   .eq('id', videoToEdit.id)
                   .eq('creator_id', user.id);
               if (error) throw error;
-              
+
               showNotification('success', 'Informações do vídeo atualizadas com sucesso!');
               if (onSuccess) onSuccess();
-
-          } else {
-              if (!videoFile || !formData.title) throw new Error('Um arquivo de vídeo e um título são obrigatórios.');
-              if (uploadState.status === 'uploading') throw new Error('Aguarde o upload atual terminar antes de enviar outro.');
-
-              const { data: { session } } = await supabase.auth.getSession();
-              if (!session) throw new Error('Sessão inválida.');
-
-              let thumbnailUrl = '';
-              if (thumbnailFile) {
-                  const thumbFileExt = thumbnailFile.name.split('.').pop();
-                  const thumbFileName = `thumb-${user.id}-${Date.now()}.${thumbFileExt}`;
-                  const { error: uploadThumbError } = await supabase.storage.from('thumbnails').upload(thumbFileName, thumbnailFile);
-                  if (uploadThumbError) throw uploadThumbError;
-                  const { data: thumbUrlData } = supabase.storage.from('thumbnails').getPublicUrl(thumbFileName);
-                  thumbnailUrl = thumbUrlData.publicUrl;
-              }
-
-              const videoFileExt = videoFile.name.split('.').pop();
-              const videoFileName = `video-${user.id}-${Date.now()}.${videoFileExt}`;
-
-              const metadataToSave = {
-                  title: formData.title,
-                  description: formData.description,
-                  category: formData.category,
-                  tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-                  thumbnail: thumbnailUrl,
-                  creator_id: user.id,
-                  views: 0, gostei_muito: 0, gostei: 0, nao_gostei: 0,
-                  is_short: formData.is_short || false,
-                  short_type: formData.is_short ? formData.short_type : null,
-                  parent_video_id: (formData.short_type === 'update' || formData.short_type === 'intro') ? formData.parent_video_id : null,
-                  };
-
-              const workerData = {
-                  file: videoFile,
-                  token: session.access_token,
-                  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-                  bucketName: 'videos',
-                  objectName: videoFileName
-              };
-              
-              startUpload(workerData, metadataToSave);
-              showNotification('info', 'Upload iniciado! Acompanhe o progresso no canto da tela.');
-              if (onSuccess) onSuccess();
+              return;
           }
+
+          const videoFileExt = getFileExtension(videoFile);
+          const videoFileName = `video-${user.id}-${Date.now()}.${videoFileExt}`;
+          const metadataToSave = {
+              action: 'insert',
+              ...baseVideoFields,
+              thumbnail: thumbnailUrl,
+              views: 0,
+              gostei_muito: 0,
+              gostei: 0,
+              nao_gostei: 0,
+          };
+
+          startUpload({
+              file: videoFile,
+              token: session.access_token,
+              supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+              bucketName: 'videos',
+              objectName: videoFileName,
+          }, metadataToSave);
+
+          showNotification('info', 'Upload iniciado! Acompanhe o progresso no canto da tela.');
+          if (onSuccess) onSuccess();
       } catch (error) {
           showNotification('error', `Erro: ${error.message}`);
       } finally {
@@ -210,7 +271,7 @@ const handleParentVideoChange = (selectedOption) => {
         <form onSubmit={handleSubmit} className="space-y-6">
             <div>
                 <label htmlFor="title" className="block text-sm font-medium mb-1">Título do Caso</label>
-                <input type="text" name="title" value={formData.title} onChange={handleChange} disabled={isSubmitting || uploadState.status === 'uploading'} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f] disabled:opacity-50" />
+                <input type="text" name="title" value={formData.title} onChange={handleChange} disabled={isSubmitting || isUploadBusy} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 focus:outline-none focus:border-[#f1c40f] disabled:opacity-50" />
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -219,8 +280,8 @@ const handleParentVideoChange = (selectedOption) => {
                     <input 
                         type="file" id="thumbnailFile" name="thumbnailFile"
                         onChange={handleFileChange}
-                        disabled={isSubmitting}
-                        accept="image/jpeg,image/png,image/webp"
+                        disabled={isSubmitting || isUploadBusy}
+                        accept={ACCEPTED_THUMBNAIL_TYPES.join(',')}
                         className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-zinc-700 file:text-white hover:file:bg-zinc-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                 </div>
@@ -229,8 +290,8 @@ const handleParentVideoChange = (selectedOption) => {
                     <input 
                         type="file" id="videoFile" name="videoFile"
                         onChange={handleFileChange}
-                        disabled={isSubmitting}
-                        accept="video/mp4,video/webm"
+                        disabled={isSubmitting || isUploadBusy}
+                        accept={ACCEPTED_VIDEO_TYPES.join(',')}
                         className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-zinc-700 file:text-white hover:file:bg-zinc-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                 </div>
@@ -238,7 +299,7 @@ const handleParentVideoChange = (selectedOption) => {
 
             <div>
                 <label htmlFor="description" className="block text-sm font-medium mb-1">Descrição</label>
-                <textarea name="description" rows="4" value={formData.description} onChange={handleChange} disabled={isSubmitting} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 disabled:opacity-50"></textarea>
+                <textarea name="description" rows="4" value={formData.description} onChange={handleChange} disabled={isSubmitting || isUploadBusy} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2 disabled:opacity-50"></textarea>
             </div>
                     <div className="space-y-2">
 <div className="space-y-4 rounded-lg border border-zinc-700 p-4">
@@ -331,13 +392,14 @@ const handleParentVideoChange = (selectedOption) => {
                 </div>
                 <div>
                     <label htmlFor="tags" className="block text-sm font-medium mb-1">Tags (separadas por vírgula)</label>
-                    <input type="text" name="tags" value={formData.tags} onChange={handleChange} disabled={isSubmitting || uploadState.status === 'uploading'} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2" />
+                    <input type="text" name="tags" value={formData.tags} onChange={handleChange} disabled={isSubmitting || isUploadBusy} className="w-full bg-zinc-800 rounded border border-zinc-700 p-2" />
                 </div>
             </div>
 
-            <button type="submit" disabled={isSubmitting || uploadState.status === 'uploading'} className="w-full bg-[#8e44ad] hover:bg-[#803d9c] text-white font-bold py-3 rounded-lg transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed">
+            <button type="submit" disabled={isSubmitting || isUploadBusy} className="w-full bg-[#8e44ad] hover:bg-[#803d9c] text-white font-bold py-3 rounded-lg transition-colors duration-200 disabled:bg-gray-500 disabled:cursor-not-allowed">
                 {isSubmitting ? 'Preparando...' 
-                 : uploadState.status === 'uploading' ? `Enviando... ${uploadState.progress}%` 
+                 : uploadState.status === 'uploading' ? `Enviando... ${uploadState.progress}%`
+                 : uploadState.status === 'saving' ? 'Salvando...'
                  : (videoToEdit ? 'Salvar Alterações' : 'Fazer Upload')}
             </button>
         </form>
