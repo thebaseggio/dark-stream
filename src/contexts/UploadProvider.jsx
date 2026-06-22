@@ -1,5 +1,3 @@
-// src/contexts/UploadProvider.jsx (versão corrigida)
-
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase.js';
 import { useNotification } from './NotificationProvider.jsx';
@@ -9,26 +7,38 @@ const UploadContext = createContext();
 
 export const useUpload = () => useContext(UploadContext);
 
+const initialUploadState = {
+  progress: 0,
+  status: 'idle',
+  error: null,
+  videoMetadata: null,
+};
+
 export const UploadProvider = ({ children }) => {
   const { showNotification } = useNotification();
-  const [uploadState, setUploadState] = useState({
-    progress: 0,
-    status: 'idle',
-    error: null,
-    videoMetadata: null,
-  });
+  const [uploadState, setUploadState] = useState(initialUploadState);
 
   const workerRef = useRef(null);
+  const showNotificationRef = useRef(showNotification);
 
-const handleUploadSuccess = async (videoUrl) => {
-    if (!uploadState.videoMetadata) {
+  useEffect(() => {
+    showNotificationRef.current = showNotification;
+  }, [showNotification]);
+
+  const handleUploadSuccess = useCallback(async (videoUrl) => {
+    const metadata = uploadState.videoMetadata;
+
+    if (!metadata) {
+      setUploadState(prev => ({ ...prev, status: 'error', error: 'Metadados não encontrados para salvar.' }));
       showNotification('error', 'Metadados não encontrados para salvar.');
       return;
     }
 
     try {
+      setUploadState(prev => ({ ...prev, status: 'saving', progress: 100 }));
+
       const { data: { session } } = await supabase.auth.getSession();
-      const creatorId = uploadState.videoMetadata.creator_id;
+      const creatorId = metadata.creator_id;
 
       if (!session || session.user.id !== creatorId) {
         throw new Error('Sessão inválida para publicar o vídeo.');
@@ -44,18 +54,39 @@ const handleUploadSuccess = async (videoUrl) => {
         throw new Error('Apenas parceiros podem publicar vídeos.');
       }
 
-      const finalMetadata = { ...uploadState.videoMetadata, videoUrl };
-      const { error } = await supabase.from('videos').insert([finalMetadata]);
+      const { action = 'insert', id: videoId, ...videoFields } = metadata;
+      const finalMetadata = { ...videoFields, videoUrl };
+      let databaseError = null;
+      let successMessage = 'Vídeo publicado com sucesso no seu painel!';
 
-      if (error) throw error;
+      if (action === 'update') {
+        if (!videoId) {
+          throw new Error('Identificador do vídeo não encontrado para atualização.');
+        }
+
+        const { error } = await supabase
+          .from('videos')
+          .update(finalMetadata)
+          .eq('id', videoId)
+          .eq('creator_id', creatorId);
+
+        databaseError = error;
+        successMessage = 'Vídeo atualizado com sucesso!';
+      } else {
+        const { error } = await supabase.from('videos').insert([finalMetadata]);
+
+        databaseError = error;
+      }
+
+      if (databaseError) throw databaseError;
 
       setUploadState(prev => ({ ...prev, status: 'success', progress: 100 }));
-      showNotification('success', 'Vídeo publicado com sucesso no seu painel!');
+      showNotification('success', successMessage);
     } catch (error) {
       setUploadState(prev => ({ ...prev, status: 'error', error: `Erro ao salvar no banco: ${error.message}` }));
       showNotification('error', `Erro ao publicar o vídeo: ${error.message}`);
     }
-  };
+  }, [showNotification, uploadState.videoMetadata]);
 
   const handleSuccessRef = useRef(handleUploadSuccess);
 
@@ -64,20 +95,21 @@ const handleUploadSuccess = async (videoUrl) => {
   }, [handleUploadSuccess]);
 
   useEffect(() => {
-    workerRef.current = new Worker();
+    const worker = new Worker();
+    workerRef.current = worker;
 
-    workerRef.current.onmessage = (event) => {
+    worker.onmessage = (event) => {
       const { type, payload } = event.data;
       switch (type) {
         case 'progress':
           setUploadState(prev => ({ ...prev, status: 'uploading', progress: payload.percentage }));
           break;
         case 'success':
-          showNotification('success', 'Upload concluído! Salvando informações...');
+          showNotificationRef.current('success', 'Upload concluído! Salvando informações...');
           handleSuccessRef.current(payload.finalUrl);
           break;
         case 'error':
-          showNotification('error', `Falha no upload: ${payload}`);
+          showNotificationRef.current('error', `Falha no upload: ${payload}`);
           setUploadState(prev => ({ ...prev, status: 'error', error: payload, progress: 0 }));
           break;
         default:
@@ -85,7 +117,7 @@ const handleUploadSuccess = async (videoUrl) => {
       }
     };
 
-    return () => workerRef.current.terminate();
+    return () => worker.terminate();
   }, []);
 
 
@@ -97,7 +129,7 @@ const handleUploadSuccess = async (videoUrl) => {
   }, []);
 
   const resetUploadState = useCallback(() => {
-    setUploadState({ progress: 0, status: 'idle', error: null, videoMetadata: null });
+    setUploadState(initialUploadState);
   }, []);
 
   const value = { uploadState, startUpload, resetUploadState };

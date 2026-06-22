@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
@@ -11,6 +11,7 @@ const VerifiedIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="curr
 export default function PartnerPage({ currentUser }) { 
     const { id: partnerId } = useParams(); // Renomeamos para partnerId para clareza
     const navigate = useNavigate();
+    const { showNotification } = useNotification();
     
     // ESTADOS PARA O PERFIL DO PARCEIRO E SEUS VÍDEOS
     const [partnerProfile, setPartnerProfile] = useState(null);
@@ -22,12 +23,6 @@ export default function PartnerPage({ currentUser }) {
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [subscriberCount, setSubscriberCount] = useState(0);
     const [isProcessingFollow, setIsProcessingFollow] = useState(false);
-
-    // Função para mostrar notificação
-    const showNotification = (type, message) => {
-        setNotification({ show: true, message, type });
-        setTimeout(() => setNotification(prev => ({ ...prev, show: false })), 3000);
-    };
 
 // Substitua seu useEffect por este:
 useEffect(() => {
