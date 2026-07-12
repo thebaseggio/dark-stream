@@ -7,6 +7,11 @@ import SkeletonCard from './SkeletonCard';
 import CategoryRow from '../components/CategoryRow';
 import { useNavigate } from 'react-router-dom';
 
+const DEFAULT_CATEGORIES = [
+    'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados',
+    'Serial Killers', 'Documentários', 'Sobrenaturais',
+];
+
 export default function Explore() {
     const navigate = useNavigate();
     const [groupedVideos, setGroupedVideos] = useState({});
@@ -33,15 +38,19 @@ export default function Explore() {
                 setShorts(shortsData || []);
             }
             
-            const { data: categoriesData, error: categoriesError } = await supabase
+            let categoriesData = [];
+            const { data: fetchedCategories, error: categoriesError } = await supabase
                 .from('categories')
                 .select('name')
                 .order('created_at', { ascending: true });
 
             if (categoriesError) {
                 console.error("Erro ao buscar categorias:", categoriesError);
-                setLoading(false);
-                return;
+                categoriesData = DEFAULT_CATEGORIES.map(name => ({ name }));
+            } else {
+                categoriesData = fetchedCategories?.length
+                    ? fetchedCategories
+                    : DEFAULT_CATEGORIES.map(name => ({ name }));
             }
 
             const { data: videos, error: videosError } = await supabase
@@ -61,13 +70,17 @@ export default function Explore() {
                 
                 // USE A LISTA FILTRADA PARA MONTAR OS GRUPOS
                 regularVideos.forEach(video => { 
-                    if (Array.isArray(video.category)) {
-                        video.category.forEach(cat => {
-                            if (groups[cat]) {
-                                groups[cat].push(video);
-                            }
-                        });
-                    }
+                    const videoCategories = Array.isArray(video.category)
+                        ? video.category
+                        : video.category
+                            ? [video.category]
+                            : [];
+
+                    videoCategories.forEach(cat => {
+                        if (groups[cat]) {
+                            groups[cat].push(video);
+                        }
+                    });
                 });
                 setCategories(categoryOrder);
                 setGroupedVideos(groups);

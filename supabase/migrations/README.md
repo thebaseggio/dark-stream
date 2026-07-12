@@ -6,7 +6,7 @@ O projeto já tem banco configurado no Supabase. Para exportar o schema **real**
 
 ```bash
 npx supabase login
-npx supabase link --project-ref baqvszumalgtgaepxwqq
+npx supabase link --project-ref vrokbdihzeucbtatcbfw
 npx supabase db pull
 ```
 
@@ -16,7 +16,15 @@ Isso gera arquivos em `supabase/migrations/` refletindo o estado atual do remoto
 
 ## Políticas de segurança recomendadas
 
-O arquivo `20250611000000_recommended_rls_policies.sql` contém políticas RLS **alinhadas ao código do app**. Revise no Dashboard antes de aplicar:
+Arquivos de políticas RLS (aplicar nesta ordem):
+
+1. `20250611000000_recommended_rls_policies.sql`
+2. `20250611000001_rls_supplements.sql` — comment_replies, views SELECT, storage UPDATE
+3. `20250611000002_categories_table.sql` — tabela categories + seed das 7 categorias
+
+Use `verify_setup.sql` no SQL Editor para checar tabelas, RPCs, buckets e RLS.
+
+Revise no Dashboard antes de aplicar:
 
 ```bash
 # Aplicar localmente (dev) ou via SQL Editor no Dashboard
@@ -25,7 +33,7 @@ npx supabase db push
 
 ## Checklist de auditoria RLS
 
-No [Supabase Dashboard](https://supabase.com/dashboard/project/baqvszumalgtgaepxwqq/auth/policies), confirme:
+No [Supabase Dashboard](https://supabase.com/dashboard/project/vrokbdihzeucbtatcbfw/auth/policies), confirme:
 
 | Recurso | Leitura | Escrita |
 |---------|---------|---------|

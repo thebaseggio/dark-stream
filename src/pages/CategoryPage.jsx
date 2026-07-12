@@ -41,16 +41,26 @@ export default function CategoryPage() {
             setLoading(true);
             const decodedCategoryName = decodeURIComponent(categoryName);
 
-            const { data, error } = await supabase
+            const { data: arrayMatches, error: arrayError } = await supabase
                 .from('videos')
                 .select('*, creator_id (id, username, "creatorAvatar")')
-                .contains('category', [decodedCategoryName]) // Busca vídeos que contenham esta categoria no array
+                .contains('category', [decodedCategoryName])
                 .order('created_at', { ascending: false });
 
-            if (error) {
-                console.error("Erro ao buscar vídeos da categoria:", error);
+            const { data: textMatches, error: textError } = await supabase
+                .from('videos')
+                .select('*, creator_id (id, username, "creatorAvatar")')
+                .eq('category', decodedCategoryName)
+                .order('created_at', { ascending: false });
+
+            if (arrayError && textError) {
+                console.error("Erro ao buscar vídeos da categoria:", arrayError, textError);
             } else {
-                setVideos(data);
+                const merged = [...(arrayMatches || []), ...(textMatches || [])];
+                const unique = merged.filter((video, index, list) =>
+                    list.findIndex(v => v.id === video.id) === index
+                );
+                setVideos(unique);
             }
             setLoading(false);
         };
