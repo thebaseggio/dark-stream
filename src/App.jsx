@@ -14,7 +14,7 @@ import VideoPlayer from './pages/VideoPlayer';
 import CreatorDashboard from './pages/CreatorDashboard';
 import CreatorUploadForm from './pages/CreatorUploadForm';
 import { Dialog, Transition } from '@headlessui/react';
-import PartnerPage from './pages/PartnerPage';
+import PartnerProfile from './pages/PartnerProfile';
 import SignupPage from './pages/SignupPage';
 import NotificationModal from './components/NotificationModal.jsx';
 import VisitorProfilePage from './pages/VisitorProfilePage';
@@ -124,7 +124,7 @@ export default function App() {
                     {/* Passando o objeto 'user' completo (que agora inclui o perfil) para o VideoPlayer */}
                     <Route path="/video/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/caso/:id" element={<VideoPlayer user={user} />} />
-                    <Route path="/parceiro/:id" element={<PartnerPage currentUser={user} />} />
+                    <Route path="/parceiro/:id" element={<PartnerProfile currentUser={user} />} />
 
                     <Route path="/busca" element={<SearchResults />} />
                     <Route path="/categoria/:categoryName" element={<CategoryPage />} />

@@ -10,12 +10,12 @@ import SkeletonCard from './SkeletonCard';
 function VideoCard({ video, onNavigate }) {
     const videoPath = `/video/${video.id}`;
     return (
-        <div onClick={() => onNavigate(videoPath)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col h-full group cursor-pointer transition-all duration-300 hover:border-[#f1c40f]/50 hover:shadow-lg hover:shadow-[#f1c40f]/10">
-            <div className="relative w-full aspect-video mb-4 overflow-hidden rounded-md">
-                <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"/>
+        <div onClick={() => onNavigate(videoPath)} className="bg-zinc-900 border border-white/10 p-4 flex flex-col h-full group cursor-pointer transition-colors hover:border-white/20">
+            <div className="relative w-full aspect-video mb-3 overflow-hidden border border-white/10">
+                <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-80"/>
             </div>
             <div className="flex flex-col flex-grow">
-                <h2 className="font-bold text-base text-white uppercase leading-snug group-hover:text-[#f1c40f] transition-colors">{video.title}</h2>
+                <h2 className="text-xs font-mono uppercase tracking-wider text-zinc-300 line-clamp-2 leading-snug group-hover:text-white transition-colors">{video.title}</h2>
             </div>
         </div>
     );

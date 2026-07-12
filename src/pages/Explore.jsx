@@ -98,11 +98,11 @@ export default function Explore() {
 
     return (
         <AnimatedPage>
-            <div className="space-y-12 py-8">
+            <div className="space-y-12 py-8 bg-dark-pure">
                 {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                         <div key={i} className="space-y-4">
-                            <div className="h-8 w-1/4 bg-zinc-800 rounded-md animate-pulse"></div>
+                            <div className="h-8 w-1/4 bg-dark-panel animate-pulse" />
                             <div className="flex space-x-4 overflow-x-auto scrollbar-hide pb-4">
                                 {Array.from({ length: 4 }).map((_, j) => 
                                     <div key={j} className="flex-shrink-0 w-64">

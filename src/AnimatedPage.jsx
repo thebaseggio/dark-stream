@@ -8,9 +8,10 @@ const animations = {
   exit:    { opacity: 0, y: -10 },
 };
 
-const AnimatedPage = ({ children }) => {
+const AnimatedPage = ({ children, className = '' }) => {
   return (
     <motion.div
+      className={className}
       variants={animations}
       initial="initial"
       animate="animate"

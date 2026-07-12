@@ -3,7 +3,6 @@ import { supabase } from '../supabase';
 import { Link } from 'react-router-dom';
 import AnimatedPage from '../AnimatedPage';
 import DashboardChart from './DashboardChart';
-import RecentComments from "../components/RecentComments"; 
 import { Dialog, Transition } from '@headlessui/react';
 import ProfileEditor from '../components/ProfileEditor';
 import SubscribersChart from './SubscribersChart';
@@ -13,6 +12,26 @@ import SubscribersChart from './SubscribersChart';
 
 const EditIcon = (props) => ( <svg {...props} viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg> );
 const DeleteIcon = (props) => ( <svg {...props} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg> );
+const ViewsIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1 1 0 010-.644C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> );
+const UsersIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg> );
+const HeartIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /></svg> );
+const ThumbUpIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6.633 10.25c.806 0 1.533-.278 2.117-.783m0 0A7.454 7.454 0 0112 7.5c1.243 0 2.4.24 3.475.673.717.3 1.453.673 2.117.783M6.633 10.25H4.5v9.75h2.133m0-9.75V18.75m6.317-8.475v8.475m0 0H18.75V10.25H12.95m0 0c.806 0 1.533-.278 2.117-.783M12.95 10.25V18.75" /></svg> );
+const ThumbDownIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M7.498 15.25H4.372v-9.75h3.126m0 9.75V5.5m0 9.75h6.372m0 0c.806 0 1.533.278 2.117.783M13.87 15.25V5.5m0 0c.806 0 1.533.278 2.117.783m-2.117-.783A7.454 7.454 0 0012 5.25c-1.243 0-2.4.24-3.475.673-.717.3-1.453.673-2.117.783" /></svg> );
+const FilmIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 0A1.125 1.125 0 015.625 4.5h12.75a1.125 1.125 0 011.125 1.125v12.75m-9.75 0h9.75" /></svg> );
+
+function StatCard({ label, value, icon: Icon, loading }) {
+    return (
+        <div className="bg-zinc-900 border border-white/10 p-6">
+            <div className="flex items-center gap-2 text-zinc-500">
+                <Icon className="w-4 h-4" />
+                <p className="text-[11px] font-mono uppercase tracking-wider">{label}</p>
+            </div>
+            <p className="text-3xl font-semibold text-white mt-3 tabular-nums">
+                {loading ? '...' : value}
+            </p>
+        </div>
+    );
+}
 
 const TopVideoCard = ({ video, timePeriod }) => {
     const periodText = timePeriod > 0 ? `Últimos ${timePeriod} dias` : 'Todo o Período';
@@ -203,30 +222,12 @@ return (
                 
                 {/* --- 4. Painel de Estatísticas --- */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div className="bg-zinc-900 p-6 rounded-lg">
-                        <p className="text-sm font-medium text-gray-400">Total de Vídeos</p>
-                        <p className="text-3xl font-bold mt-1">{isLoadingVideos ? '...' : myVideos.length}</p>
-                    </div>
-                    <div className="bg-zinc-900 p-6 rounded-lg">
-                        <p className="text-sm font-medium text-gray-400">Total de Views</p>
-                        <p className="text-3xl font-bold mt-1">{isLoadingVideos ? '...' : stats.views.toLocaleString('pt-BR')}</p>
-                    </div>
-                    <div className="bg-zinc-900 p-6 rounded-lg">
-                        <p className="text-sm font-medium text-gray-400">Inscritos</p>
-                        <p className="text-3xl font-bold mt-1">{isLoadingVideos ? '...' : stats.subscribers.toLocaleString('pt-BR')}</p>
-                    </div>
-                    <div className="bg-zinc-900 p-6 rounded-lg">
-                        <p className="text-sm font-medium text-gray-400">Gostei Muito</p>
-                        <p className="text-3xl font-bold mt-1 flex items-center gap-2"><span>❤️</span><span>{isLoadingVideos ? '...' : stats.super_likes.toLocaleString('pt-BR')}</span></p>
-                    </div>
-                    <div className="bg-zinc-900 p-6 rounded-lg">
-                        <p className="text-sm font-medium text-gray-400">Gostei</p>
-                        <p className="text-3xl font-bold mt-1 flex items-center gap-2"><span>👍</span><span>{isLoadingVideos ? '...' : stats.likes.toLocaleString('pt-BR')}</span></p>
-                    </div>
-                    <div className="bg-zinc-900 p-6 rounded-lg">
-                        <p className="text-sm font-medium text-gray-400">Não Gostei</p>
-                        <p className="text-3xl font-bold mt-1 flex items-center gap-2"><span>👎</span><span>{isLoadingVideos ? '...' : stats.dislikes.toLocaleString('pt-BR')}</span></p>
-                    </div>
+                    <StatCard label="Total de Vídeos" value={myVideos.length} icon={FilmIcon} loading={isLoadingVideos} />
+                    <StatCard label="Total de Views" value={stats.views.toLocaleString('pt-BR')} icon={ViewsIcon} loading={isLoadingVideos} />
+                    <StatCard label="Inscritos" value={stats.subscribers.toLocaleString('pt-BR')} icon={UsersIcon} loading={isLoadingVideos} />
+                    <StatCard label="Gostei Muito" value={stats.super_likes.toLocaleString('pt-BR')} icon={HeartIcon} loading={isLoadingVideos} />
+                    <StatCard label="Gostei" value={stats.likes.toLocaleString('pt-BR')} icon={ThumbUpIcon} loading={isLoadingVideos} />
+                    <StatCard label="Não Gostei" value={stats.dislikes.toLocaleString('pt-BR')} icon={ThumbDownIcon} loading={isLoadingVideos} />
                 </div>
                 
                 {/* --- 5. Gráficos de Performance --- */}
@@ -235,11 +236,7 @@ return (
                     <SubscribersChart userId={user.id} timePeriod={timePeriod} />
                 </div>
 
-                {/* --- 6. Comentários Recentes --- */}
-                <div className="pt-6 border-t border-zinc-800">
-                    <RecentComments userId={user?.id} user={user} />
-                </div>
-                    {/* Seção para o Conteúdo */}
+                    {/* Seção para o Conteúdo */}
     <div className="pt-6 border-t border-zinc-800 bg-zinc-900 p-6 rounded-lg">
         <h2 className="text-xl font-bold text-white mb-4">Seu Conteúdo</h2>
         {isLoadingVideos ? (
@@ -247,13 +244,21 @@ return (
         ) : myVideos.length > 0 ? (
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left align-middle">
-                    <thead className="text-xs text-gray-400 uppercase">
+                    <thead className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
                         <tr>
                             <th className="px-4 py-3">Vídeo</th>
-                            <th className="px-4 py-3 text-center">Views</th>
-                            <th className="px-4 py-3 text-center">❤️</th>
-                            <th className="px-4 py-3 text-center">👍</th>
-                            <th className="px-4 py-3 text-center">👎</th>
+                            <th className="px-4 py-3 text-center">
+                                <span className="inline-flex items-center justify-center gap-1"><ViewsIcon className="w-3.5 h-3.5" /> Views</span>
+                            </th>
+                            <th className="px-4 py-3 text-center">
+                                <span className="inline-flex items-center justify-center gap-1"><HeartIcon className="w-3.5 h-3.5" /></span>
+                            </th>
+                            <th className="px-4 py-3 text-center">
+                                <span className="inline-flex items-center justify-center gap-1"><ThumbUpIcon className="w-3.5 h-3.5" /></span>
+                            </th>
+                            <th className="px-4 py-3 text-center">
+                                <span className="inline-flex items-center justify-center gap-1"><ThumbDownIcon className="w-3.5 h-3.5" /></span>
+                            </th>
                             <th className="px-4 py-3 hidden md:table-cell">Data de Envio</th>
                             <th className="px-4 py-3 text-center">Ações</th>
                         </tr>

@@ -25,6 +25,7 @@ Arquivos de políticas RLS (aplicar nesta ordem):
 5. `20250712000002_storage_banners_bucket.sql` — bucket banners + políticas
 6. `20250712000003_create_profile_on_signup.sql` — trigger de profile no signup + backfill
 7. `20250712000004_add_videos_rating_and_short_columns.sql` — gostei/gostei_muito/nao_gostei, shorts e tags[]
+8. `20250712000005_increment_video_feedback_rpc.sql` — RPC increment_video_feedback (player)
 
 Use `verify_setup.sql` no SQL Editor para checar tabelas, RPCs, buckets e RLS.
 

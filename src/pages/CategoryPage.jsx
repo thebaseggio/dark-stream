@@ -11,12 +11,12 @@ function VideoCard({ video }) {
     const navigate = useNavigate();
     const creator = video.creator_id;
     return (
-        <div onClick={() => navigate(`/video/${video.id}`)} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col h-full group cursor-pointer ...">
-            <div className="relative w-full aspect-video mb-4 overflow-hidden rounded-md">
-                <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover ..."/>
+        <div onClick={() => navigate(`/video/${video.id}`)} className="bg-zinc-900 border border-white/10 p-4 flex flex-col h-full group cursor-pointer transition-colors hover:border-white/20">
+            <div className="relative w-full aspect-video mb-3 overflow-hidden border border-white/10">
+                <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-80"/>
             </div>
             <div className="flex flex-col flex-grow">
-                <h2 className="font-bold text-base text-white uppercase ...">{video.title}</h2>
+                <h2 className="text-xs font-mono uppercase tracking-wider text-zinc-300 line-clamp-2 leading-snug group-hover:text-white transition-colors">{video.title}</h2>
                 <div className="flex-grow"></div>
                 {creator && (
                     <div className="mt-4 pt-3 border-t border-zinc-800 flex items-center gap-2">
