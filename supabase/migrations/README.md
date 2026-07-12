@@ -23,6 +23,7 @@ Arquivos de políticas RLS (aplicar nesta ordem):
 3. `20250611000002_categories_table.sql` — tabela categories + seed das 7 categorias
 4. `20250712000001_storage_buckets.sql` — buckets públicos (videos, thumbnails, avatars) + políticas
 5. `20250712000002_storage_banners_bucket.sql` — bucket banners + políticas
+6. `20250712000003_create_profile_on_signup.sql` — trigger de profile no signup + backfill
 
 Use `verify_setup.sql` no SQL Editor para checar tabelas, RPCs, buckets e RLS.
 
