@@ -21,6 +21,8 @@ Arquivos de políticas RLS (aplicar nesta ordem):
 1. `20250611000000_recommended_rls_policies.sql`
 2. `20250611000001_rls_supplements.sql` — comment_replies, views SELECT, storage UPDATE
 3. `20250611000002_categories_table.sql` — tabela categories + seed das 7 categorias
+4. `20250712000001_storage_buckets.sql` — buckets públicos (videos, thumbnails, avatars) + políticas
+5. `20250712000002_storage_banners_bucket.sql` — bucket banners + políticas
 
 Use `verify_setup.sql` no SQL Editor para checar tabelas, RPCs, buckets e RLS.
 
