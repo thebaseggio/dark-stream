@@ -14,6 +14,7 @@ import VideoPlayer from './pages/VideoPlayer';
 import CreatorDashboard from './pages/CreatorDashboard';
 import CreatorUploadForm from './pages/CreatorUploadForm';
 import { Dialog, Transition } from '@headlessui/react';
+import InvestigatorProfile from './pages/InvestigatorProfile';
 import PartnerProfile from './pages/PartnerProfile';
 import SignupPage from './pages/SignupPage';
 import NotificationModal from './components/NotificationModal.jsx';
@@ -132,6 +133,13 @@ export default function App() {
                     <Route path="/termos-de-servico" element={<TermosDeServico />} />
                     <Route path="/politica-de-privacidade" element={<PoliticaDePrivacidade />} />
                     <Route path="/seja-um-parceiro" element={<SejaUmParceiro />} />
+
+                    <Route path="/investigador" element={
+                        <PrivateRoute user={user}>
+                            <InvestigatorProfile user={user} profile={profile} />
+                        </PrivateRoute>
+                    } />
+                    <Route path="/perfil" element={<Navigate to="/investigador" replace />} />
 
                     <Route path="/meu-perfil" element={
                         <PrivateRoute user={user}>

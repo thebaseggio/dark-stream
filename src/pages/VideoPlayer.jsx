@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
+import RestrictedAccessScreen from '../components/RestrictedAccessScreen';
+import PlayerAmbientGlow from '../components/PlayerAmbientGlow';
 import {
   FEEDBACK_LIKE,
   FEEDBACK_DISLIKE,
@@ -364,20 +366,10 @@ export default function VideoPlayer({ user }) {
   if (!user) {
     return (
       <AnimatedPage className="h-full">
-        <div className="h-full bg-dark-pure flex items-center justify-center px-6 font-sans">
-          <div className="w-full max-w-lg border border-dark-border bg-dark-panel p-10 text-center">
-            <p className="text-sm font-mono font-semibold uppercase tracking-widest text-zinc-200 leading-relaxed">
-              Acesso restrito. Este caso só pode ser acessado por investigadores registrados.
-            </p>
-            <Link
-              to="/login"
-              state={{ from: `/video/${videoId}` }}
-              className="inline-block mt-8 rounded-none bg-brand-primary text-black font-bold text-sm tracking-wider uppercase px-5 py-2.5 hover:opacity-90 transition-opacity"
-            >
-              Fazer login
-            </Link>
-          </div>
-        </div>
+        <RestrictedAccessScreen
+          caseId={videoId}
+          loginState={{ from: `/video/${videoId}` }}
+        />
       </AnimatedPage>
     );
   }
@@ -427,24 +419,16 @@ export default function VideoPlayer({ user }) {
 
   return (
     <AnimatedPage className="h-full">
-      <div className="h-full overflow-hidden bg-dark-pure text-white font-sans">
-        <div className="h-full overflow-hidden grid grid-cols-12 grid-rows-[auto_minmax(0,1fr)] lg:grid-rows-1">
+      <div className="h-full overflow-hidden bg-dark-pure text-white font-sans relative">
+        <PlayerAmbientGlow thumbnail={video.thumbnail} />
+
+        <div className="relative z-10 h-full overflow-hidden grid grid-cols-12 grid-rows-[auto_minmax(0,1fr)] lg:grid-rows-1">
 
           {/* Player — 9 colunas no desktop */}
-          <section className="col-span-12 lg:col-span-9 min-h-0 min-w-0 h-full flex flex-col bg-dark-pure overflow-hidden relative">
-            {video.thumbnail && (
-              <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none" aria-hidden="true">
-                <img
-                  src={video.thumbnail}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover blur-[100px] opacity-30 scale-125"
-                />
-              </div>
-            )}
-
+          <section className="col-span-12 lg:col-span-9 min-h-0 min-w-0 h-full flex flex-col bg-transparent overflow-hidden relative">
             <div
               ref={playerContainerRef}
-              className={`relative z-10 w-full h-full min-h-[50vh] lg:min-h-0 bg-black group ${
+              className={`relative z-10 w-full h-full min-h-[50vh] lg:min-h-0 bg-black/90 group ${
                 !areControlsVisible && !videoRef.current?.paused ? 'cursor-none' : ''
               }`}
               onMouseMove={handleActivity}

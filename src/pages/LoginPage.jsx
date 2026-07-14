@@ -1,13 +1,15 @@
 // src/pages/LoginPage.jsx
  
  import React, { useState } from 'react';
- import { useNavigate, Link } from 'react-router-dom';
+ import { useNavigate, Link, useLocation } from 'react-router-dom';
  import { supabase } from '../supabase';
  import Spinner from '../components/Spinner';
  import AnimatedPage from '../AnimatedPage';
  
  export default function LoginPage() {
    const navigate = useNavigate();
+   const location = useLocation();
+   const redirectTo = location.state?.from || '/casos';
    const [email, setEmail] = useState('');
    const [password, setPassword] = useState('');
    const [errorMsg, setErrorMsg] = useState(null);
@@ -23,8 +25,7 @@
     if (error) {
       setErrorMsg(error.message);
     } else {
-      // ALTERAÇÃO AQUI:
-      navigate('/casos'); // Mude de '/painel' para '/casos'
+      navigate(redirectTo);
     }
     setLoading(false);
   };

@@ -42,12 +42,12 @@ function Header({ user, profile, immersive, chromeVisible }) {
                     <div className="flex items-center gap-3">
                         {user ? (
                             <>
-                                <Link to="/meu-perfil" className="flex-shrink-0">
+                                <Link to={profile?.role === 'partner' ? '/meu-perfil' : '/investigador'} className="flex-shrink-0">
                                     <button
                                       type="button"
                                       className="rounded-none border border-dark-border text-white bg-transparent hover:bg-dark-panel font-mono uppercase tracking-wider text-[11px] px-4 py-2 transition-colors whitespace-nowrap"
                                     >
-                                        {profile?.role === 'partner' ? 'Painel do Parceiro' : 'Meu Perfil'}
+                                        {profile?.role === 'partner' ? 'Painel do Parceiro' : 'Meu Crachá'}
                                     </button>
                                 </Link>
 
@@ -60,14 +60,24 @@ function Header({ user, profile, immersive, chromeVisible }) {
                                 </button>
                             </>
                         ) : (
-                            <Link to="/inscrever-se" className="flex-shrink-0">
-                                <button
-                                  type="button"
-                                  className="rounded-none bg-brand-primary text-black hover:opacity-90 px-4 py-2 font-bold text-sm tracking-wider uppercase whitespace-nowrap transition-opacity"
-                                >
-                                    Seja um Investigador
-                                </button>
-                            </Link>
+                            <>
+                                <Link to="/login" className="flex-shrink-0">
+                                    <button
+                                      type="button"
+                                      className="rounded-none border border-dark-border text-zinc-400 hover:text-white hover:border-zinc-500 font-mono uppercase tracking-wider text-[11px] px-4 py-2 transition-colors whitespace-nowrap"
+                                    >
+                                        Entrar
+                                    </button>
+                                </Link>
+                                <Link to="/inscrever-se" className="flex-shrink-0">
+                                    <button
+                                      type="button"
+                                      className="rounded-none bg-brand-primary text-black hover:opacity-90 px-4 py-2 font-bold text-sm tracking-wider uppercase whitespace-nowrap transition-opacity"
+                                    >
+                                        Seja um Investigador
+                                    </button>
+                                </Link>
+                            </>
                         )}
                     </div>
                 </div>

@@ -27,6 +27,7 @@ Arquivos de políticas RLS (aplicar nesta ordem):
 7. `20250712000004_add_videos_rating_and_short_columns.sql` — gostei/gostei_muito/nao_gostei, shorts e tags[]
 8. `20250712000005_increment_video_feedback_rpc.sql` — RPC increment_video_feedback (player)
 9. `20250713000000_create_user_feedback.sql` — tabela `user_feedback` (like/dislike por usuário) + políticas RLS para preferências ativas do catálogo
+10. `20250714000000_create_partner_pistas.sql` — mural de pistas/avisos do QG do parceiro (`partner_pistas`) + RLS
 
 Use `verify_setup.sql` no SQL Editor para checar tabelas, RPCs, buckets e RLS.
 
@@ -48,6 +49,7 @@ No [Supabase Dashboard](https://supabase.com/dashboard/project/vrokbdihzeucbtatc
 | `comments` | Pública | Autenticado, `user_id = auth.uid()` |
 | `ratings` | Próprias | Autenticado, `user_id = auth.uid()` |
 | `user_feedback` | Próprias | Autenticado, `user_id = auth.uid()` (like/dislike no player) |
+| `partner_pistas` | Pública | Insert/update/delete apenas parceiro dono (`partner_id = auth.uid()`) |
 | `subscriptions` | Próprias | Autenticado, `follower_id = auth.uid()` |
 | `views` | — | Insert autenticado |
 | Storage `videos` | Pública | Upload apenas parceiros |

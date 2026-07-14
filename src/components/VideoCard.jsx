@@ -28,11 +28,25 @@ function formatDuration(video) {
   return null;
 }
 
-function formatRating(video) {
+function getDaysSinceCreation(timestamp) {
+  if (!timestamp) return Infinity;
+  const now = new Date();
+  const created = new Date(timestamp);
+  const diffMs = now.getTime() - created.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function isNewVideo(video) {
+  return getDaysSinceCreation(video?.created_at) < 7;
+}
+
+function formatRatingLabel(video) {
+  if (isNewVideo(video)) return 'NOVO';
+
   const likes = (video.gostei || 0) + (video.gostei_muito || 0);
   if (likes >= 1000) return `${(likes / 1000).toFixed(1).replace(/\.0$/, '')}K`;
   if (likes > 0) return `${likes}`;
-  return 'Novo';
+  return null;
 }
 
 export default function VideoCard({ video, onNavigate, orientation = 'vertical', variant = 'default' }) {
@@ -130,6 +144,7 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical',
   }
 
   const duration = formatDuration(video);
+  const ratingLabel = formatRatingLabel(video);
 
   return (
     <div
@@ -153,7 +168,9 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical',
             </div>
             <div className="flex items-center justify-between gap-2 mt-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
               <span>{duration || formattedViews(video.views)}</span>
-              <span className="text-brand-primary/80">{formatRating(video)} ★</span>
+              {ratingLabel && (
+                <span className="text-brand-primary/80">{ratingLabel} ★</span>
+              )}
             </div>
           </div>
         </div>
