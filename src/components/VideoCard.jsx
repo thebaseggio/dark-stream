@@ -7,8 +7,37 @@ const VerifiedIcon = (props) => (
   </svg>
 );
 
+function getThumbnail(video) {
+  return video.thumbnail || video.thumbnail_url;
+}
+
+function getCreatorName(video) {
+  return video.creator?.username
+    || video.creator_id?.username
+    || video.creator_username
+    || 'Parceiro';
+}
+
+function getCreatorRole(video) {
+  return video.creator?.role || video.creator_role;
+}
+
+function formatDuration(video) {
+  if (video.duration) return video.duration;
+  if (video.runtime) return video.runtime;
+  return null;
+}
+
+function formatRating(video) {
+  const likes = (video.gostei || 0) + (video.gostei_muito || 0);
+  if (likes >= 1000) return `${(likes / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+  if (likes > 0) return `${likes}`;
+  return 'Novo';
+}
+
 export default function VideoCard({ video, onNavigate, orientation = 'vertical', variant = 'default' }) {
   const navigate = useNavigate();
+  const thumbnail = getThumbnail(video);
 
   const handleCardClick = () => {
     const path = `/video/${video.id}`;
@@ -46,7 +75,7 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical',
       <div className="flex gap-4 cursor-pointer group" onClick={handleCardClick}>
         <div className="w-40 flex-shrink-0 border border-dark-border overflow-hidden">
           <img
-            src={video.thumbnail}
+            src={thumbnail}
             alt={video.title}
             className="w-full aspect-video object-cover transition-opacity duration-300 group-hover:opacity-80"
           />
@@ -57,11 +86,11 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical',
           </h3>
           <div className="flex items-center text-zinc-500 text-[10px] font-mono uppercase tracking-wider mt-2 gap-2">
             <img
-              src={video.creator?.creatorAvatar || `https://ui-avatars.com/api/?name=${video.creator?.username?.charAt(0)}`}
-              alt={video.creator?.username}
+              src={video.creator?.creatorAvatar || `https://ui-avatars.com/api/?name=${getCreatorName(video).charAt(0)}`}
+              alt={getCreatorName(video)}
               className="w-5 h-5 object-cover border border-dark-border"
             />
-            <span>{video.creator?.username}</span>
+            <span>{getCreatorName(video)}</span>
           </div>
         </div>
       </div>
@@ -70,16 +99,28 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical',
 
   if (variant === 'short') {
     return (
-      <div className="w-44 flex-shrink-0 cursor-pointer group" onClick={handleCardClick}>
+      <div
+        className="relative flex-shrink-0 w-44 cursor-pointer group/card transition-transform duration-300 ease-out hover:scale-105 hover:z-30"
+        onClick={handleCardClick}
+      >
         <div className="relative border border-dark-border overflow-hidden">
           <img
-            src={video.thumbnail_url}
+            src={thumbnail}
             alt={video.title}
-            className="w-full aspect-[9/16] object-cover transition-opacity duration-300 group-hover:opacity-80"
+            className="w-full aspect-[9/16] object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover/card:opacity-100 transition-opacity duration-300" />
+          {video.short_type === 'update' && (
+            <span className="absolute top-2 left-2 bg-dark-panel border border-dark-border text-zinc-300 text-[9px] font-mono uppercase tracking-wider px-2 py-1">Update</span>
+          )}
+          {video.short_type === 'intro' && (
+            <span className="absolute top-2 left-2 bg-dark-panel border border-dark-border text-zinc-300 text-[9px] font-mono uppercase tracking-wider px-2 py-1">Prévia</span>
+          )}
+          {video.short_type === 'flash' && (
+            <span className="absolute top-2 left-2 bg-dark-panel border border-dark-border text-zinc-300 text-[9px] font-mono uppercase tracking-wider px-2 py-1">Flash</span>
+          )}
           <div className="absolute bottom-2 left-2 right-2">
-            <h3 className="text-[10px] font-mono uppercase tracking-wider text-zinc-300 line-clamp-2 leading-snug group-hover:text-brand-primary transition-colors">
+            <h3 className="text-[10px] font-mono uppercase tracking-wider text-zinc-300 line-clamp-2 leading-snug group-hover/card:text-brand-primary transition-colors">
               {video.title}
             </h3>
           </div>
@@ -88,29 +129,42 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical',
     );
   }
 
+  const duration = formatDuration(video);
+
   return (
-    <div className="w-full cursor-pointer group" onClick={handleCardClick}>
-      <div className="border border-dark-border overflow-hidden">
+    <div
+      className="relative flex-shrink-0 w-64 cursor-pointer group/card transition-transform duration-300 ease-out hover:scale-105 hover:z-30"
+      onClick={handleCardClick}
+    >
+      <div className="relative border border-dark-border overflow-hidden bg-dark-panel">
         <img
-          src={video.thumbnail_url}
+          src={thumbnail}
           alt={video.title}
-          className="w-full h-40 object-cover transition-opacity duration-300 group-hover:opacity-80"
+          className="w-full aspect-video object-cover"
         />
-      </div>
-      <div className="mt-2 space-y-1">
-        <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-300 line-clamp-2 leading-snug group-hover:text-brand-primary transition-colors">
-          {video.title}
-        </h3>
-        <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
-          <span>{video.creator_username}</span>
-          {video.creator_role === 'partner' && (
-            <VerifiedIcon className="w-3 h-3 text-zinc-500" title="Parceiro Verificado" />
-          )}
+
+        <div className="absolute inset-x-0 bottom-0 translate-y-2 opacity-0 group-hover/card:translate-y-0 group-hover/card:opacity-100 transition-all duration-300">
+          <div className="bg-gradient-to-t from-black via-black/85 to-transparent px-3 pb-3 pt-10">
+            <div className="flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-wider text-zinc-300">
+              <span className="truncate">{getCreatorName(video)}</span>
+              {getCreatorRole(video) === 'partner' && (
+                <VerifiedIcon className="w-3 h-3 text-zinc-500 flex-shrink-0" title="Parceiro Verificado" />
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-2 mt-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+              <span>{duration || formattedViews(video.views)}</span>
+              <span className="text-brand-primary/80">{formatRating(video)} ★</span>
+            </div>
+          </div>
         </div>
-        <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
-          {formattedViews(video.views)} · {timeAgo(video.created_at)}
-        </p>
       </div>
+
+      <h3 className="mt-2 text-[11px] font-mono uppercase tracking-wider text-zinc-400 line-clamp-2 leading-snug group-hover/card:text-brand-primary transition-colors">
+        {video.title}
+      </h3>
+      <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mt-1">
+        {formattedViews(video.views)} · {timeAgo(video.created_at)}
+      </p>
     </div>
   );
 }

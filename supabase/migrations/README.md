@@ -26,6 +26,7 @@ Arquivos de políticas RLS (aplicar nesta ordem):
 6. `20250712000003_create_profile_on_signup.sql` — trigger de profile no signup + backfill
 7. `20250712000004_add_videos_rating_and_short_columns.sql` — gostei/gostei_muito/nao_gostei, shorts e tags[]
 8. `20250712000005_increment_video_feedback_rpc.sql` — RPC increment_video_feedback (player)
+9. `20250713000000_create_user_feedback.sql` — tabela `user_feedback` (like/dislike por usuário) + políticas RLS para preferências ativas do catálogo
 
 Use `verify_setup.sql` no SQL Editor para checar tabelas, RPCs, buckets e RLS.
 
@@ -46,6 +47,7 @@ No [Supabase Dashboard](https://supabase.com/dashboard/project/vrokbdihzeucbtatc
 | `profiles` | Pública | Apenas `id = auth.uid()` |
 | `comments` | Pública | Autenticado, `user_id = auth.uid()` |
 | `ratings` | Próprias | Autenticado, `user_id = auth.uid()` |
+| `user_feedback` | Próprias | Autenticado, `user_id = auth.uid()` (like/dislike no player) |
 | `subscriptions` | Próprias | Autenticado, `follower_id = auth.uid()` |
 | `views` | — | Insert autenticado |
 | Storage `videos` | Pública | Upload apenas parceiros |

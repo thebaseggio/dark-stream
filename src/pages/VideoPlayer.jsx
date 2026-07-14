@@ -4,6 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
+import {
+  FEEDBACK_LIKE,
+  FEEDBACK_DISLIKE,
+  saveUserFeedback,
+  saveLocalFeedback,
+} from '../utils/userFeedback';
 
 const PlayIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
@@ -172,20 +178,32 @@ export default function VideoPlayer({ user }) {
     setIsProcessingRating(true);
 
     const feedbackType = voteType === RECOMMEND_VOTE ? 'gostei' : 'nao_gostei';
-    const { error } = await supabase.rpc('increment_video_feedback', {
-      video_row_id: videoId,
-      feedback_type: feedbackType,
-    });
+    const preferenceRating = voteType === RECOMMEND_VOTE ? FEEDBACK_LIKE : FEEDBACK_DISLIKE;
+
+    const [{ error }, preferenceResult] = await Promise.all([
+      supabase.rpc('increment_video_feedback', {
+        video_row_id: videoId,
+        feedback_type: feedbackType,
+      }),
+      user
+        ? saveUserFeedback(user.id, videoId, preferenceRating)
+        : Promise.resolve({ error: null }),
+    ]);
 
     if (error) {
       console.error('Erro ao registrar feedback:', error);
     } else {
       sessionStorage.setItem(getSessionVoteKey(videoId), voteType);
+      saveLocalFeedback(videoId, preferenceRating);
       setSessionVote(voteType);
       setVideo((prev) => ({
         ...prev,
         [feedbackType]: (prev?.[feedbackType] || 0) + 1,
       }));
+    }
+
+    if (preferenceResult?.error) {
+      console.error('Erro ao salvar preferência do usuário:', preferenceResult.error);
     }
 
     setIsProcessingRating(false);

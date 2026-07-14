@@ -118,8 +118,8 @@ export default function App() {
                 {/* --- Rotas Públicas dentro do Layout Principal --- */}
                 <Route element={<MainLayout user={user} profile={profile} />}>
                     {/* As props 'videos' foram removidas daqui */}
-                    <Route path="/casos" element={<Explore />} />
-                    <Route path="/explorar" element={<Explore />} />
+                    <Route path="/casos" element={<Explore user={user} />} />
+                    <Route path="/explorar" element={<Explore user={user} />} />
                     
                     {/* Passando o objeto 'user' completo (que agora inclui o perfil) para o VideoPlayer */}
                     <Route path="/video/:id" element={<VideoPlayer user={user} />} />
