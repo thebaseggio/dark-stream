@@ -1,10 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import SiteContainer from './SiteContainer';
 
 export default function Footer() {
   return (
     <footer className="bg-black border-t border-zinc-800/50 text-zinc-400">
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-8 flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
+      <SiteContainer className="py-8 flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
         
         <p className="text-sm order-2 sm:order-1 mt-4 sm:mt-0">
           &copy; {new Date().getFullYear()} Dark Stream. Todos os direitos reservados.
@@ -26,7 +27,7 @@ export default function Footer() {
           </Link>
         </nav>
 
-      </div>
+      </SiteContainer>
     </footer>
   );
 }

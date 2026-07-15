@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { getPartnerProfilePath } from '../utils/partnerProfile';
 
 const MARCOS_CAMPOS_CREATOR_ID = 'd0781217-8eb0-4d8d-b32b-ce785dbb6227';
 const TRAILER_DELAY_MS = 3000;
@@ -77,6 +78,7 @@ export default function FeaturedBanner({ featuredVideo, onNavigate }) {
   if (!featuredVideo) return null;
 
   const creator = featuredVideo.creator_id;
+  const creatorProfilePath = getPartnerProfilePath(creator);
   const thumbnail = featuredVideo.thumbnail || featuredVideo.thumbnail_url;
   const categories = Array.isArray(featuredVideo.category)
     ? featuredVideo.category
@@ -96,37 +98,44 @@ export default function FeaturedBanner({ featuredVideo, onNavigate }) {
   };
 
   return (
-    <section className="relative w-full h-[52vh] min-h-[300px] max-h-[560px] overflow-hidden border-b border-dark-border">
-      {thumbnail && (
-        <img
-          src={thumbnail}
-          alt=""
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
-            showTrailer ? 'opacity-0' : 'opacity-100'
-          }`}
-        />
-      )}
+    <div className="-mt-6">
+      <section className="relative w-full h-[52vh] min-h-[300px] max-h-[560px] overflow-hidden border-b border-dark-border">
+        {/* Mídia de fundo */}
+        <div className="absolute inset-0 z-0 w-full h-full overflow-hidden">
+          {thumbnail && (
+            <img
+              src={thumbnail}
+              alt=""
+              className={`w-full h-full object-cover object-center transition-opacity duration-1000 ${
+                showTrailer ? 'opacity-0' : 'opacity-100'
+              }`}
+            />
+          )}
 
-      {featuredVideo.videoUrl && (
-        <video
-          ref={videoRef}
-          src={featuredVideo.videoUrl}
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
-            showTrailer ? 'opacity-100' : 'opacity-0'
-          }`}
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          aria-hidden="true"
-        />
-      )}
+          {featuredVideo.videoUrl && (
+            <video
+              ref={videoRef}
+              src={featuredVideo.videoUrl}
+              className={`w-full h-full object-cover object-center transition-opacity duration-1000 ${
+                showTrailer ? 'opacity-100' : 'opacity-0'
+              }`}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-hidden="true"
+            />
+          )}
+        </div>
 
-      <div className="absolute inset-0 bg-gradient-to-r from-dark-pure via-dark-pure/75 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-dark-pure via-transparent to-dark-pure/30" />
+        {/* Máscaras de gradiente (estilo streaming) */}
+        <div className="absolute inset-0 z-10 pointer-events-none">
+          <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-black via-black/80 to-transparent w-full md:w-[60%] h-full" />
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent h-[40%]" />
+        </div>
 
-      <div className="relative z-10 h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-10 sm:pb-14">
-        <div className="max-w-2xl space-y-4">
+        <div className="relative z-20 h-full flex flex-col justify-end pb-10 sm:pb-14">
+          <div className="max-w-2xl space-y-4">
           {categories[0] && (
             <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-brand-primary">
               {categories[0]}
@@ -139,7 +148,17 @@ export default function FeaturedBanner({ featuredVideo, onNavigate }) {
 
           {creator?.username && (
             <p className="text-xs font-mono uppercase tracking-wider text-zinc-400">
-              Por {creator.username}
+              Por{' '}
+              {creatorProfilePath ? (
+                <Link
+                  to={creatorProfilePath}
+                  className="hover:text-brand-primary transition-colors underline-offset-2 hover:underline"
+                >
+                  {creator.username}
+                </Link>
+              ) : (
+                creator.username
+              )}
             </p>
           )}
 
@@ -170,7 +189,8 @@ export default function FeaturedBanner({ featuredVideo, onNavigate }) {
             )}
           </div>
         </div>
-      </div>
-    </section>
+        </div>
+      </section>
+    </div>
   );
 }

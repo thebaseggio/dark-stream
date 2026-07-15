@@ -49,7 +49,13 @@ function formatRatingLabel(video) {
   return null;
 }
 
-export default function VideoCard({ video, onNavigate, orientation = 'vertical', variant = 'default' }) {
+export default function VideoCard({
+  video,
+  onNavigate,
+  orientation = 'vertical',
+  variant = 'default',
+  fullWidth = false,
+}) {
   const navigate = useNavigate();
   const thumbnail = getThumbnail(video);
 
@@ -145,17 +151,18 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical',
 
   const duration = formatDuration(video);
   const ratingLabel = formatRatingLabel(video);
+  const widthClass = fullWidth ? 'w-full' : 'flex-shrink-0 w-64';
 
   return (
     <div
-      className="relative flex-shrink-0 w-64 cursor-pointer group/card transition-transform duration-300 ease-out hover:scale-105 hover:z-30"
+      className={`relative ${widthClass} cursor-pointer group/card transition-transform duration-300 ease-out hover:scale-[1.02] hover:z-30`}
       onClick={handleCardClick}
     >
-      <div className="relative border border-dark-border overflow-hidden bg-dark-panel">
+      <div className="relative border border-dark-border overflow-hidden rounded-sm bg-dark-panel">
         <img
           src={thumbnail}
           alt={video.title}
-          className="w-full aspect-video object-cover"
+          className="w-full aspect-[16/9] object-cover object-center transition-transform duration-300 group-hover/card:scale-105"
         />
 
         <div className="absolute inset-x-0 bottom-0 translate-y-2 opacity-0 group-hover/card:translate-y-0 group-hover/card:opacity-100 transition-all duration-300">
@@ -176,7 +183,7 @@ export default function VideoCard({ video, onNavigate, orientation = 'vertical',
         </div>
       </div>
 
-      <h3 className="mt-2 text-[11px] font-mono uppercase tracking-wider text-zinc-400 line-clamp-2 leading-snug group-hover/card:text-brand-primary transition-colors">
+      <h3 className="mt-2 text-[11px] font-mono uppercase tracking-wider text-white line-clamp-2 leading-snug group-hover/card:text-brand-primary transition-colors duration-300">
         {video.title}
       </h3>
       <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mt-1">

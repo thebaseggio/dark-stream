@@ -5,6 +5,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
 import SkeletonCard from './SkeletonCard';
+import { getPartnerProfilePath } from '../utils/partnerProfile';
+import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 
 // Reutilizamos o VideoCard do Explore.jsx (idealmente, ele viveria em src/components/)
 function VideoCard({ video }) {
@@ -20,7 +22,11 @@ function VideoCard({ video }) {
                 <div className="flex-grow"></div>
                 {creator && (
                     <div className="mt-4 pt-3 border-t border-zinc-800 flex items-center gap-2">
-                        <Link to={`/parceiro/${creator.id}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 group/creator">
+                        <Link
+                          to={getPartnerProfilePath(creator) || `/parceiro/${creator.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-2 group/creator"
+                        >
                             <img src={creator.creatorAvatar} alt={creator.username} className="w-6 h-6 rounded-full object-cover"/>
                             <p className="text-xs text-gray-400 group-hover/creator:text-white ...">{creator.username}</p>
                         </Link>
@@ -45,12 +51,16 @@ export default function CategoryPage() {
                 .from('videos')
                 .select('*, creator_id (id, username, "creatorAvatar")')
                 .contains('category', [decodedCategoryName])
+                .eq('is_short', false)
+                .is('parent_video_id', null)
                 .order('created_at', { ascending: false });
 
             const { data: textMatches, error: textError } = await supabase
                 .from('videos')
                 .select('*, creator_id (id, username, "creatorAvatar")')
                 .eq('category', decodedCategoryName)
+                .eq('is_short', false)
+                .is('parent_video_id', null)
                 .order('created_at', { ascending: false });
 
             if (arrayError && textError) {
@@ -70,6 +80,10 @@ export default function CategoryPage() {
 
     return (
         <AnimatedPage>
+            <SeoHead
+              title={`${decodeURIComponent(categoryName)} | Dark Stream`}
+              description={DEFAULT_SITE_DESCRIPTION}
+            />
             <div className="py-8">
                 <h2 className="font-anton text-white text-3xl mb-8">
                     Categoria: <span className="text-[#f1c40f]">{decodeURIComponent(categoryName)}</span>

@@ -1,11 +1,21 @@
 // src/pages/VideoPlayer.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
 import RestrictedAccessScreen from '../components/RestrictedAccessScreen';
 import PlayerAmbientGlow from '../components/PlayerAmbientGlow';
+import TheoryForum from '../components/TheoryForum';
+import SiteContainer from '../components/SiteContainer';
+import SeoHead, { buildMetaDescription, buildVideoPageTitle } from '../components/SeoHead';
+import { getPartnerProfilePath } from '../utils/partnerProfile';
+import {
+  checkPartnerFollowStatus,
+  fetchPartnerFollowerCount,
+  formatFollowerLabel,
+  togglePartnerFollow,
+} from '../utils/subscriptions';
 import {
   FEEDBACK_LIKE,
   FEEDBACK_DISLIKE,
@@ -52,6 +62,12 @@ function formatCategories(category) {
   return Array.isArray(category) ? category : [category];
 }
 
+function getShortTypeLabel(shortType) {
+  if (shortType === 'intro') return 'Prévia';
+  if (shortType === 'flash') return 'Flash';
+  return 'Atualização';
+}
+
 export default function VideoPlayer({ user }) {
   const { id: videoId } = useParams();
   const navigate = useNavigate();
@@ -83,52 +99,38 @@ export default function VideoPlayer({ user }) {
   const videoRef = useRef(null);
   const playerContainerRef = useRef(null);
 
-  const handleFollowToggle = async () => {
-    if (!user) { navigate('/login'); return; }
-    if (user.id === video.creator_id.id) return;
-    setIsProcessingFollow(true);
-    if (isSubscribed) {
-      const { error } = await supabase.from('subscriptions').delete().match({
-        creator_id: video.creator_id.id,
-        follower_id: user.id,
-      });
-      if (!error) {
-        setIsSubscribed(false);
-        setSubscriberCount((prev) => prev - 1);
-      }
-    } else {
-      const { error } = await supabase.from('subscriptions').insert({
-        creator_id: video.creator_id.id,
-        follower_id: user.id,
-      });
-      if (!error) {
-        setIsSubscribed(true);
-        setSubscriberCount((prev) => prev + 1);
-      }
+  const handleTimeUpdate = useCallback((e) => {
+    const el = e.currentTarget;
+    setCurrentTime(el.currentTime);
+    setProgress((el.currentTime / el.duration) * 100 || 0);
+  }, []);
+
+  const handlePlay = useCallback(() => {
+    setIsPlaying(true);
+  }, []);
+
+  const handlePause = useCallback(() => {
+    setIsPlaying(false);
+  }, []);
+
+  const handleDurationChange = useCallback((e) => {
+    const el = e.currentTarget;
+    if (Number.isFinite(el.duration)) {
+      setDuration(el.duration);
     }
-    setIsProcessingFollow(false);
-  };
+  }, []);
 
-  const handleActivity = () => {
-    reportChromeActivity?.();
-    setAreControlsVisible(true);
-    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-    inactivityTimerRef.current = setTimeout(() => {
-      const currentVideo = videoRef.current;
-      if (currentVideo && !currentVideo.paused && !currentVideo.muted) {
-        setAreControlsVisible(false);
-      }
-    }, 3000);
-  };
-
-  const togglePlayPause = () => {
+  const togglePlayPause = useCallback(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
-    if (currentVideo.paused) currentVideo.play();
-    else currentVideo.pause();
-  };
+    if (currentVideo.paused) {
+      currentVideo.play().catch(() => setIsPlaying(false));
+    } else {
+      currentVideo.pause();
+    }
+  }, []);
 
-  const toggleMute = () => {
+  const toggleMute = useCallback(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     currentVideo.muted = !currentVideo.muted;
@@ -137,9 +139,9 @@ export default function VideoPlayer({ user }) {
       currentVideo.volume = 1;
       setVolume(1);
     }
-  };
+  }, []);
 
-  const handleVolumeChange = (e) => {
+  const handleVolumeChange = useCallback((e) => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     const newVolume = parseFloat(e.target.value);
@@ -152,20 +154,62 @@ export default function VideoPlayer({ user }) {
       currentVideo.muted = true;
       setIsMuted(true);
     }
-  };
+  }, []);
 
-  const handleProgressChange = (e) => {
+  const handleProgressChange = useCallback((e) => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
     const newTime = parseFloat(e.target.value);
     currentVideo.currentTime = newTime;
     setCurrentTime(newTime);
-  };
+    setProgress((newTime / currentVideo.duration) * 100 || 0);
+  }, []);
 
-  const toggleFullScreen = () => {
+  const toggleFullScreen = useCallback(() => {
     if (!document.fullscreenElement) playerContainerRef.current?.requestFullscreen();
     else document.exitFullscreen();
+  }, []);
+
+  const handleFollowToggle = async () => {
+    if (!user) {
+      navigate('/login', { state: { from: `/video/${videoId}` } });
+      return;
+    }
+
+    const creatorId = video?.creator_id?.id;
+    if (!creatorId || user.id === creatorId) return;
+
+    setIsProcessingFollow(true);
+
+    try {
+      const nextFollowing = await togglePartnerFollow(
+        supabase,
+        user.id,
+        creatorId,
+        isSubscribed
+      );
+      setIsSubscribed(nextFollowing);
+
+      const updatedCount = await fetchPartnerFollowerCount(supabase, creatorId);
+      setSubscriberCount(updatedCount);
+    } catch {
+      setIsSubscribed(false);
+    } finally {
+      setIsProcessingFollow(false);
+    }
   };
+
+  const handleActivity = useCallback(() => {
+    reportChromeActivity?.();
+    setAreControlsVisible(true);
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    inactivityTimerRef.current = setTimeout(() => {
+      const currentVideo = videoRef.current;
+      if (currentVideo && !currentVideo.paused && !currentVideo.muted) {
+        setAreControlsVisible(false);
+      }
+    }, 3000);
+  }, [reportChromeActivity]);
 
   const formatTime = (timeInSeconds) => {
     if (isNaN(timeInSeconds)) return '00:00';
@@ -212,43 +256,68 @@ export default function VideoPlayer({ user }) {
   };
 
   useEffect(() => {
+    setShowIntro(true);
+    setIntroStep(1);
+    setFadeOutFirstPart(false);
+    setFadeOutSecondPart(false);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+    setProgress(0);
+    setAreControlsVisible(true);
+  }, [videoId]);
+
+  useEffect(() => {
     const fetchData = async () => {
       if (!videoId || !user) return;
       setLoading(true);
 
-      const { data: videoData, error: videoError } = await supabase
-        .from('videos')
-        .select('*, creator_id (id, username, creatorAvatar)')
-        .eq('id', videoId)
-        .single();
-
-      if (videoError || !videoData) {
-        console.error('Erro ao buscar vídeo:', videoError);
-        setLoading(false);
-        return;
-      }
-
-      setVideo(videoData);
-      const creatorId = videoData.creator_id.id;
-
-      const [subsCountRes, userSubRes, shortsRes] = await Promise.all([
-        supabase.from('subscriptions').select('*', { count: 'exact', head: true }).eq('creator_id', creatorId),
-        user
-          ? supabase.from('subscriptions').select('id').eq('creator_id', creatorId).eq('follower_id', user.id).maybeSingle()
-          : Promise.resolve({ data: null }),
-        supabase
+      try {
+        const { data: videoData, error: videoError } = await supabase
           .from('videos')
-          .select('id, title, thumbnail')
-          .eq('parent_video_id', videoId)
-          .eq('is_short', true)
-          .order('created_at', { ascending: true }),
-      ]);
+          .select('*, creator_id (id, username, creatorAvatar)')
+          .eq('id', videoId)
+          .single();
 
-      setSubscriberCount(subsCountRes.count || 0);
-      setIsSubscribed(!!userSubRes.data);
-      setSessionVote(readSessionVote(videoId));
-      setUpdateShorts(shortsRes.data || []);
-      setLoading(false);
+        if (videoError || !videoData) {
+          console.error('Erro ao buscar vídeo:', videoError);
+          return;
+        }
+
+        setVideo(videoData);
+        const creatorId = videoData.creator_id?.id;
+
+        if (!creatorId) {
+          setSubscriberCount(0);
+          setIsSubscribed(false);
+          setSessionVote(readSessionVote(videoId));
+          setUpdateShorts([]);
+          return;
+        }
+
+        const [subscriberCountResult, followingResult, shortsRes] = await Promise.all([
+          fetchPartnerFollowerCount(supabase, creatorId),
+          user.id !== creatorId
+            ? checkPartnerFollowStatus(supabase, user.id, creatorId)
+            : Promise.resolve(false),
+          supabase
+            .from('videos')
+            .select('id, title, thumbnail, short_type, created_at')
+            .eq('parent_video_id', videoId)
+            .eq('is_short', true)
+            .order('created_at', { ascending: true }),
+        ]);
+
+        setSubscriberCount(subscriberCountResult);
+        setIsSubscribed(followingResult);
+        setSessionVote(readSessionVote(videoId));
+        setUpdateShorts(shortsRes.data || []);
+      } catch {
+        setSubscriberCount(0);
+        setIsSubscribed(false);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchData();
@@ -258,11 +327,14 @@ export default function VideoPlayer({ user }) {
     if (!videoId || !user) return;
 
     const registerView = async () => {
-      const { error } = await supabase.rpc('increment_views', {
-        video_row_id: videoId,
-        viewer_id: user?.id,
-      });
-      if (error) console.error('Erro ao registrar view:', error);
+      try {
+        await supabase.rpc('increment_views', {
+          video_row_id: videoId,
+          viewer_id: user?.id,
+        });
+      } catch {
+        // RPC ausente no remoto — falha silenciosa
+      }
     };
 
     const timer = setTimeout(registerView, 2000);
@@ -270,12 +342,16 @@ export default function VideoPlayer({ user }) {
   }, [videoId, user]);
 
   useEffect(() => {
+    const creatorId = video?.creator_id?.id;
+    if (!creatorId) return;
+
     const fetchRelated = async () => {
-      if (!video?.creator_id?.id) return;
       const { data, error } = await supabase
         .from('videos')
         .select('id, title, thumbnail, creator_id(username)')
-        .eq('creator_id', video.creator_id.id)
+        .eq('creator_id', creatorId)
+        .eq('is_short', false)
+        .is('parent_video_id', null)
         .neq('id', videoId)
         .limit(5);
 
@@ -284,7 +360,7 @@ export default function VideoPlayer({ user }) {
     };
 
     fetchRelated();
-  }, [video, videoId]);
+  }, [video?.creator_id?.id, videoId]);
 
   useEffect(() => {
     if (!loading && video) {
@@ -306,31 +382,6 @@ export default function VideoPlayer({ user }) {
         playPromise.catch(() => setIsPlaying(false));
       }
     }
-  }, [showIntro]);
-
-  useEffect(() => {
-    const currentVideo = videoRef.current;
-    if (!currentVideo) return;
-
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    const setVideoDuration = () => setDuration(currentVideo.duration);
-    const onTimeUpdate = () => {
-      setCurrentTime(currentVideo.currentTime);
-      setProgress((currentVideo.currentTime / currentVideo.duration) * 100 || 0);
-    };
-
-    currentVideo.addEventListener('play', onPlay);
-    currentVideo.addEventListener('pause', onPause);
-    currentVideo.addEventListener('timeupdate', onTimeUpdate);
-    currentVideo.addEventListener('loadedmetadata', setVideoDuration);
-
-    return () => {
-      currentVideo.removeEventListener('play', onPlay);
-      currentVideo.removeEventListener('pause', onPause);
-      currentVideo.removeEventListener('timeupdate', onTimeUpdate);
-      currentVideo.removeEventListener('loadedmetadata', setVideoDuration);
-    };
   }, [showIntro]);
 
   useEffect(() => {
@@ -361,7 +412,7 @@ export default function VideoPlayer({ user }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [togglePlayPause, toggleFullScreen, toggleMute]);
 
   if (!user) {
     return (
@@ -385,14 +436,27 @@ export default function VideoPlayer({ user }) {
   if (!video) {
     return (
       <div className="bg-dark-pure text-white min-h-screen flex items-center justify-center font-sans">
+        <SeoHead title="Caso não encontrado | Dark Stream" noIndex />
         <p className="text-zinc-400 font-mono text-sm tracking-wide">Vídeo não encontrado.</p>
       </div>
     );
   }
 
+  const videoSeoTitle = buildVideoPageTitle(video.title);
+  const videoSeoDescription = buildMetaDescription(video.description);
+  const videoSeoImage = video.thumbnail;
+  const partnerProfilePath =
+    getPartnerProfilePath(video.creator_id) || `/parceiro/${video.creator_id?.id}`;
+
   if (showIntro) {
     return (
       <div className="bg-dark-pure w-full h-full fixed inset-0 flex items-center justify-center z-50 overflow-hidden font-sans">
+        <SeoHead
+          title={videoSeoTitle}
+          description={videoSeoDescription}
+          image={videoSeoImage}
+          type="video.other"
+        />
         {introStep === 1 ? (
           <div className={`text-center text-white p-4 animate-fade-in ${fadeOutFirstPart ? 'animate-fade-out' : ''}`}>
             <p className="text-2xl font-medium tracking-[0.2em] uppercase text-zinc-400">
@@ -419,26 +483,40 @@ export default function VideoPlayer({ user }) {
 
   return (
     <AnimatedPage className="h-full">
-      <div className="h-full overflow-hidden bg-dark-pure text-white font-sans relative">
+      <SeoHead
+        title={videoSeoTitle}
+        description={videoSeoDescription}
+        image={videoSeoImage}
+        type="video.other"
+      />
+      <div className="min-h-full bg-dark-pure text-white font-sans relative flex flex-col">
         <PlayerAmbientGlow thumbnail={video.thumbnail} />
 
-        <div className="relative z-10 h-full overflow-hidden grid grid-cols-12 grid-rows-[auto_minmax(0,1fr)] lg:grid-rows-1">
+        <SiteContainer className="relative z-10 flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 min-h-0 grid grid-cols-12 lg:grid-rows-1">
 
-          {/* Player — 9 colunas no desktop */}
-          <section className="col-span-12 lg:col-span-9 min-h-0 min-w-0 h-full flex flex-col bg-transparent overflow-hidden relative">
+          {/* Player + Fórum — 9 colunas no desktop */}
+          <section className="col-span-12 lg:col-span-9 min-h-0 flex flex-col overflow-y-auto">
             <div
               ref={playerContainerRef}
-              className={`relative z-10 w-full h-full min-h-[50vh] lg:min-h-0 bg-black/90 group ${
-                !areControlsVisible && !videoRef.current?.paused ? 'cursor-none' : ''
+              className={`relative flex-shrink-0 w-full min-h-[50vh] lg:min-h-0 lg:h-full lg:max-h-[calc(100vh-8rem)] bg-black/90 group ${
+                !areControlsVisible && isPlaying ? 'cursor-none' : ''
               }`}
               onMouseMove={handleActivity}
               onMouseLeave={() => setAreControlsVisible(false)}
               onTouchStart={handleActivity}
             >
               <video
+                key={videoId}
                 ref={videoRef}
+                playsInline
                 onClick={togglePlayPause}
                 onDoubleClick={toggleFullScreen}
+                onTimeUpdate={handleTimeUpdate}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onDurationChange={handleDurationChange}
+                onLoadedMetadata={handleDurationChange}
                 className="absolute inset-0 w-full h-full object-contain bg-black"
                 src={video.videoUrl}
               />
@@ -521,10 +599,12 @@ export default function VideoPlayer({ user }) {
                 </div>
               </div>
             </div>
+
+            <TheoryForum videoId={videoId} user={user} />
           </section>
 
           {/* Painel lateral — 3 colunas no desktop */}
-          <aside className="col-span-12 lg:col-span-3 min-h-0 flex flex-col overflow-hidden border-t lg:border-t-0 lg:border-l border-dark-border bg-dark-panel">
+          <aside className="col-span-12 lg:col-span-3 min-h-0 lg:max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden border-t lg:border-t-0 lg:border-l border-dark-border bg-dark-panel">
             <div className="flex-1 min-h-0 overflow-y-auto p-6 lg:p-8 space-y-6">
 
               <header className="space-y-3">
@@ -552,7 +632,7 @@ export default function VideoPlayer({ user }) {
               </header>
 
               <div className="flex items-center gap-4 py-4 border-y border-dark-border">
-                <Link to={`/parceiro/${video.creator_id.id}`} className="flex-shrink-0">
+                <Link to={partnerProfilePath} className="flex-shrink-0">
                   <img
                     src={
                       video.creator_id.creatorAvatar
@@ -564,22 +644,27 @@ export default function VideoPlayer({ user }) {
                 </Link>
                 <div className="flex-1 min-w-0">
                   <Link
-                    to={`/parceiro/${video.creator_id.id}`}
+                    to={partnerProfilePath}
                     className="font-medium text-white hover:text-brand-primary transition-colors block truncate"
                   >
                     {video.creator_id.username}
                   </Link>
                   <p className="text-[11px] font-mono text-zinc-500 mt-0.5 uppercase tracking-wider">
-                    {subscriberCount.toLocaleString('pt-BR')} seguidores
+                    {formatFollowerLabel(subscriberCount)}
                   </p>
                 </div>
                 {user?.id !== video.creator_id.id && (
                   <button
+                    type="button"
                     onClick={handleFollowToggle}
                     disabled={isProcessingFollow}
-                    className="flex-shrink-0 border border-dark-border text-white px-3 py-1 text-xs uppercase tracking-wider hover:bg-dark-border transition-colors disabled:opacity-50"
+                    className={`flex-shrink-0 border px-3 py-1 text-xs uppercase tracking-wider transition-colors disabled:opacity-50 ${
+                      isSubscribed
+                        ? 'border-brand-primary/60 text-brand-primary hover:border-brand-primary'
+                        : 'border-dark-border text-white hover:bg-dark-border'
+                    }`}
                   >
-                    {isProcessingFollow ? '...' : isSubscribed ? 'Seguindo' : 'Seguir'}
+                    {isProcessingFollow ? '…' : isSubscribed ? 'Seguindo' : 'Seguir'}
                   </button>
                 )}
               </div>
@@ -629,24 +714,39 @@ export default function VideoPlayer({ user }) {
               </div>
 
               {updateShorts.length > 0 && (
-                <div className="space-y-3 pt-2">
-                  <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-                    Updates do caso
-                  </p>
-                  <div className="space-y-2">
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+                      Atualizações e Shorts deste Caso
+                    </p>
+                    <p className="text-[11px] text-zinc-600 mt-1">
+                      {updateShorts.length} {updateShorts.length === 1 ? 'short vinculado' : 'shorts vinculados'}
+                    </p>
+                  </div>
+                  <div className="space-y-3">
                     {updateShorts.map((short) => (
                       <Link
                         to={`/video/${short.id}`}
                         key={short.id}
-                        className="flex items-center gap-3 group border border-transparent hover:border-dark-border p-2 -mx-2 transition-colors"
+                        className="flex items-center gap-3 group border border-dark-border bg-black/30 hover:border-[#8e44ad]/50 hover:bg-[#121212] p-3 transition-all duration-300"
                       >
-                        <img
-                          src={short.thumbnail}
-                          alt={short.title}
-                          className="w-20 h-11 object-cover flex-shrink-0 border border-dark-border"
-                        />
-                        <span className="text-sm text-zinc-300 group-hover:text-brand-primary line-clamp-2 leading-snug">
-                          {short.title}
+                        <div className="relative flex-shrink-0 w-14 h-20 overflow-hidden border border-dark-border">
+                          <img
+                            src={short.thumbnail}
+                            alt={short.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="inline-block text-[9px] font-mono uppercase tracking-widest text-[#f1c40f] bg-[#8e44ad]/20 border border-[#8e44ad]/30 px-2 py-0.5 mb-1.5">
+                            {getShortTypeLabel(short.short_type)}
+                          </span>
+                          <p className="text-sm text-zinc-300 group-hover:text-brand-primary line-clamp-2 leading-snug transition-colors">
+                            {short.title}
+                          </p>
+                        </div>
+                        <span className="text-zinc-600 group-hover:text-[#f1c40f] transition-colors" aria-hidden="true">
+                          →
                         </span>
                       </Link>
                     ))}
@@ -690,7 +790,8 @@ export default function VideoPlayer({ user }) {
             </div>
           </aside>
 
-        </div>
+          </div>
+        </SiteContainer>
       </div>
     </AnimatedPage>
   );

@@ -4,9 +4,15 @@ import { supabase } from '../supabase';
 import UploadStatus from '../components/UploadStatus';
 import Searchbar from '../components/Searchbar';
 import Footer from '../components/Footer';
+import SiteContainer from '../components/SiteContainer';
+import SeoHead, { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../components/SeoHead';
 
 function isVideoPlayerRoute(pathname) {
   return /^\/(video|caso)\/[^/]+$/.test(pathname);
+}
+
+function isFullBleedRoute(pathname) {
+  return /^\/parceir(o|os)\/[^/]+$/.test(pathname);
 }
 
 function Header({ user, profile, immersive, chromeVisible }) {
@@ -24,7 +30,7 @@ function Header({ user, profile, immersive, chromeVisible }) {
               : 'bg-dark-pure'
           }`}
         >
-            <div className={`mx-auto px-4 sm:px-6 lg:px-8 ${immersive ? 'max-w-none' : 'max-w-7xl'}`}>
+            <SiteContainer>
                 <div className={`flex justify-between items-center ${immersive ? 'h-14 opacity-80 hover:opacity-100 transition-opacity' : 'h-16'}`}>
                     <div className="flex-shrink-0">
                         <Link to="/casos">
@@ -81,7 +87,7 @@ function Header({ user, profile, immersive, chromeVisible }) {
                         )}
                     </div>
                 </div>
-            </div>
+            </SiteContainer>
         </nav>
     );
 }
@@ -133,14 +139,17 @@ export default function MainLayout({ user, profile }) {
 
     return (
         <div className={`flex flex-col text-white font-sans overflow-hidden ${immersive ? 'h-screen bg-dark-pure' : 'min-h-screen bg-dark-pure'}`}>
+            <SeoHead title={DEFAULT_SITE_TITLE} description={DEFAULT_SITE_DESCRIPTION} />
             <Header user={user} profile={profile} immersive={immersive} chromeVisible={chromeVisible} />
             <main className={`${immersive ? 'flex-1 min-h-0 overflow-hidden' : 'flex-grow'}`}>
                 {immersive ? (
                     <Outlet context={{ chromeVisible, reportChromeActivity }} />
+                ) : isFullBleedRoute(location.pathname) ? (
+                    <Outlet />
                 ) : (
-                    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                    <SiteContainer className="py-6">
                         <Outlet />
-                    </div>
+                    </SiteContainer>
                 )}
             </main>
             <UploadStatus />

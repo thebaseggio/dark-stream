@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
+import { getPartnerProfilePath } from '../utils/partnerProfile';
 
 function escapeIlike(term) {
   return term.replace(/[%_\\]/g, '\\$&');
@@ -202,7 +203,7 @@ export default function Searchbar({ immersive = false }) {
                     {results.creators.map((creator) => (
                       <li key={creator.id}>
                         <Link
-                          to={`/parceiro/${creator.id}`}
+                          to={getPartnerProfilePath(creator) || `/parceiro/${creator.id}`}
                           onClick={handleResultClick}
                           className="flex items-center gap-3 px-4 py-2.5 hover:bg-dark-border/40 transition-colors"
                         >

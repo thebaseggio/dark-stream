@@ -6,6 +6,7 @@ import AnimatedPage from '../AnimatedPage';
 import SkeletonCard from './SkeletonCard';
 import CategoryRow from '../components/CategoryRow';
 import FeaturedBanner, { pickFeaturedVideo } from '../components/FeaturedBanner';
+import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import { useNavigate } from 'react-router-dom';
 import {
   fetchUserFeedback,
@@ -27,24 +28,16 @@ export default function Explore({ user }) {
   const [recommendedVideos, setRecommendedVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
-  const [shorts, setShorts] = useState([]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
       setLoading(true);
 
       const [
-        shortsRes,
         categoriesRes,
         videosRes,
         feedbackRes,
       ] = await Promise.all([
-        supabase
-          .from('videos')
-          .select('*, creator_id (id, username, "creatorAvatar")')
-          .eq('is_short', true)
-          .order('created_at', { ascending: false })
-          .limit(10),
         supabase
           .from('categories')
           .select('name')
@@ -52,15 +45,11 @@ export default function Explore({ user }) {
         supabase
           .from('videos')
           .select('*, creator_id (id, username, "creatorAvatar", role)')
+          .eq('is_short', false)
+          .is('parent_video_id', null)
           .order('created_at', { ascending: false }),
         user?.id ? fetchUserFeedback(user.id) : Promise.resolve([]),
       ]);
-
-      if (shortsRes.error) {
-        console.error('Erro ao buscar shorts:', shortsRes.error);
-      } else {
-        setShorts(shortsRes.data || []);
-      }
 
       let categoriesData = [];
       if (categoriesRes.error) {
@@ -78,7 +67,7 @@ export default function Explore({ user }) {
         return;
       }
 
-      const regularVideos = (videosRes.data || []).filter((video) => !video.is_short);
+      const regularVideos = videosRes.data || [];
       const videosById = new Map(regularVideos.map((video) => [video.id, video]));
       const feedbackEntries = normalizeFeedbackEntries(feedbackRes, videosById);
       const visibleVideos = filterVideosByFeedback(regularVideos, feedbackEntries);
@@ -100,11 +89,8 @@ export default function Explore({ user }) {
         });
       });
 
-      const visibleShorts = filterVideosByFeedback(shortsRes.data || [], feedbackEntries);
-
       setFeaturedVideo(pickFeaturedVideo(visibleVideos.length ? visibleVideos : regularVideos));
       setRecommendedVideos(recommended);
-      setShorts(visibleShorts);
       setCategories(categoryOrder);
       setGroupedVideos(groups);
       setLoading(false);
@@ -120,19 +106,22 @@ export default function Explore({ user }) {
 
   const hasContent = useMemo(
     () => recommendedVideos.length > 0
-      || shorts.length > 0
       || categories.some((category) => groupedVideos[category]?.length > 0),
-    [recommendedVideos.length, shorts.length, categories, groupedVideos]
+    [recommendedVideos.length, categories, groupedVideos]
   );
 
   return (
     <AnimatedPage>
+      <SeoHead
+        title="Explorar Casos | Dark Stream"
+        description={DEFAULT_SITE_DESCRIPTION}
+      />
       <div className={`bg-dark-pure transition-opacity duration-500 ${isNavigating ? 'opacity-0' : 'opacity-100'}`}>
         {!loading && featuredVideo && (
           <FeaturedBanner featuredVideo={featuredVideo} onNavigate={handleNavigation} />
         )}
 
-        <div className="space-y-12 py-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="space-y-12 pt-12 pb-8">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="space-y-4">
@@ -155,16 +144,6 @@ export default function Explore({ user }) {
                   videos={recommendedVideos}
                   onNavigate={handleNavigation}
                   linkable={false}
-                />
-              )}
-
-              {shorts.length > 0 && (
-                <CategoryRow
-                  key="shorts-updates"
-                  title="Atualizações e Shorts"
-                  videos={shorts}
-                  onNavigate={handleNavigation}
-                  variant="short"
                 />
               )}
 

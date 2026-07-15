@@ -1,6 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { getPartnerProfilePath } from '../utils/partnerProfile';
+import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
+
+const MARCOS_CAMPOS_PARTNER = {
+  username: 'Marcos Campos',
+  id: 'd0781217-8eb0-4d8d-b32b-ce785dbb6227',
+};
 
 // As variantes de animação que já criamos
 const containerVariants = {
@@ -27,6 +34,10 @@ const itemVariants = {
 export default function LandingPage() {
   return (
     <div className="relative flex flex-col min-h-screen bg-black text-white overflow-hidden">
+      <SeoHead
+        title="Dark Stream"
+        description={DEFAULT_SITE_DESCRIPTION}
+      />
       <div 
         className="absolute inset-0 bg-cover bg-center animate-kenburns"
         style={{ backgroundImage: "url('/landing-bg.jpg')" }}
@@ -71,7 +82,12 @@ export default function LandingPage() {
 
           {/* --- CRÉDITO ADICIONADO AQUI --- */}
           <motion.p className="text-sm text-gray-400 -mt-2 mb-6" variants={itemVariants}>
-          <Link to="/parceiro/d0781217-8eb0-4d8d-b32b-ce785dbb6227" className="font-semibold text-white hover:text-[#f1c40f] hover:underline transition-colors">Marcos Campos</Link>
+          <Link
+            to={getPartnerProfilePath(MARCOS_CAMPOS_PARTNER) || `/parceiro/${MARCOS_CAMPOS_PARTNER.id}`}
+            className="font-semibold text-white hover:text-[#f1c40f] hover:underline transition-colors"
+          >
+            Marcos Campos
+          </Link>
           </motion.p>
 
           <motion.p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8" variants={itemVariants}>

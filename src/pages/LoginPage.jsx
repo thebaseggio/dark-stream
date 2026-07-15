@@ -1,36 +1,64 @@
 // src/pages/LoginPage.jsx
- 
- import React, { useState } from 'react';
- import { useNavigate, Link, useLocation } from 'react-router-dom';
- import { supabase } from '../supabase';
- import Spinner from '../components/Spinner';
- import AnimatedPage from '../AnimatedPage';
- 
- export default function LoginPage() {
-   const navigate = useNavigate();
-   const location = useLocation();
-   const redirectTo = location.state?.from || '/casos';
-   const [email, setEmail] = useState('');
-   const [password, setPassword] = useState('');
-   const [errorMsg, setErrorMsg] = useState(null);
-   const [loading, setLoading] = useState(false);
- 
-// src/pages/LoginPage.jsx
+
+import React, { useState } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { supabase } from '../supabase';
+import Spinner from '../components/Spinner';
+import AnimatedPage from '../AnimatedPage';
+
+export default function LoginPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = location.state?.from || '/casos';
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setErrorMsg(error.message);
-    } else {
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        console.error('[Login] Falha na autenticação:', {
+          message: error.message,
+          status: error.status,
+          code: error.code,
+          name: error.name,
+        });
+
+        setErrorMsg(
+          error.message === 'Invalid login credentials'
+            ? 'E-mail ou senha incorretos. Verifique suas credenciais.'
+            : error.message
+        );
+        return;
+      }
+
+      console.info('[Login] Sessão iniciada com sucesso:', {
+        userId: data?.user?.id,
+        email: data?.user?.email,
+        redirectTo,
+      });
+
       navigate(redirectTo);
+    } catch (unexpectedError) {
+      console.error('[Login] Erro inesperado na chamada de autenticação:', {
+        message: unexpectedError?.message,
+        name: unexpectedError?.name,
+        stack: unexpectedError?.stack,
+      });
+      setErrorMsg('Não foi possível conectar ao servidor de autenticação. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-return (
+  return (
   <AnimatedPage>
     <div className="min-h-screen bg-black text-white flex items-center justify-end pr-16 md:pr-24 lg:pr-48 relative overflow-hidden">
       
@@ -72,4 +100,4 @@ return (
     </div>
     </AnimatedPage>
   );
- }
+}

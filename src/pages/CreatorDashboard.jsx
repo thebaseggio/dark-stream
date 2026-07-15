@@ -2,318 +2,559 @@ import React, { useState, useEffect, Fragment } from 'react';
 import { supabase } from '../supabase';
 import { Link } from 'react-router-dom';
 import AnimatedPage from '../AnimatedPage';
-import DashboardChart from './DashboardChart';
 import { Dialog, Transition } from '@headlessui/react';
 import ProfileEditor from '../components/ProfileEditor';
-import SubscribersChart from './SubscribersChart';
+import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
+import { OpsPanel, OpsStatCard, PeriodSelector } from '../components/ops/OpsPanel';
+import InquiryRetentionBars from '../components/ops/InquiryRetentionBars';
+import FieldStatusList from '../components/ops/FieldStatusList';
+import PatentDistribution from '../components/ops/PatentDistribution';
+import {
+  buildFieldStatus,
+  buildRetentionData,
+  countByVideoId,
+  estimateInvestigationHours,
+  fetchAudiencePatentDistribution,
+  fetchTopPerformingVideo,
+  countUniqueAudienceFromViews,
+  buildPeriodStartIso,
+  emptyQueryResult,
+} from '../utils/opsAnalytics';
+import {
+  resolveAvatarUrl,
+  resolveBannerUrl,
+  isValidRenderableUrl,
+  PROFILE_FIELDS_SELECT,
+  getAvatarFieldCandidates,
+} from '../utils/profileMedia';
+import { fetchPartnerFollowerCount } from '../utils/subscriptions';
 
-// --- DEFINIÇÃO DOS COMPONENTES VISUAIS ---
-// Colocamos todos aqui fora para melhor organização e performance
+function DashboardAvatar({ profile, className }) {
+  const avatarUrl = resolveAvatarUrl(profile);
+  const hasValidAvatar = Boolean(avatarUrl) && isValidRenderableUrl(avatarUrl);
+  const fallback = `https://ui-avatars.com/api/?name=${profile?.username?.charAt(0) || 'P'}&background=121212&color=eab308`;
+  const [useFallback, setUseFallback] = useState(!hasValidAvatar);
 
-const EditIcon = (props) => ( <svg {...props} viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" /></svg> );
-const DeleteIcon = (props) => ( <svg {...props} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg> );
-const ViewsIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1 1 0 010-.644C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> );
-const UsersIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg> );
-const HeartIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" /></svg> );
-const ThumbUpIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6.633 10.25c.806 0 1.533-.278 2.117-.783m0 0A7.454 7.454 0 0112 7.5c1.243 0 2.4.24 3.475.673.717.3 1.453.673 2.117.783M6.633 10.25H4.5v9.75h2.133m0-9.75V18.75m6.317-8.475v8.475m0 0H18.75V10.25H12.95m0 0c.806 0 1.533-.278 2.117-.783M12.95 10.25V18.75" /></svg> );
-const ThumbDownIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M7.498 15.25H4.372v-9.75h3.126m0 9.75V5.5m0 9.75h6.372m0 0c.806 0 1.533.278 2.117.783M13.87 15.25V5.5m0 0c.806 0 1.533.278 2.117.783m-2.117-.783A7.454 7.454 0 0012 5.25c-1.243 0-2.4.24-3.475.673-.717.3-1.453.673-2.117.783" /></svg> );
-const FilmIcon = (props) => ( <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 0A1.125 1.125 0 015.625 4.5h12.75a1.125 1.125 0 011.125 1.125v12.75m-9.75 0h9.75" /></svg> );
+  useEffect(() => {
+    setUseFallback(!hasValidAvatar);
+  }, [hasValidAvatar, avatarUrl]);
 
-function StatCard({ label, value, icon: Icon, loading }) {
+  if (!hasValidAvatar || useFallback) {
     return (
-        <div className="bg-zinc-900 border border-white/10 p-6">
-            <div className="flex items-center gap-2 text-zinc-500">
-                <Icon className="w-4 h-4" />
-                <p className="text-[11px] font-mono uppercase tracking-wider">{label}</p>
-            </div>
-            <p className="text-3xl font-semibold text-white mt-3 tabular-nums">
-                {loading ? '...' : value}
-            </p>
-        </div>
+      <img
+        src={fallback}
+        alt={profile?.username || 'Avatar'}
+        className={className}
+      />
     );
+  }
+
+  return (
+    <img
+      src={avatarUrl}
+      alt={profile?.username || 'Avatar'}
+      className={className}
+      onError={() => {
+        console.warn('[Avatar Debug] Falha ao carregar imagem:', avatarUrl);
+        setUseFallback(true);
+      }}
+    />
+  );
 }
 
-const TopVideoCard = ({ video, timePeriod }) => {
-    const periodText = timePeriod > 0 ? `Últimos ${timePeriod} dias` : 'Todo o Período';
+const EditIcon = (props) => (
+  <svg {...props} viewBox="0 0 20 20" fill="currentColor">
+    <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+    <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+  </svg>
+);
+const DeleteIcon = (props) => (
+  <svg {...props} viewBox="0 0 20 20" fill="currentColor">
+    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+  </svg>
+);
 
-    if (!video) {
-        return (
-            <div className="bg-zinc-800/50 border border-dashed border-zinc-700 p-6 rounded-lg text-center col-span-full">
-                {/* Usando a variável aqui */}
-                <p className="font-semibold text-white">Nenhum vídeo se destacou em "{periodText}".</p>
-                <p className="text-sm text-zinc-400 mt-1">Continue criando para ver suas estatísticas aqui!</p>
-            </div>
-        );
+function getBannerUrl(profile) {
+  return resolveBannerUrl(profile);
+}
+
+export default function CreatorDashboard({
+  user,
+  profile,
+  onUploadClick,
+  onEditClick,
+  onProfileUpdate,
+  onSuccess,
+}) {
+  const [myVideos, setMyVideos] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [timePeriod, setTimePeriod] = useState(30);
+
+  const [metrics, setMetrics] = useState({
+    inquiries: 0,
+    supports: 0,
+    theories: 0,
+    activeHours: 0,
+    subscribers: 0,
+    followers: 0,
+  });
+  const [retentionData, setRetentionData] = useState([]);
+  const [fieldStatus, setFieldStatus] = useState([]);
+  const [patentDistribution, setPatentDistribution] = useState({});
+  const [topVideo, setTopVideo] = useState(null);
+  const [headerProfile, setHeaderProfile] = useState(profile);
+
+  const fetchHeaderProfile = async () => {
+    if (!user?.id) return null;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(PROFILE_FIELDS_SELECT)
+      .eq('id', user.id)
+      .single();
+
+    if (error) {
+      console.error('Erro ao buscar perfil do painel:', error);
+      return null;
     }
-    return (
-        <div className="bg-zinc-900 p-6 rounded-lg col-span-full grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-            <div className="md:col-span-8">
-                <p className="text-sm font-bold text-[#f1c40f] tracking-wider uppercase">Vídeo em Destaque ({periodText})</p>
-                <h3 className="text-2xl font-bold text-white mt-2 hover:text-yellow-400 transition-colors">
-                    <Link to={`/video/${video.id}`}>{video.title}</Link>
-                </h3>
-                <p className="text-4xl font-bold text-white mt-4">{video.recent_views_count.toLocaleString('pt-BR')} <span className="text-lg font-normal text-zinc-400">views</span></p>
-            </div>
-            <div className="md:col-span-4 flex justify-center md:justify-end">
-                <Link to={`/video/${video.id}`}>
-                    <img src={video.thumbnail} alt={video.title} className="w-full max-w-xs md:w-48 rounded-lg aspect-video object-cover shadow-lg shadow-black/30 hover:scale-105 transition-transform duration-300"/>
-                </Link>
-            </div>
-        </div>
+
+    if (data) {
+      const resolvedAvatar = resolveAvatarUrl(data);
+      console.log('Dados do perfil carregados:', data);
+      console.log('[Avatar Debug]', {
+        avatar_url: data.avatar_url,
+        creatorAvatar: data.creatorAvatar,
+        creatoravatar: data.creatoravatar,
+        candidatos: getAvatarFieldCandidates(data),
+        resolvedAvatar,
+        isValid: isValidRenderableUrl(resolvedAvatar),
+      });
+      setHeaderProfile(data);
+    }
+    return data;
+  };
+
+  useEffect(() => {
+    if (profile) setHeaderProfile(profile);
+  }, [profile]);
+
+  useEffect(() => {
+    fetchHeaderProfile();
+  }, [user?.id]);
+
+  const refreshHeaderProfile = async (patch) => {
+    if (patch) {
+      setHeaderProfile((prev) => ({ ...prev, ...patch }));
+    }
+    await fetchHeaderProfile();
+    if (onProfileUpdate) {
+      await onProfileUpdate();
+    }
+  };
+
+  const bannerUrl = getBannerUrl(headerProfile);
+  const hasValidBanner = isValidRenderableUrl(bannerUrl);
+
+  const fetchMyData = async () => {
+    if (!user) return;
+    setIsLoading(true);
+
+    const startDateIso = buildPeriodStartIso(timePeriod);
+
+    const { data: videosData, error: videosError } = await supabase
+      .from('videos')
+      .select('*')
+      .eq('creator_id', user.id)
+      .eq('is_short', false);
+
+    if (videosError) {
+      console.error(videosError);
+      setIsLoading(false);
+      return;
+    }
+
+    const videos = videosData || [];
+    const videoIds = videos.map((v) => v.id);
+    const videoIdStrings = videoIds.map(String);
+    const hasVideos = videoIds.length > 0;
+
+    let viewsQuery = hasVideos
+      ? supabase.from('views').select('id, video_id, user_id').in('video_id', videoIds)
+      : null;
+    let supportsQuery = hasVideos
+      ? supabase
+          .from('user_feedback')
+          .select('id, video_id')
+          .in('video_id', videoIds)
+          .eq('rating', 'like')
+      : null;
+    let theoriesQuery = hasVideos
+      ? supabase
+          .from('case_theories')
+          .select('id, video_id')
+          .in('video_id', videoIdStrings)
+      : null;
+
+    if (startDateIso) {
+      if (viewsQuery) viewsQuery = viewsQuery.gte('created_at', startDateIso);
+      if (supportsQuery) supportsQuery = supportsQuery.gte('created_at', startDateIso);
+      if (theoriesQuery) theoriesQuery = theoriesQuery.gte('created_at', startDateIso);
+    }
+
+    const [viewsRes, supportsRes, theoriesRes] = await Promise.all([
+      hasVideos ? viewsQuery : Promise.resolve(emptyQueryResult()),
+      hasVideos ? supportsQuery : Promise.resolve(emptyQueryResult()),
+      hasVideos ? theoriesQuery : Promise.resolve(emptyQueryResult()),
+    ]);
+
+    const viewsRows = viewsRes.data || [];
+    const supportsRows = supportsRes.data || [];
+    const theoriesRows = theoriesRes.data || [];
+
+    const viewsMap = countByVideoId(viewsRows);
+    const supportsMap = countByVideoId(supportsRows);
+    const theoriesMap = countByVideoId(theoriesRows, 'video_id');
+
+    const inquiries = viewsRows.length;
+    const supports = supportsRows.length;
+    const theories = theoriesRows.length;
+
+    const uniqueAudience = countUniqueAudienceFromViews(viewsRows);
+    const followers = await fetchPartnerFollowerCount(supabase, user.id);
+
+    setMetrics({
+      inquiries,
+      supports,
+      theories,
+      activeHours: estimateInvestigationHours(inquiries),
+      subscribers: uniqueAudience,
+      followers,
+    });
+
+    setRetentionData(buildRetentionData(videos, viewsMap, theoriesMap, supportsMap));
+    setFieldStatus(buildFieldStatus(videos, viewsMap, theoriesMap, supportsMap));
+
+    const topVideoResult = await fetchTopPerformingVideo(
+      supabase,
+      user.id,
+      timePeriod,
+      videos,
+      viewsMap
     );
-};
+    setTopVideo(topVideoResult);
 
-// --- COMPONENTE PRINCIPAL ---
-export default function CreatorDashboard({ user, profile, onUploadClick, onEditClick, onProfileUpdate, onSuccess }) {
-    const [myVideos, setMyVideos] = useState([]);
-    const [isLoadingVideos, setIsLoadingVideos] = useState(true);
-    const [stats, setStats] = useState({ views: 0, subscribers: 0, super_likes: 0, likes: 0, dislikes: 0 });
-    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-    const [timePeriod, setTimePeriod] = useState(7); // 0 = Todo o Período
-    const [topVideo, setTopVideo] = useState(null);
+    const viewerIds = viewsRows.map((row) => row.user_id).filter(Boolean);
+    const distribution = await fetchAudiencePatentDistribution(supabase, viewerIds);
+    setPatentDistribution(distribution);
 
-    const fetchMyData = async () => {
-        if (!user) return;
-        setIsLoadingVideos(true);
+    const enrichedVideos = videos
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .map((video) => ({
+        ...video,
+        stats: {
+          inquiries: viewsMap.get(video.id) || 0,
+          supports: supportsMap.get(video.id) || 0,
+          theories: theoriesMap.get(String(video.id)) || 0,
+        },
+      }));
 
-        // --- LÓGICA DE BUSCA TOTALMENTE REFEITA PARA SUPORTAR O FILTRO DE PERÍODO ---
-        
-        // 1. Define a data de início para os filtros. Se 'timePeriod' for 0, o filtro não será aplicado.
-        let startDate = null;
-        if (timePeriod > 0) {
-            startDate = new Date();
-            startDate.setDate(startDate.getDate() - timePeriod);
-        }
+    setMyVideos(enrichedVideos);
+    setIsLoading(false);
+  };
 
-        // 2. Busca os IDs de todos os vídeos do criador (isso não depende do período)
-        const { data: videosData, error: videosError } = await supabase
-            .from('videos').select('id').eq('creator_id', user.id);
-        if (videosError) { console.error(videosError); setIsLoadingVideos(false); return; }
-        const videoIds = videosData.map(v => v.id);
+  useEffect(() => {
+    fetchMyData();
+  }, [user, timePeriod]);
 
-        // 3. Constrói as buscas para os cards de estatísticas, aplicando o filtro de data condicionalmente
-        let viewsQuery = supabase.from('views').select('id', { count: 'exact', head: true }).in('video_id', videoIds);
-        let subsQuery = supabase.from('subscriptions').select('id', { count: 'exact', head: true }).eq('creator_id', user.id);
-        let ratingsQuery = supabase.from('ratings').select('rating_value').in('video_id', videoIds);
+  const handleDelete = async (videoId) => {
+    if (!window.confirm('Confirmar exclusão do vídeo? Esta ação não pode ser desfeita.')) return;
 
-        if (startDate) {
-            viewsQuery = viewsQuery.gte('created_at', startDate.toISOString());
-            subsQuery = subsQuery.gte('created_at', startDate.toISOString());
-            ratingsQuery = ratingsQuery.gte('created_at', startDate.toISOString());
-        }
+    const { error } = await supabase.from('videos').delete().eq('id', videoId);
+    if (error) {
+      onSuccess('error', `Erro: ${error.message}`);
+    } else {
+      onSuccess('success', 'Vídeo removido com sucesso.');
+      fetchMyData();
+    }
+  };
 
-        // 4. Executa todas as buscas em paralelo, incluindo a do vídeo em destaque que já usa o 'timePeriod'
-        const [
-            subsRes,
-            totalViewsRes,
-            ratingsRes,
-            topVideoRes
-        ] = await Promise.all([
-            subsQuery,
-            viewsQuery,
-            ratingsQuery,
-            supabase.rpc('get_top_performing_video', { creator_id_param: user.id, days_param: timePeriod })
-        ]);
+  if (!user) {
+    return (
+      <AnimatedPage>
+        <div className="text-center p-8 bg-black text-neutral-400">
+          Acesso negado
+        </div>
+      </AnimatedPage>
+    );
+  }
 
-        // 5. Processa os resultados e atualiza o estado dos cards e do vídeo em destaque
-        const totalRatings = ratingsRes.data?.reduce((acc, rating) => {
-            if (rating.rating_value === 2) acc.super_likes += 1;
-            if (rating.rating_value === 1) acc.likes += 1;
-            if (rating.rating_value === -1) acc.dislikes += 1;
-            return acc;
-        }, { super_likes: 0, likes: 0, dislikes: 0 }) || { super_likes: 0, likes: 0, dislikes: 0 };
-        
-        setStats({
-            views: totalViewsRes.count || 0,
-            subscribers: subsRes.count || 0,
-            ...totalRatings
-        });
-        setTopVideo(topVideoRes.data?.[0] || null);
-        
-        // 6. Busca os dados completos para a tabela "Seu Conteúdo" (que mostra estatísticas vitalícias)
-        // (Esta parte não foi alterada, pois a tabela continua mostrando os totais por vídeo)
-        const { data: fullVideosData } = await supabase.from('videos').select('*').in('id', videoIds).order('created_at', { ascending: false });
-        const { data: ratingsPerVideoRes } = await supabase.rpc('get_rating_counts_for_videos', { video_ids: videoIds });
-        const { data: viewsPerVideo } = await supabase.from('views').select('video_id').in('video_id', videoIds);
+  const periodLabel = timePeriod > 0 ? `${timePeriod} dias` : 'Todo o período';
 
-        const ratingsMap = new Map(ratingsPerVideoRes?.map(r => [r.video_id, r]));
-        const viewsCountMap = new Map();
-        viewsPerVideo?.forEach(view => {
-            viewsCountMap.set(view.video_id, (viewsCountMap.get(view.video_id) || 0) + 1);
-        });
-
-        const enrichedVideos = fullVideosData.map(video => ({
-            ...video,
-            stats: {
-                views: viewsCountMap.get(video.id) || 0,
-                likes: ratingsMap.get(video.id)?.likes_count || 0,
-                super_likes: ratingsMap.get(video.id)?.super_likes_count || 0,
-                dislikes: ratingsMap.get(video.id)?.dislikes_count || 0,
-            }
-        }));
-
-        setMyVideos(enrichedVideos);
-        setIsLoadingVideos(false);
-    };
-
-    useEffect(() => {
-        fetchMyData();
-    }, [user, timePeriod]);
-
-    const handleDelete = async (videoId) => {
-        if (window.confirm("Tem certeza que deseja excluir este vídeo? Esta ação não pode ser desfeita.")) {
-            const { error } = await supabase.from('videos').delete().eq('id', videoId);
-            if (error) {
-                onSuccess('error', `Erro: ${error.message}`);
-            } else {
-                onSuccess('success', "Vídeo excluído com sucesso!");
-                fetchMyData();
-            }
-        }
-    };
-    
-    if (!user) {
-        return ( <AnimatedPage><div className="text-center p-8"><h1 className="text-2xl font-bold">Acesso Negado</h1><p className="mt-2">Você precisa estar logado.</p></div></AnimatedPage> );
-    }
-    
-return (
+  return (
     <>
-        <AnimatedPage>
-            <div className="max-w-7xl mx-auto space-y-8">
-                {/* --- 1. Cabeçalho do Perfil --- */}
-                <div className="bg-zinc-900 p-6 sm:p-8 rounded-lg grid grid-cols-12 items-center gap-y-6 md:gap-x-6">
-                    <div className="col-span-12 md:col-span-2 flex justify-center">
-                        <button onClick={() => setIsProfileModalOpen(true)} className="relative group/avatar flex-shrink-0" title="Editar perfil">
-                            <img src={profile?.creatorAvatar || `https://ui-avatars.com/api/?name=${profile?.username?.charAt(0)}&background=f1c40f&color=000`} alt={profile?.username} className="w-24 h-24 rounded-full object-cover border-4 border-zinc-700/50 transition-all duration-300 group-hover/avatar:border-[#f1c40f] shadow-lg shadow-black/30"/>
-                            <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity"><span className="text-white text-xs font-bold">Editar</span></div>
-                        </button>
+      <SeoHead
+        title="Painel do Parceiro | Dark Stream"
+        description={DEFAULT_SITE_DESCRIPTION}
+      />
+      <AnimatedPage>
+        <div className="bg-black min-h-screen -mx-6 md:-mx-12 px-6 md:px-12 py-8 md:py-10">
+          <div className="max-w-[1440px] mx-auto w-full space-y-8 md:space-y-10">
+            <header
+              className="relative border border-neutral-800 overflow-hidden"
+              style={
+                hasValidBanner
+                  ? {
+                      backgroundImage: `url("${bannerUrl}")`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      backgroundColor: '#121212',
+                    }
+                  : { backgroundColor: '#121212' }
+              }
+            >
+              {hasValidBanner && (
+                <div
+                  className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/40 pointer-events-none"
+                  aria-hidden="true"
+                />
+              )}
+              <div className="relative z-10 flex flex-col md:flex-row gap-6 items-start md:items-center justify-between p-6 md:p-8">
+                <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center flex-1 min-w-0 w-full">
+                  <button
+                    type="button"
+                    onClick={() => setIsProfileModalOpen(true)}
+                    className="relative group/avatar flex-shrink-0"
+                    title="Editar perfil"
+                  >
+                    <DashboardAvatar
+                      profile={headerProfile}
+                      className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover border-2 border-zinc-700 shadow-xl bg-[#121212]"
+                    />
+                    <span className="absolute inset-0 rounded-full bg-black/0 group-hover/avatar:bg-black/30 transition-colors" />
+                  </button>
+
+                  <div className="flex flex-col gap-2 flex-1 min-w-0">
+                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#eab308]">
+                      Painel do Parceiro
+                    </p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <h1 className="font-anton text-2xl sm:text-3xl md:text-4xl text-white tracking-wide">
+                        {headerProfile?.username || 'Parceiro'}
+                      </h1>
+                      <button
+                        type="button"
+                        onClick={() => setIsProfileModalOpen(true)}
+                        className="text-neutral-400 hover:text-white transition-colors"
+                        title="Editar perfil"
+                      >
+                        <EditIcon className="w-5 h-5" />
+                      </button>
                     </div>
-                    <div className="col-span-12 md:col-span-7 text-center md:text-left">
-                        <p className="text-sm font-bold text-[#f1c40f] tracking-wider">PAINEL DO PARCEIRO</p>
-                        <div className="flex items-center gap-3 justify-center md:justify-start">
-                            <h1 className="text-3xl lg:text-4xl font-bold text-white mt-1">Olá, {profile?.username || 'Criador'}!</h1>
-                            <button onClick={() => setIsProfileModalOpen(true)} title="Editar nome e descrição" className="text-zinc-400 hover:text-white transition-colors mt-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" /></svg>
-                            </button>
-                        </div>
-                        <p className="text-gray-300 text-sm mt-3 leading-relaxed">{profile?.bio || 'Bem-vindo(a) ao seu painel.'}</p>
-                    </div>
-                    <div className="col-span-12 md:col-span-3 flex justify-center md:justify-end">
-                        <button onClick={onUploadClick} title="Fazer Upload de Vídeo" className="bg-[#f1c40f] text-black font-bold rounded-lg hover:bg-opacity-90 transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 px-5 py-3 w-full md:w-auto">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                            <span className="hidden sm:inline">Novo Vídeo</span>
-                        </button>
-                    </div>
-                </div>
-                
-                {/* --- 2. Filtro de Período Global --- */}
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-white">Visão Geral</h2>
-                    <div className="flex items-center gap-2 rounded-lg bg-zinc-800 p-1">
-                        <button onClick={() => setTimePeriod(7)} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${timePeriod === 7 ? 'bg-[#f1c40f] text-black' : 'text-zinc-300 hover:bg-zinc-700'}`}>7 dias</button>
-                        <button onClick={() => setTimePeriod(30)} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${timePeriod === 30 ? 'bg-[#f1c40f] text-black' : 'text-zinc-300 hover:bg-zinc-700'}`}>30 dias</button>
-                        <button onClick={() => setTimePeriod(90)} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${timePeriod === 90 ? 'bg-[#f1c40f] text-black' : 'text-zinc-300 hover:bg-zinc-700'}`}>90 dias</button>
-                        <button onClick={() => setTimePeriod(0)} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${timePeriod === 0 ? 'bg-[#f1c40f] text-black' : 'text-zinc-300 hover:bg-zinc-700'}`}>Todo o Período</button>
-                    </div>
+                    <p className="max-w-2xl text-zinc-400 text-sm md:text-base leading-relaxed">
+                      {headerProfile?.bio || 'Acompanhe o desempenho do seu canal em tempo real.'}
+                    </p>
+                  </div>
                 </div>
 
-                {/* --- 3. Card de Destaque --- */}
-                <TopVideoCard video={topVideo} timePeriod={timePeriod} />
-                
-                {/* --- 4. Painel de Estatísticas --- */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <StatCard label="Total de Vídeos" value={myVideos.length} icon={FilmIcon} loading={isLoadingVideos} />
-                    <StatCard label="Total de Views" value={stats.views.toLocaleString('pt-BR')} icon={ViewsIcon} loading={isLoadingVideos} />
-                    <StatCard label="Inscritos" value={stats.subscribers.toLocaleString('pt-BR')} icon={UsersIcon} loading={isLoadingVideos} />
-                    <StatCard label="Gostei Muito" value={stats.super_likes.toLocaleString('pt-BR')} icon={HeartIcon} loading={isLoadingVideos} />
-                    <StatCard label="Gostei" value={stats.likes.toLocaleString('pt-BR')} icon={ThumbUpIcon} loading={isLoadingVideos} />
-                    <StatCard label="Não Gostei" value={stats.dislikes.toLocaleString('pt-BR')} icon={ThumbDownIcon} loading={isLoadingVideos} />
-                </div>
-                
-                {/* --- 5. Gráficos de Performance --- */}
-                <div className="pt-6 border-t border-zinc-800 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <DashboardChart userId={user.id} timePeriod={timePeriod} />
-                    <SubscribersChart userId={user.id} timePeriod={timePeriod} />
-                </div>
+                <button
+                  type="button"
+                  onClick={onUploadClick}
+                  className="w-full md:w-auto md:self-center flex-shrink-0 bg-[#eab308] text-black font-mono uppercase tracking-wider text-xs px-6 py-3 hover:opacity-90 transition-opacity"
+                >
+                  + Novo Vídeo
+                </button>
+              </div>
+            </header>
 
-                    {/* Seção para o Conteúdo */}
-    <div className="pt-6 border-t border-zinc-800 bg-zinc-900 p-6 rounded-lg">
-        <h2 className="text-xl font-bold text-white mb-4">Seu Conteúdo</h2>
-        {isLoadingVideos ? (
-            <p className="text-gray-400 text-center py-4">Carregando seus vídeos...</p>
-        ) : myVideos.length > 0 ? (
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left align-middle">
-                    <thead className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-                        <tr>
-                            <th className="px-4 py-3">Vídeo</th>
-                            <th className="px-4 py-3 text-center">
-                                <span className="inline-flex items-center justify-center gap-1"><ViewsIcon className="w-3.5 h-3.5" /> Views</span>
-                            </th>
-                            <th className="px-4 py-3 text-center">
-                                <span className="inline-flex items-center justify-center gap-1"><HeartIcon className="w-3.5 h-3.5" /></span>
-                            </th>
-                            <th className="px-4 py-3 text-center">
-                                <span className="inline-flex items-center justify-center gap-1"><ThumbUpIcon className="w-3.5 h-3.5" /></span>
-                            </th>
-                            <th className="px-4 py-3 text-center">
-                                <span className="inline-flex items-center justify-center gap-1"><ThumbDownIcon className="w-3.5 h-3.5" /></span>
-                            </th>
-                            <th className="px-4 py-3 hidden md:table-cell">Data de Envio</th>
-                            <th className="px-4 py-3 text-center">Ações</th>
-                        </tr>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="font-anton text-xl text-white">
+                Visão Geral
+                <span className="block text-sm font-sans text-neutral-400 mt-1 font-normal">
+                  {periodLabel}
+                </span>
+              </h2>
+              <PeriodSelector timePeriod={timePeriod} onChange={setTimePeriod} />
+            </div>
+
+            {topVideo && (
+              <OpsPanel title="Vídeo em Destaque">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                  <div className="md:col-span-8 space-y-3">
+                    <Link
+                      to={`/video/${topVideo.id}`}
+                      className="text-lg text-white hover:text-[#eab308] transition-colors block"
+                    >
+                      {topVideo.title}
+                    </Link>
+                    <p className="text-4xl font-anton text-white tabular-nums">
+                      {(topVideo.recent_views_count || 0).toLocaleString('pt-BR')}
+                      <span className="text-base font-sans text-neutral-400 ml-3">visualizações</span>
+                    </p>
+                  </div>
+                  <div className="md:col-span-4 flex justify-center md:justify-end">
+                    <img
+                      src={topVideo.thumbnail}
+                      alt={topVideo.title}
+                      className="w-full max-w-xs md:w-52 aspect-video object-cover border border-neutral-800"
+                    />
+                  </div>
+                </div>
+              </OpsPanel>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5">
+              <OpsStatCard
+                label="Visualizações"
+                value={metrics.inquiries.toLocaleString('pt-BR')}
+                loading={isLoading}
+              />
+              <OpsStatCard
+                label="Curtidas"
+                value={metrics.supports.toLocaleString('pt-BR')}
+                loading={isLoading}
+              />
+              <OpsStatCard
+                label="Comentários"
+                value={metrics.theories.toLocaleString('pt-BR')}
+                loading={isLoading}
+              />
+              <OpsStatCard
+                label="Seguidores"
+                value={metrics.followers.toLocaleString('pt-BR')}
+                loading={isLoading}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-4 md:gap-5">
+              <InquiryRetentionBars data={retentionData} loading={isLoading} />
+              <PatentDistribution distribution={patentDistribution} loading={isLoading} />
+              <div className="xl:col-span-2 2xl:col-span-1">
+                <FieldStatusList cases={fieldStatus} loading={isLoading} />
+              </div>
+            </div>
+
+            <OpsPanel title="Seu Conteúdo">
+              {isLoading ? (
+                <p className="text-sm text-neutral-400 py-8 text-center">Carregando vídeos...</p>
+              ) : myVideos.length > 0 ? (
+                <div className="overflow-x-auto -mx-2 px-2">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="text-xs font-mono uppercase tracking-wider text-neutral-400 border-b border-neutral-800">
+                        <th className="px-4 py-4">Caso</th>
+                        <th className="px-4 py-4 text-center">Views</th>
+                        <th className="px-4 py-4 text-center">Curtidas</th>
+                        <th className="px-4 py-4 text-center">Comentários</th>
+                        <th className="px-4 py-4 hidden md:table-cell">Data</th>
+                        <th className="px-4 py-4 text-center">Ações</th>
+                      </tr>
                     </thead>
                     <tbody>
-                        {myVideos.map(video => (
-                            <tr key={video.id} className="border-t border-zinc-800 hover:bg-zinc-800/50">
-                                <td className="px-4 py-3 font-medium">
-                                    <div className="flex items-center gap-4">
-                                        <img src={video.thumbnail || `...`} alt={video.title} className="w-28 h-16 rounded-md object-cover hidden md:block" />
-                                        <div>
-                                            <Link to={`/video/${video.id}`} target="_blank" className="hover:text-[#f1c40f] hover:underline" title="Ver página do vídeo">{video.title}</Link>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3 text-center font-semibold">{video.stats.views.toLocaleString('pt-BR')}</td>
-                                <td className="px-4 py-3 text-center">{video.stats.super_likes.toLocaleString('pt-BR')}</td>
-                                <td className="px-4 py-3 text-center">{video.stats.likes.toLocaleString('pt-BR')}</td>
-                                <td className="px-4 py-3 text-center">{video.stats.dislikes.toLocaleString('pt-BR')}</td>
-                                <td className="px-4 py-3 hidden md:table-cell">{new Date(video.created_at).toLocaleDateString()}</td>
-                                <td className="px-4 py-3">
-                                    <div className="flex gap-3 justify-center">
-                                        <button onClick={() => onEditClick(video)} className="text-zinc-400 hover:text-blue-400 transition-colors" title="Editar"><EditIcon className="w-5 h-5" /></button>
-                                        <button onClick={() => handleDelete(video.id)} className="text-zinc-400 hover:text-red-500 transition-colors" title="Excluir"><DeleteIcon className="w-5 h-5" /></button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+                      {myVideos.map((video) => (
+                        <tr key={video.id} className="border-b border-neutral-800/80 hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-4">
+                              <img
+                                src={video.thumbnail}
+                                alt=""
+                                className="w-24 h-14 object-cover border border-neutral-800 hidden md:block"
+                              />
+                              <Link
+                                to={`/video/${video.id}`}
+                                className="text-sm text-white hover:text-[#eab308] transition-colors"
+                              >
+                                {video.title}
+                              </Link>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-center text-white tabular-nums">
+                            {video.stats.inquiries}
+                          </td>
+                          <td className="px-4 py-4 text-center text-white tabular-nums">
+                            {video.stats.supports}
+                          </td>
+                          <td className="px-4 py-4 text-center text-white tabular-nums">
+                            {video.stats.theories}
+                          </td>
+                          <td className="px-4 py-4 hidden md:table-cell text-sm text-neutral-400">
+                            {new Date(video.created_at).toLocaleDateString('pt-BR')}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="flex gap-3 justify-center">
+                              <button
+                                type="button"
+                                onClick={() => onEditClick(video)}
+                                className="text-neutral-400 hover:text-white transition-colors"
+                                title="Editar"
+                              >
+                                <EditIcon className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(video.id)}
+                                className="text-neutral-400 hover:text-red-400 transition-colors"
+                                title="Excluir"
+                              >
+                                <DeleteIcon className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
-                </table>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-neutral-400 py-12 text-center">
+                  Nenhum vídeo publicado. Adicione um novo caso ao canal.
+                </p>
+              )}
+            </OpsPanel>
+          </div>
+        </div>
+      </AnimatedPage>
+
+      <Transition appear show={isProfileModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setIsProfileModalOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/80" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+              <Dialog.Panel className="w-full max-w-5xl border border-neutral-800 bg-[#121212] p-6 sm:p-8 md:p-10">
+                <Dialog.Title as="h3" className="font-anton text-2xl text-white mb-2">
+                  Editar Perfil
+                </Dialog.Title>
+                <p className="text-sm text-neutral-400 mb-8">
+                  Atualize a identidade visual e as informações do seu canal.
+                </p>
+                <ProfileEditor
+                  user={user}
+                  profile={headerProfile || profile}
+                  onSuccess={onSuccess}
+                  onUploadSuccess={refreshHeaderProfile}
+                  onSaveComplete={async (updatedProfile) => {
+                    if (updatedProfile) {
+                      setHeaderProfile(updatedProfile);
+                    }
+                    await onProfileUpdate?.();
+                    setIsProfileModalOpen(false);
+                  }}
+                  mode="partner"
+                />
+              </Dialog.Panel>
             </div>
-        ) : (
-            <div className="text-center py-16 px-6">
-                <h3 className="text-lg font-medium text-white">Nenhum caso para solucionar ainda...</h3>
-                <p className="mt-1 text-sm text-zinc-400">Seu conteúdo aparecerá aqui assim que você fizer o primeiro envio.</p>
-            </div>
-        )}
-    </div>
-            </div>
-        </AnimatedPage>
-        
-        {/* Modal de Edição de Perfil */}
-        <Transition appear show={isProfileModalOpen} as={Fragment}>
-            <Dialog as="div" className="relative z-50" onClose={() => setIsProfileModalOpen(false)}>
-                <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0"><div className="fixed inset-0 bg-black/70" /></Transition.Child>
-                <div className="fixed inset-0 overflow-y-auto">
-                    <div className="flex min-h-full items-center justify-center p-4">
-                        <Dialog.Panel className="w-full max-w-md transform rounded-2xl bg-zinc-900 p-6 text-left align-middle shadow-xl transition-all">
-                            <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-white mb-6">Editar Perfil</Dialog.Title>
-                            <ProfileEditor user={user} profile={profile} onSuccess={onSuccess} onUploadSuccess={() => { setIsProfileModalOpen(false); onProfileUpdate(); }} mode="partner" />
-                        </Dialog.Panel>
-                    </div>
-                </div>
-            </Dialog>
-        </Transition>
-    </>
-);
+          </div>
+        </Dialog>
+      </Transition>
+    </>
+  );
 }

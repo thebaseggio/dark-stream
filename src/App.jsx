@@ -64,15 +64,19 @@ export default function App() {
     const handleFormSuccess = () => closeModal();
 
     const fetchProfile = async (userId) => {
-        const { data: profileData } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        const { data: profileData } = await supabase
+            .from('profiles')
+            .select('id, username, bio, role, avatar_url, banner_url, youtube_url, instagram_url, x_url, "creatorAvatar"')
+            .eq('id', userId)
+            .single();
         // Adicionamos o perfil do usuário ao próprio objeto do usuário para fácil acesso global
         setUser(currentUser => ({...currentUser, profile: profileData}));
         setProfile(profileData);
     };
 
-    const handleProfileUpdate = () => {
-        if(user) {
-            fetchProfile(user.id);
+    const handleProfileUpdate = async () => {
+        if (user) {
+            await fetchProfile(user.id);
         }
     };
 
@@ -126,6 +130,7 @@ export default function App() {
                     <Route path="/video/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/caso/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/parceiro/:id" element={<PartnerProfile currentUser={user} />} />
+                    <Route path="/parceiros/:username" element={<PartnerProfile currentUser={user} />} />
 
                     <Route path="/busca" element={<SearchResults />} />
                     <Route path="/categoria/:categoryName" element={<CategoryPage />} />
@@ -181,10 +186,13 @@ export default function App() {
                     </Transition.Child>
                     <div className="fixed inset-0 overflow-y-auto">
                         <div className="flex min-h-full items-center justify-center p-4">
-                            <Dialog.Panel className="w-full max-w-xl transform rounded-2xl bg-zinc-900 p-6 text-left align-middle shadow-xl transition-all">
-                                <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-white mb-6">
-                                    {videoToEdit ? 'Editar Vídeo' : 'Adicionar Novo Vídeo'}
+                            <Dialog.Panel className="w-full max-w-2xl transform bg-[#0a0a0a] border border-neutral-800 p-8 text-left align-middle shadow-2xl transition-all">
+                                <Dialog.Title as="h3" className="text-lg font-mono uppercase tracking-wider text-white mb-2">
+                                    {videoToEdit ? 'Editar Vídeo' : 'Novo Vídeo'}
                                 </Dialog.Title>
+                                <p className="text-[11px] font-mono text-zinc-500 mb-6">
+                                    {videoToEdit ? 'Atualize as informações do caso.' : 'Publique um novo caso ou Short de atualização.'}
+                                </p>
                                 <CreatorUploadForm user={user} profile={profile} onSuccess={handleFormSuccess} videoToEdit={videoToEdit} />
                             </Dialog.Panel>
                         </div>

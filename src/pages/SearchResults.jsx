@@ -5,6 +5,8 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
 import SkeletonCard from './SkeletonCard';
+import { getPartnerProfilePath } from '../utils/partnerProfile';
+import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 
 // Componente para um card de vídeo individual (reutilizado)
 function VideoCard({ video, onNavigate }) {
@@ -22,8 +24,8 @@ function VideoCard({ video, onNavigate }) {
 }
 
 // O NOVO "SUPER CARD": Um grupo que mostra o Parceiro e seus vídeos
-function PartnerResultGroup({ partner, videos, onNavigate, partnerId }) { // << Recebemos partnerId aqui
-    const partnerPath = `/parceiro/${partnerId}`; // << Usamos a prop recebida
+function PartnerResultGroup({ partner, videos, onNavigate, partnerId }) {
+    const partnerPath = getPartnerProfilePath({ username: partner.username, id: partnerId }) || `/parceiro/${partnerId}`;
     return (
         <div className="col-span-full bg-zinc-900/50 border border-zinc-800 rounded-lg p-6 mb-8">
             <Link to={partnerPath} className="flex items-center gap-4 mb-6 group/partner cursor-pointer">
@@ -91,6 +93,10 @@ export default function SearchResults() {
 
     return (
         <AnimatedPage>
+            <SeoHead
+              title={query ? `Busca: ${query} | Dark Stream` : 'Buscar | Dark Stream'}
+              description={DEFAULT_SITE_DESCRIPTION}
+            />
             <div className="space-y-8">
                 <div>
                     <h2 className="font-anton text-white text-2xl mb-6 text-left">
