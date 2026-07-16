@@ -72,6 +72,12 @@ function writeLocalFollow(creatorId, following) {
   }
 
   localStorage.setItem(LOCAL_FOLLOWS_KEY, JSON.stringify([...follows]));
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('darkstream:follow-change', { detail: { creatorId } })
+    );
+  }
 }
 
 export function isLocallyFollowing(creatorId) {
@@ -247,4 +253,76 @@ export async function togglePartnerFollow(supabase, followerId, creatorId, isCur
 
 export function isSubscriptionsApiEnabled() {
   return USE_SUBSCRIPTIONS_API;
+}
+
+/**
+ * Escuta mudanças de seguidores em tempo real (Realtime ou localStorage).
+ * Retorna função de cleanup.
+ */
+export function subscribePartnerFollowerCount(supabase, creatorId, onUpdate) {
+  if (!creatorId || typeof onUpdate !== 'function') {
+    return () => {};
+  }
+
+  let active = true;
+
+  const refresh = async () => {
+    if (!active) return;
+    const count = await fetchPartnerFollowerCount(supabase, creatorId);
+    if (active) onUpdate(count);
+  };
+
+  refresh();
+
+  const cleanups = [];
+
+  if (USE_SUBSCRIPTIONS_API) {
+    const channel = supabase
+      .channel(`followers:${creatorId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'subscriptions',
+          filter: `creator_id=eq.${creatorId}`,
+        },
+        () => {
+          refresh();
+        }
+      )
+      .subscribe();
+
+    cleanups.push(() => {
+      supabase.removeChannel(channel);
+    });
+  } else if (typeof window !== 'undefined') {
+    const handleLocalFollowChange = (event) => {
+      if (event?.detail?.creatorId === creatorId) {
+        refresh();
+      }
+    };
+
+    const handleStorage = (event) => {
+      if (
+        event.key === LOCAL_FOLLOWS_KEY
+        || event.key === LOCAL_FOLLOWER_COUNTS_KEY
+      ) {
+        refresh();
+      }
+    };
+
+    window.addEventListener('darkstream:follow-change', handleLocalFollowChange);
+    window.addEventListener('storage', handleStorage);
+
+    cleanups.push(() => {
+      window.removeEventListener('darkstream:follow-change', handleLocalFollowChange);
+      window.removeEventListener('storage', handleStorage);
+    });
+  }
+
+  return () => {
+    active = false;
+    cleanups.forEach((cleanup) => cleanup());
+  };
 }

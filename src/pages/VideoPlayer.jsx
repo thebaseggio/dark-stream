@@ -22,6 +22,11 @@ import {
   saveUserFeedback,
   saveLocalFeedback,
 } from '../utils/userFeedback';
+import { registerVideoView, normalizeVideoViews } from '../utils/videoViews';
+import {
+  readVideoProgress,
+  saveVideoProgress,
+} from '../utils/videoPlayback';
 
 const PlayIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
@@ -98,13 +103,29 @@ export default function VideoPlayer({ user }) {
   const inactivityTimerRef = useRef(null);
   const videoRef = useRef(null);
   const playerContainerRef = useRef(null);
+  const lastPlaybackSaveRef = useRef(0);
+  const videoDataRef = useRef(null);
+  const hasRestoredProgressRef = useRef(false);
+  const hasStartedPlaybackRef = useRef(false);
+  const hasLoadedVideoRef = useRef(false);
+
+  useEffect(() => {
+    videoDataRef.current = video;
+  }, [video]);
 
   const handleTimeUpdate = useCallback((e) => {
     const el = e.currentTarget;
     setCurrentTime(el.currentTime);
     setProgress((el.currentTime / el.duration) * 100 || 0);
-  }, []);
 
+    const now = Date.now();
+    if (videoId && now - lastPlaybackSaveRef.current > 2000) {
+      lastPlaybackSaveRef.current = now;
+      saveVideoProgress(user?.id, videoId, el.currentTime);
+    }
+  }, [videoId, user?.id]);
+
+  // Espelham o estado nativo do <video>; nunca disparam .play()/.pause() imperativos.
   const handlePlay = useCallback(() => {
     setIsPlaying(true);
   }, []);
@@ -119,6 +140,19 @@ export default function VideoPlayer({ user }) {
       setDuration(el.duration);
     }
   }, []);
+
+  const handleLoadedData = useCallback((e) => {
+    if (hasRestoredProgressRef.current) return;
+
+    const el = e.currentTarget;
+    const savedTime = readVideoProgress(user?.id, videoId);
+    if (savedTime > 0 && el.currentTime < 1) {
+      el.currentTime = savedTime;
+      setCurrentTime(savedTime);
+      setProgress((savedTime / el.duration) * 100 || 0);
+      hasRestoredProgressRef.current = true;
+    }
+  }, [videoId, user?.id]);
 
   const togglePlayPause = useCallback(() => {
     const currentVideo = videoRef.current;
@@ -261,16 +295,26 @@ export default function VideoPlayer({ user }) {
     setFadeOutFirstPart(false);
     setFadeOutSecondPart(false);
     setIsPlaying(false);
-    setCurrentTime(0);
     setDuration(0);
-    setProgress(0);
     setAreControlsVisible(true);
-  }, [videoId]);
+    lastPlaybackSaveRef.current = 0;
+    hasRestoredProgressRef.current = false;
+    hasStartedPlaybackRef.current = false;
+    hasLoadedVideoRef.current = false;
+
+    const savedTime = readVideoProgress(user?.id, videoId);
+    setCurrentTime(savedTime);
+    setProgress(0);
+  }, [videoId, user?.id]);
 
   useEffect(() => {
+    const userId = user?.id;
+    if (!videoId || !userId) return;
+
+    const isInitialLoad = !hasLoadedVideoRef.current;
+
     const fetchData = async () => {
-      if (!videoId || !user) return;
-      setLoading(true);
+      if (isInitialLoad) setLoading(true);
 
       try {
         const { data: videoData, error: videoError } = await supabase
@@ -285,6 +329,7 @@ export default function VideoPlayer({ user }) {
         }
 
         setVideo(videoData);
+        hasLoadedVideoRef.current = true;
         const creatorId = videoData.creator_id?.id;
 
         if (!creatorId) {
@@ -297,8 +342,8 @@ export default function VideoPlayer({ user }) {
 
         const [subscriberCountResult, followingResult, shortsRes] = await Promise.all([
           fetchPartnerFollowerCount(supabase, creatorId),
-          user.id !== creatorId
-            ? checkPartnerFollowStatus(supabase, user.id, creatorId)
+          userId !== creatorId
+            ? checkPartnerFollowStatus(supabase, userId, creatorId)
             : Promise.resolve(false),
           supabase
             .from('videos')
@@ -316,30 +361,37 @@ export default function VideoPlayer({ user }) {
         setSubscriberCount(0);
         setIsSubscribed(false);
       } finally {
-        setLoading(false);
+        if (isInitialLoad) setLoading(false);
       }
     };
 
     fetchData();
-  }, [videoId, user]);
+  }, [videoId, user?.id]);
 
   useEffect(() => {
     if (!videoId || !user) return;
 
     const registerView = async () => {
-      try {
-        await supabase.rpc('increment_views', {
-          video_row_id: videoId,
-          viewer_id: user?.id,
-        });
-      } catch {
-        // RPC ausente no remoto — falha silenciosa
+      const result = await registerVideoView(supabase, {
+        videoId,
+        userId: user?.id,
+        fallbackViews: videoDataRef.current?.views,
+      });
+
+      if (result.ok && !result.skipped && result.views != null) {
+        setVideo((prev) => (prev ? { ...prev, views: result.views } : prev));
+      } else if (result.ok && result.method === 'rpc') {
+        setVideo((prev) => (
+          prev
+            ? { ...prev, views: normalizeVideoViews(prev.views) + 1 }
+            : prev
+        ));
       }
     };
 
     const timer = setTimeout(registerView, 2000);
     return () => clearTimeout(timer);
-  }, [videoId, user]);
+  }, [videoId, user?.id]);
 
   useEffect(() => {
     const creatorId = video?.creator_id?.id;
@@ -363,26 +415,50 @@ export default function VideoPlayer({ user }) {
   }, [video?.creator_id?.id, videoId]);
 
   useEffect(() => {
-    if (!loading && video) {
+    if (!loading && video?.id) {
       const t1 = setTimeout(() => setFadeOutFirstPart(true), 3500);
       const t2 = setTimeout(() => setIntroStep(2), 4000);
       const t3 = setTimeout(() => setFadeOutSecondPart(true), 7500);
       const t4 = setTimeout(() => setShowIntro(false), 8000);
       return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
     }
-  }, [loading, video]);
+  }, [loading, video?.id]);
 
   useEffect(() => {
     const currentVideo = videoRef.current;
-    if (showIntro === false && currentVideo) {
-      currentVideo.muted = true;
-      setIsMuted(true);
-      const playPromise = currentVideo.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => setIsPlaying(false));
-      }
+    if (showIntro !== false || !currentVideo || hasStartedPlaybackRef.current) return;
+
+    hasStartedPlaybackRef.current = true;
+
+    const savedTime = readVideoProgress(user?.id, videoId);
+    if (savedTime > 0 && currentVideo.currentTime < 1) {
+      currentVideo.currentTime = savedTime;
+      setCurrentTime(savedTime);
+      setProgress((savedTime / currentVideo.duration) * 100 || 0);
+      hasRestoredProgressRef.current = true;
     }
-  }, [showIntro]);
+
+    currentVideo.muted = true;
+    setIsMuted(true);
+    const playPromise = currentVideo.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => setIsPlaying(false));
+    }
+  }, [showIntro, videoId, user?.id]);
+
+  // Backup passivo do progresso ao sair da aba — sem tocar em play/pause ou recarregar mídia.
+  useEffect(() => {
+    const persistProgressOnHide = () => {
+      if (!document.hidden) return;
+      const el = videoRef.current;
+      if (!el || !videoId) return;
+      saveVideoProgress(user?.id, videoId, el.currentTime);
+      lastPlaybackSaveRef.current = Date.now();
+    };
+
+    document.addEventListener('visibilitychange', persistProgressOnHide);
+    return () => document.removeEventListener('visibilitychange', persistProgressOnHide);
+  }, [videoId, user?.id]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -517,6 +593,7 @@ export default function VideoPlayer({ user }) {
                 onPause={handlePause}
                 onDurationChange={handleDurationChange}
                 onLoadedMetadata={handleDurationChange}
+                onLoadedData={handleLoadedData}
                 className="absolute inset-0 w-full h-full object-contain bg-black"
                 src={video.videoUrl}
               />

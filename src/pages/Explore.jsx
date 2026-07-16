@@ -124,13 +124,11 @@ export default function Explore({ user }) {
         <div className="space-y-12 pt-12 pb-8">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="space-y-4">
-                <div className="h-8 w-1/4 bg-dark-panel animate-pulse" />
-                <div className="flex space-x-4 overflow-x-auto scrollbar-hide pb-4">
+              <div key={i} className="space-y-4 relative mb-12">
+                <div className="h-8 w-48 max-w-[40%] bg-dark-panel animate-pulse rounded-sm" />
+                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
                   {Array.from({ length: 4 }).map((_, j) => (
-                    <div key={j} className="flex-shrink-0 w-64">
-                      <SkeletonCard />
-                    </div>
+                    <SkeletonCard key={j} />
                   ))}
                 </div>
               </div>

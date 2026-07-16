@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Fragment } from 'react';
+import React, { useState, useEffect, Fragment, useMemo, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { Link } from 'react-router-dom';
 import AnimatedPage from '../AnimatedPage';
@@ -12,22 +12,22 @@ import PatentDistribution from '../components/ops/PatentDistribution';
 import {
   buildFieldStatus,
   buildRetentionData,
+  buildLifetimeViewsMap,
   countByVideoId,
-  estimateInvestigationHours,
   fetchAudiencePatentDistribution,
   fetchTopPerformingVideo,
-  countUniqueAudienceFromViews,
   buildPeriodStartIso,
   emptyQueryResult,
-} from '../utils/opsAnalytics';
+} from '../utils/opsInsights';
 import {
   resolveAvatarUrl,
   resolveBannerUrl,
   isValidRenderableUrl,
   PROFILE_FIELDS_SELECT,
-  getAvatarFieldCandidates,
 } from '../utils/profileMedia';
 import { fetchPartnerFollowerCount } from '../utils/subscriptions';
+import usePartnerFollowerRealtime from '../hooks/usePartnerFollowerRealtime';
+import { fetchPartnerLifetimeStats } from '../utils/partnerStats';
 
 function DashboardAvatar({ profile, className }) {
   const avatarUrl = resolveAvatarUrl(profile);
@@ -68,14 +68,25 @@ const EditIcon = (props) => (
     <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
   </svg>
 );
-const DeleteIcon = (props) => (
-  <svg {...props} viewBox="0 0 20 20" fill="currentColor">
-    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-  </svg>
-);
 
 function getBannerUrl(profile) {
   return resolveBannerUrl(profile);
+}
+
+function getContentTypeLabel(video) {
+  if (!video?.is_short) return 'Caso';
+  if (video.short_type === 'intro') return 'Prévia';
+  if (video.short_type === 'flash') return 'Flash';
+  return 'Short';
+}
+
+function formatVideoDate(dateValue) {
+  if (!dateValue) return '—';
+  return new Date(dateValue).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 export default function CreatorDashboard({
@@ -87,16 +98,18 @@ export default function CreatorDashboard({
   onSuccess,
 }) {
   const [myVideos, setMyVideos] = useState([]);
+  const [managedVideos, setManagedVideos] = useState([]);
+  const [contentFilter, setContentFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [videoToDelete, setVideoToDelete] = useState(null);
+  const [isDeletingVideo, setIsDeletingVideo] = useState(false);
   const [timePeriod, setTimePeriod] = useState(30);
 
   const [metrics, setMetrics] = useState({
-    inquiries: 0,
-    supports: 0,
-    theories: 0,
-    activeHours: 0,
-    subscribers: 0,
+    totalViews: 0,
+    totalLikes: 0,
+    totalComments: 0,
     followers: 0,
   });
   const [retentionData, setRetentionData] = useState([]);
@@ -119,20 +132,16 @@ export default function CreatorDashboard({
     }
 
     if (data) {
-      const resolvedAvatar = resolveAvatarUrl(data);
-      console.log('Dados do perfil carregados:', data);
-      console.log('[Avatar Debug]', {
-        avatar_url: data.avatar_url,
-        creatorAvatar: data.creatorAvatar,
-        creatoravatar: data.creatoravatar,
-        candidatos: getAvatarFieldCandidates(data),
-        resolvedAvatar,
-        isValid: isValidRenderableUrl(resolvedAvatar),
-      });
       setHeaderProfile(data);
     }
     return data;
   };
+
+  const handleFollowerCountUpdate = useCallback((count) => {
+    setMetrics((prev) => ({ ...prev, followers: count }));
+  }, []);
+
+  usePartnerFollowerRealtime(supabase, user?.id, handleFollowerCountUpdate);
 
   useEffect(() => {
     if (profile) setHeaderProfile(profile);
@@ -211,35 +220,38 @@ export default function CreatorDashboard({
     const supportsRows = supportsRes.data || [];
     const theoriesRows = theoriesRes.data || [];
 
-    const viewsMap = countByVideoId(viewsRows);
     const supportsMap = countByVideoId(supportsRows);
     const theoriesMap = countByVideoId(theoriesRows, 'video_id');
+    const lifetimeViewsMap = buildLifetimeViewsMap(videos);
 
-    const inquiries = viewsRows.length;
-    const supports = supportsRows.length;
-    const theories = theoriesRows.length;
-
-    const uniqueAudience = countUniqueAudienceFromViews(viewsRows);
-    const followers = await fetchPartnerFollowerCount(supabase, user.id);
+    const [lifetimeMetrics, allVideosRes, followers] = await Promise.all([
+      fetchPartnerLifetimeStats(supabase, user.id),
+      supabase
+        .from('videos')
+        .select('id, title, thumbnail, views, created_at, is_short, short_type, parent_video_id')
+        .eq('creator_id', user.id)
+        .order('created_at', { ascending: false }),
+      fetchPartnerFollowerCount(supabase, user.id),
+    ]);
 
     setMetrics({
-      inquiries,
-      supports,
-      theories,
-      activeHours: estimateInvestigationHours(inquiries),
-      subscribers: uniqueAudience,
+      totalViews: lifetimeMetrics.totalViews,
+      totalLikes: lifetimeMetrics.totalLikes,
+      totalComments: lifetimeMetrics.totalComments,
       followers,
     });
 
-    setRetentionData(buildRetentionData(videos, viewsMap, theoriesMap, supportsMap));
-    setFieldStatus(buildFieldStatus(videos, viewsMap, theoriesMap, supportsMap));
+    setManagedVideos(allVideosRes.data || []);
+
+    setRetentionData(buildRetentionData(videos, lifetimeViewsMap, theoriesMap, supportsMap));
+    setFieldStatus(buildFieldStatus(videos, lifetimeViewsMap, theoriesMap, supportsMap));
 
     const topVideoResult = await fetchTopPerformingVideo(
       supabase,
       user.id,
       timePeriod,
       videos,
-      viewsMap
+      lifetimeViewsMap
     );
     setTopVideo(topVideoResult);
 
@@ -252,7 +264,7 @@ export default function CreatorDashboard({
       .map((video) => ({
         ...video,
         stats: {
-          inquiries: viewsMap.get(video.id) || 0,
+          inquiries: lifetimeViewsMap.get(video.id) || 0,
           supports: supportsMap.get(video.id) || 0,
           theories: theoriesMap.get(String(video.id)) || 0,
         },
@@ -266,17 +278,41 @@ export default function CreatorDashboard({
     fetchMyData();
   }, [user, timePeriod]);
 
-  const handleDelete = async (videoId) => {
-    if (!window.confirm('Confirmar exclusão do vídeo? Esta ação não pode ser desfeita.')) return;
+  const handleDeleteRequest = (video) => {
+    setVideoToDelete(video);
+  };
 
-    const { error } = await supabase.from('videos').delete().eq('id', videoId);
+  const handleDeleteConfirm = async () => {
+    if (!videoToDelete) return;
+
+    setIsDeletingVideo(true);
+
+    const { error } = await supabase
+      .from('videos')
+      .delete()
+      .eq('id', videoToDelete.id)
+      .eq('creator_id', user.id);
+
     if (error) {
       onSuccess('error', `Erro: ${error.message}`);
     } else {
       onSuccess('success', 'Vídeo removido com sucesso.');
+      setVideoToDelete(null);
       fetchMyData();
     }
+
+    setIsDeletingVideo(false);
   };
+
+  const filteredManagedVideos = useMemo(() => {
+    if (contentFilter === 'cases') {
+      return managedVideos.filter((video) => !video.is_short);
+    }
+    if (contentFilter === 'shorts') {
+      return managedVideos.filter((video) => video.is_short);
+    }
+    return managedVideos;
+  }, [managedVideos, contentFilter]);
 
   if (!user) {
     return (
@@ -405,22 +441,26 @@ export default function CreatorDashboard({
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5">
               <OpsStatCard
                 label="Visualizações"
-                value={metrics.inquiries.toLocaleString('pt-BR')}
+                value={metrics.totalViews.toLocaleString('pt-BR')}
+                hint="Total acumulado"
                 loading={isLoading}
               />
               <OpsStatCard
                 label="Curtidas"
-                value={metrics.supports.toLocaleString('pt-BR')}
+                value={metrics.totalLikes.toLocaleString('pt-BR')}
+                hint="Total acumulado"
                 loading={isLoading}
               />
               <OpsStatCard
                 label="Comentários"
-                value={metrics.theories.toLocaleString('pt-BR')}
+                value={metrics.totalComments.toLocaleString('pt-BR')}
+                hint="Total acumulado"
                 loading={isLoading}
               />
               <OpsStatCard
                 label="Seguidores"
                 value={metrics.followers.toLocaleString('pt-BR')}
+                hint="Ao vivo"
                 loading={isLoading}
               />
             </div>
@@ -433,80 +473,93 @@ export default function CreatorDashboard({
               </div>
             </div>
 
-            <OpsPanel title="Seu Conteúdo">
+            <OpsPanel title="QG de Produções">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <p className="text-sm text-neutral-400 max-w-2xl">
+                  Gerencie casos longos e shorts de atualização publicados no seu canal.
+                </p>
+                <div className="inline-flex border border-neutral-800 bg-black">
+                  {[
+                    { value: 'all', label: 'Todos' },
+                    { value: 'cases', label: 'Casos' },
+                    { value: 'shorts', label: 'Shorts' },
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setContentFilter(option.value)}
+                      className={`px-4 py-2 text-[10px] font-mono uppercase tracking-wider transition-colors border-r border-neutral-800 last:border-r-0 ${
+                        contentFilter === option.value
+                          ? 'bg-[#8e44ad] text-[#f1c40f]'
+                          : 'text-neutral-400 hover:text-white'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {isLoading ? (
-                <p className="text-sm text-neutral-400 py-8 text-center">Carregando vídeos...</p>
-              ) : myVideos.length > 0 ? (
-                <div className="overflow-x-auto -mx-2 px-2">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="text-xs font-mono uppercase tracking-wider text-neutral-400 border-b border-neutral-800">
-                        <th className="px-4 py-4">Caso</th>
-                        <th className="px-4 py-4 text-center">Views</th>
-                        <th className="px-4 py-4 text-center">Curtidas</th>
-                        <th className="px-4 py-4 text-center">Comentários</th>
-                        <th className="px-4 py-4 hidden md:table-cell">Data</th>
-                        <th className="px-4 py-4 text-center">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {myVideos.map((video) => (
-                        <tr key={video.id} className="border-b border-neutral-800/80 hover:bg-white/[0.02] transition-colors">
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-4">
-                              <img
-                                src={video.thumbnail}
-                                alt=""
-                                className="w-24 h-14 object-cover border border-neutral-800 hidden md:block"
-                              />
-                              <Link
-                                to={`/video/${video.id}`}
-                                className="text-sm text-white hover:text-[#eab308] transition-colors"
-                              >
-                                {video.title}
-                              </Link>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 text-center text-white tabular-nums">
-                            {video.stats.inquiries}
-                          </td>
-                          <td className="px-4 py-4 text-center text-white tabular-nums">
-                            {video.stats.supports}
-                          </td>
-                          <td className="px-4 py-4 text-center text-white tabular-nums">
-                            {video.stats.theories}
-                          </td>
-                          <td className="px-4 py-4 hidden md:table-cell text-sm text-neutral-400">
-                            {new Date(video.created_at).toLocaleDateString('pt-BR')}
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="flex gap-3 justify-center">
-                              <button
-                                type="button"
-                                onClick={() => onEditClick(video)}
-                                className="text-neutral-400 hover:text-white transition-colors"
-                                title="Editar"
-                              >
-                                <EditIcon className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(video.id)}
-                                className="text-neutral-400 hover:text-red-400 transition-colors"
-                                title="Excluir"
-                              >
-                                <DeleteIcon className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <p className="text-sm text-neutral-400 py-8 text-center">Carregando produções...</p>
+              ) : filteredManagedVideos.length > 0 ? (
+                <div className="space-y-3">
+                  {filteredManagedVideos.map((video) => (
+                    <div
+                      key={video.id}
+                      className="flex flex-col md:flex-row md:items-center gap-4 border border-neutral-800 bg-black/40 hover:border-neutral-700 transition-colors p-4"
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className={`flex-shrink-0 overflow-hidden border border-neutral-800 ${video.is_short ? 'w-16 h-24' : 'w-28 h-16'}`}>
+                          <img
+                            src={video.thumbnail}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <span className="text-[9px] font-mono uppercase tracking-widest text-[#f1c40f] border border-[#8e44ad]/40 bg-[#8e44ad]/10 px-2 py-0.5">
+                              {getContentTypeLabel(video)}
+                            </span>
+                            <span className="text-[10px] font-mono text-neutral-600">
+                              {formatVideoDate(video.created_at)}
+                            </span>
+                          </div>
+                          <Link
+                            to={`/video/${video.id}`}
+                            className="text-sm md:text-base text-white hover:text-[#eab308] transition-colors line-clamp-2"
+                          >
+                            {video.title}
+                          </Link>
+                          <p className="text-[11px] font-mono text-neutral-500 mt-1">
+                            {(Number(video.views) || 0).toLocaleString('pt-BR')} visualizações
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 md:flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onEditClick(video)}
+                          className="flex-1 md:flex-none border border-neutral-700 text-neutral-300 hover:text-white hover:border-neutral-500 px-4 py-2 text-[10px] font-mono uppercase tracking-wider transition-colors"
+                        >
+                          Editar dados
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteRequest(video)}
+                          className="flex-1 md:flex-none border border-neutral-800 text-neutral-400 hover:text-red-400 hover:border-red-400/40 px-4 py-2 text-[10px] font-mono uppercase tracking-wider transition-colors"
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <p className="text-sm text-neutral-400 py-12 text-center">
-                  Nenhum vídeo publicado. Adicione um novo caso ao canal.
+                  Nenhuma produção nesta categoria. Publique um novo caso ou short de atualização.
                 </p>
               )}
             </OpsPanel>
@@ -550,6 +603,56 @@ export default function CreatorDashboard({
                   }}
                   mode="partner"
                 />
+              </Dialog.Panel>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      <Transition appear show={Boolean(videoToDelete)} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => !isDeletingVideo && setVideoToDelete(null)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/80" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Dialog.Panel className="w-full max-w-md border border-neutral-800 bg-[#121212] p-6 sm:p-8">
+                <Dialog.Title as="h3" className="font-anton text-xl text-white">
+                  Excluir produção?
+                </Dialog.Title>
+                <p className="text-sm text-neutral-400 mt-3 leading-relaxed">
+                  Esta ação remove permanentemente
+                  {' '}
+                  <span className="text-white">{videoToDelete?.title}</span>
+                  {' '}
+                  do catálogo. Não pode ser desfeita.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 mt-8">
+                  <button
+                    type="button"
+                    disabled={isDeletingVideo}
+                    onClick={() => setVideoToDelete(null)}
+                    className="flex-1 border border-neutral-700 text-neutral-300 hover:text-white px-4 py-3 text-[10px] font-mono uppercase tracking-wider transition-colors disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isDeletingVideo}
+                    onClick={handleDeleteConfirm}
+                    className="flex-1 bg-red-600 hover:bg-red-500 text-white px-4 py-3 text-[10px] font-mono uppercase tracking-wider transition-colors disabled:opacity-50"
+                  >
+                    {isDeletingVideo ? 'Excluindo…' : 'Confirmar exclusão'}
+                  </button>
+                </div>
               </Dialog.Panel>
             </div>
           </div>

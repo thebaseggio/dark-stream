@@ -6,6 +6,8 @@ import Searchbar from '../components/Searchbar';
 import Footer from '../components/Footer';
 import SiteContainer from '../components/SiteContainer';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../components/SeoHead';
+import { clearVideoProgressSession } from '../utils/videoPlayback';
+import { clearViewRegisteredSession } from '../utils/videoViews';
 
 function isVideoPlayerRoute(pathname) {
   return /^\/(video|caso)\/[^/]+$/.test(pathname);
@@ -18,6 +20,8 @@ function isFullBleedRoute(pathname) {
 function Header({ user, profile, immersive, chromeVisible }) {
     const navigate = useNavigate();
     const handleLogout = async () => {
+        clearVideoProgressSession();
+        clearViewRegisteredSession();
         await supabase.auth.signOut();
         navigate('/');
     };

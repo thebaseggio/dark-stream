@@ -13,13 +13,18 @@ export function OpsPanel({ children, className = '', title }) {
   );
 }
 
-export function OpsStatCard({ label, value, loading }) {
+export function OpsStatCard({ label, value, loading, hint }) {
   return (
     <div className="border border-neutral-800 bg-[#121212] p-6 sm:p-8 flex flex-col items-center justify-center text-center min-h-[148px]">
       <p className="text-sm text-neutral-400">{label}</p>
       <p className="text-4xl sm:text-5xl font-anton text-white mt-4 tabular-nums tracking-tight">
         {loading ? '—' : value}
       </p>
+      {hint && (
+        <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-600 mt-3">
+          {hint}
+        </p>
+      )}
     </div>
   );
 }

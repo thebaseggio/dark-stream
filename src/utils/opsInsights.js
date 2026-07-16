@@ -94,6 +94,17 @@ export function countByVideoId(rows, idField = 'video_id') {
   return map;
 }
 
+/** Mapa de visualizações lifetime a partir da coluna videos.views */
+export function buildLifetimeViewsMap(videos = []) {
+  const map = new Map();
+  videos.forEach((video) => {
+    const count = Math.max(0, Number(video.views) || 0);
+    map.set(video.id, count);
+    map.set(String(video.id), count);
+  });
+  return map;
+}
+
 /**
  * Gera ISO 8601 válido para filtros gte do PostgREST (tabelas com timestamptz).
  */
@@ -140,7 +151,10 @@ function buildTopVideoFallback(videos, viewsMap) {
   let bestViews = 0;
 
   videos.forEach((video) => {
-    const viewCount = viewsMap.get(video.id) || viewsMap.get(String(video.id)) || 0;
+    const viewCount =
+      viewsMap.get(video.id)
+      || viewsMap.get(String(video.id))
+      || Math.max(0, Number(video.views) || 0);
     if (viewCount > bestViews) {
       bestViews = viewCount;
       bestVideo = {
@@ -159,4 +173,3 @@ function buildTopVideoFallback(videos, viewsMap) {
 export function emptyQueryResult() {
   return { data: [], error: null, count: 0 };
 }
-

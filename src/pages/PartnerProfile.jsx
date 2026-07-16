@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
@@ -18,6 +18,7 @@ import {
   formatFollowerLabel,
   togglePartnerFollow,
 } from '../utils/subscriptions';
+import usePartnerFollowerRealtime from '../hooks/usePartnerFollowerRealtime';
 
 /** Usa banner_url do banco via resolveBannerUrl — retorna null se URL for inválida ou apontar para pasta. */
 function getPartnerBannerUrl(profile) {
@@ -95,6 +96,16 @@ export default function PartnerProfile({ currentUser }) {
   const [followerCount, setFollowerCount] = useState(0);
   const [isProcessingFollow, setIsProcessingFollow] = useState(false);
   const [bannerFailed, setBannerFailed] = useState(false);
+
+  const handleFollowerCountUpdate = useCallback((count) => {
+    setFollowerCount(count);
+  }, []);
+
+  usePartnerFollowerRealtime(
+    supabase,
+    partnerProfile?.id,
+    handleFollowerCountUpdate
+  );
 
   useEffect(() => {
     if (!slug) {
