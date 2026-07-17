@@ -1,6 +1,6 @@
 // src/pages/VideoPlayer.jsx
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
@@ -73,6 +73,12 @@ function getShortTypeLabel(shortType) {
   return 'Atualização';
 }
 
+function getEndCardShort(shorts = []) {
+  if (!shorts.length) return null;
+  const sequels = shorts.filter((short) => short.short_type !== 'intro');
+  return sequels.length ? sequels[sequels.length - 1] : shorts[shorts.length - 1];
+}
+
 export default function VideoPlayer({ user }) {
   const { id: videoId } = useParams();
   const navigate = useNavigate();
@@ -91,7 +97,7 @@ export default function VideoPlayer({ user }) {
   const [showIntro, setShowIntro] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [volume, setVolume] = useState(1);
+  const [volume, setVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -245,6 +251,20 @@ export default function VideoPlayer({ user }) {
     }, 3000);
   }, [reportChromeActivity]);
 
+  const handleWatchEndCardShort = useCallback(() => {
+    const short = getEndCardShort(updateShorts);
+    if (!short?.id) return;
+    navigate(`/video/${short.id}`);
+  }, [navigate, updateShorts]);
+
+  const endCardShort = useMemo(() => getEndCardShort(updateShorts), [updateShorts]);
+
+  const showEndCard = useMemo(() => {
+    if (!endCardShort || !Number.isFinite(duration) || duration <= 0) return false;
+    const remaining = duration - currentTime;
+    return remaining <= 15 && remaining > 0;
+  }, [endCardShort, duration, currentTime]);
+
   const formatTime = (timeInSeconds) => {
     if (isNaN(timeInSeconds)) return '00:00';
     const minutes = Math.floor(timeInSeconds / 60).toString().padStart(2, '0');
@@ -296,6 +316,8 @@ export default function VideoPlayer({ user }) {
     setFadeOutSecondPart(false);
     setIsPlaying(false);
     setDuration(0);
+    setVolume(0.8);
+    setIsMuted(false);
     setAreControlsVisible(true);
     lastPlaybackSaveRef.current = 0;
     hasRestoredProgressRef.current = false;
@@ -438,8 +460,10 @@ export default function VideoPlayer({ user }) {
       hasRestoredProgressRef.current = true;
     }
 
-    currentVideo.muted = true;
-    setIsMuted(true);
+    currentVideo.volume = 0.8;
+    currentVideo.muted = false;
+    setVolume(0.8);
+    setIsMuted(false);
     const playPromise = currentVideo.play();
     if (playPromise !== undefined) {
       playPromise.catch(() => setIsPlaying(false));
@@ -558,7 +582,7 @@ export default function VideoPlayer({ user }) {
   const categories = formatCategories(video.category);
 
   return (
-    <AnimatedPage className="h-full">
+    <AnimatedPage className="min-h-full">
       <SeoHead
         title={videoSeoTitle}
         description={videoSeoDescription}
@@ -568,127 +592,172 @@ export default function VideoPlayer({ user }) {
       <div className="min-h-full bg-dark-pure text-white font-sans relative flex flex-col">
         <PlayerAmbientGlow thumbnail={video.thumbnail} />
 
-        <SiteContainer className="relative z-10 flex-1 min-h-0 flex flex-col">
-          <div className="flex-1 min-h-0 grid grid-cols-12 lg:grid-rows-1">
+        {/* Player em modo cinema — largura total no topo */}
+        <section className="relative z-10 w-full flex-shrink-0 bg-black">
+          <div
+            ref={playerContainerRef}
+            className={`relative w-full overflow-hidden bg-black/90 group h-[450px] md:h-[600px] lg:h-[min(56.25vw,85vh)] ${
+              !areControlsVisible && isPlaying ? 'cursor-none' : ''
+            }`}
+            onMouseMove={handleActivity}
+            onMouseLeave={() => setAreControlsVisible(false)}
+            onTouchStart={handleActivity}
+          >
+            <video
+              key={videoId}
+              ref={videoRef}
+              playsInline
+              onClick={togglePlayPause}
+              onDoubleClick={toggleFullScreen}
+              onTimeUpdate={handleTimeUpdate}
+              onPlay={handlePlay}
+              onPause={handlePause}
+              onDurationChange={handleDurationChange}
+              onLoadedMetadata={handleDurationChange}
+              onLoadedData={handleLoadedData}
+              className="absolute inset-0 z-0 w-full h-full object-contain bg-black"
+              src={video.videoUrl}
+            />
 
-          {/* Player + Fórum — 9 colunas no desktop */}
-          <section className="col-span-12 lg:col-span-9 min-h-0 flex flex-col overflow-y-auto">
             <div
-              ref={playerContainerRef}
-              className={`relative flex-shrink-0 w-full min-h-[50vh] lg:min-h-0 lg:h-full lg:max-h-[calc(100vh-8rem)] bg-black/90 group ${
-                !areControlsVisible && isPlaying ? 'cursor-none' : ''
+              className={`absolute top-0 left-0 w-full z-20 px-5 py-4 flex items-center gap-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent transition-all duration-500 ease-in-out ${
+                chromeVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
-              onMouseMove={handleActivity}
-              onMouseLeave={() => setAreControlsVisible(false)}
-              onTouchStart={handleActivity}
             >
-              <video
-                key={videoId}
-                ref={videoRef}
-                playsInline
-                onClick={togglePlayPause}
-                onDoubleClick={toggleFullScreen}
-                onTimeUpdate={handleTimeUpdate}
-                onPlay={handlePlay}
-                onPause={handlePause}
-                onDurationChange={handleDurationChange}
-                onLoadedMetadata={handleDurationChange}
-                onLoadedData={handleLoadedData}
-                className="absolute inset-0 w-full h-full object-contain bg-black"
-                src={video.videoUrl}
+              <button
+                onClick={() => navigate('/casos')}
+                className="flex items-center gap-2 text-white/80 hover:text-brand-primary border border-dark-border px-3 py-2 transition-colors"
+                title="Voltar ao catálogo"
+              >
+                <BackIcon className="w-4 h-4 flex-shrink-0" />
+                <span className="text-[10px] font-mono uppercase tracking-widest hidden sm:inline">
+                  Voltar ao catálogo
+                </span>
+              </button>
+            </div>
+
+            <div
+              className={`absolute bottom-0 left-0 w-full z-20 transition-all duration-500 ease-in-out ${
+                areControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <div
+                className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"
+                aria-hidden="true"
               />
+              <div className="relative z-10 pt-12 pb-1">
+                <div className="player-timeline-track px-4">
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration}
+                    value={currentTime}
+                    onChange={handleProgressChange}
+                    style={{ '--range-progress': `${progress}%` }}
+                    className="w-full custom-range custom-range--timeline block"
+                    aria-label="Progresso do vídeo"
+                  />
+                </div>
 
-              <div
-                className={`absolute top-0 left-0 right-0 px-5 py-4 flex items-center gap-4 bg-gradient-to-b from-dark-pure/90 to-transparent transition-opacity duration-300 ${
-                  chromeVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                }`}
-              >
-                <button
-                  onClick={() => navigate('/casos')}
-                  className="flex items-center gap-2 text-white/80 hover:text-brand-primary border border-dark-border px-3 py-2 transition-colors"
-                  title="Voltar ao catálogo"
-                >
-                  <BackIcon className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-[10px] font-mono uppercase tracking-widest hidden sm:inline">
-                    Voltar ao catálogo
-                  </span>
-                </button>
-              </div>
-
-              <div
-                className={`absolute inset-x-0 bottom-0 transition-opacity duration-300 ${
-                  areControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                }`}
-              >
-                <div className="bg-gradient-to-t from-dark-pure via-dark-pure/70 to-transparent pt-14">
-                  <div className="px-4 pb-3">
-                    <input
-                      type="range"
-                      min="0"
-                      max={duration}
-                      value={currentTime}
-                      onChange={handleProgressChange}
-                      className="w-full custom-range block"
-                      aria-label="Progresso do vídeo"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between gap-4 px-4 pb-4 min-h-[2rem]">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <button
-                        onClick={togglePlayPause}
-                        className="w-5 h-5 flex-shrink-0 text-white/90 hover:text-white"
-                        aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
-                      >
-                        {isPlaying ? <PauseIcon /> : <PlayIcon />}
-                      </button>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          onClick={toggleMute}
-                          className="w-5 h-5 text-white/90 hover:text-white"
-                          aria-label={isMuted ? 'Ativar som' : 'Silenciar'}
-                        >
-                          {isMuted || volume === 0 ? <VolumeMuteIcon /> : <VolumeHighIcon />}
-                        </button>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={isMuted ? 0 : volume}
-                          onChange={handleVolumeChange}
-                          className="w-20 custom-range hidden sm:block"
-                          aria-label="Volume"
-                        />
-                      </div>
-                      <span className="text-[11px] font-mono text-white/60 tracking-wider whitespace-nowrap">
-                        {formatTime(currentTime)} / {formatTime(duration)}
-                      </span>
-                    </div>
+                <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-2 min-h-[2rem] transition-opacity duration-500 ease-in-out">
+                  <div className="flex items-center gap-3 min-w-0">
                     <button
-                      onClick={toggleFullScreen}
-                      className="w-5 h-5 flex-shrink-0 text-white/90 hover:text-white"
-                      aria-label="Tela cheia"
+                      onClick={togglePlayPause}
+                      className="w-5 h-5 flex-shrink-0 text-white/90 hover:text-brand-primary transition-colors duration-300"
+                      aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
                     >
-                      <FullscreenIcon />
+                      {isPlaying ? <PauseIcon /> : <PlayIcon />}
                     </button>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={toggleMute}
+                        className="w-5 h-5 text-white/90 hover:text-brand-primary transition-colors duration-300"
+                        aria-label={isMuted ? 'Ativar som' : 'Silenciar'}
+                      >
+                        {isMuted || volume === 0 ? <VolumeMuteIcon /> : <VolumeHighIcon />}
+                      </button>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={isMuted ? 0 : volume}
+                        onChange={handleVolumeChange}
+                        className="w-20 custom-range hidden sm:block"
+                        aria-label="Volume"
+                      />
+                    </div>
+                    <span className="text-[11px] font-mono text-white/60 tracking-wider whitespace-nowrap">
+                      {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
                   </div>
+                  <button
+                    onClick={toggleFullScreen}
+                    className="w-5 h-5 flex-shrink-0 text-white/90 hover:text-brand-primary transition-colors duration-300"
+                    aria-label="Tela cheia"
+                  >
+                    <FullscreenIcon />
+                  </button>
                 </div>
               </div>
             </div>
 
-            <TheoryForum videoId={videoId} user={user} />
-          </section>
+            {endCardShort && (
+              <div
+                className={`absolute bottom-24 right-4 sm:right-6 z-30 w-[min(calc(100%-2rem),340px)] transition-all duration-500 ease-in-out ${
+                  showEndCard
+                    ? 'opacity-100 translate-y-0 pointer-events-auto'
+                    : 'opacity-0 translate-y-3 pointer-events-none'
+                }`}
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                aria-hidden={!showEndCard}
+              >
+                <div className="border border-dark-border/80 bg-black/85 backdrop-blur-md shadow-2xl shadow-black/60 p-3 sm:p-4">
+                  <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-zinc-500 mb-2">
+                    Próximo no caso
+                  </p>
+                  <div className="flex gap-3">
+                    <div className="relative flex-shrink-0 w-16 h-24 sm:w-[4.5rem] sm:h-28 overflow-hidden border border-dark-border">
+                      <img
+                        src={endCardShort.thumbnail}
+                        alt={endCardShort.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 flex flex-col justify-between gap-2">
+                      <div>
+                        <span className="inline-block text-[9px] font-mono uppercase tracking-widest text-[#f1c40f] bg-[#8e44ad]/20 border border-[#8e44ad]/30 px-2 py-0.5 mb-1.5">
+                          Atualização
+                        </span>
+                        <p className="text-sm text-white leading-snug line-clamp-2">
+                          {endCardShort.title}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleWatchEndCardShort}
+                        className="self-start bg-brand-primary text-black text-[10px] font-mono uppercase tracking-widest px-3 py-2 hover:opacity-90 transition-opacity"
+                      >
+                        Assistir Agora
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
 
-          {/* Painel lateral — 3 colunas no desktop */}
-          <aside className="col-span-12 lg:col-span-3 min-h-0 lg:max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden border-t lg:border-t-0 lg:border-l border-dark-border bg-dark-panel">
-            <div className="flex-1 min-h-0 overflow-y-auto p-6 lg:p-8 space-y-6">
-
+        {/* Conteúdo abaixo do player */}
+        <SiteContainer className="relative z-10 py-8 lg:py-10">
+          <div className="grid grid-cols-12 gap-8 lg:gap-10">
+            <div className="col-span-12 lg:col-span-8 space-y-8">
               <header className="space-y-3">
                 <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
                   Caso em exibição
                 </p>
-                <h1 className="text-2xl lg:text-[1.65rem] font-semibold leading-snug tracking-tight text-white">
+                <h1 className="text-2xl lg:text-3xl font-semibold leading-snug tracking-tight text-white">
                   {video.title}
                 </h1>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono text-zinc-500 uppercase tracking-wider">
@@ -791,7 +860,7 @@ export default function VideoPlayer({ user }) {
               </div>
 
               {updateShorts.length > 0 && (
-                <div className="space-y-4 pt-2">
+                <div className="space-y-4">
                   <div>
                     <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
                       Atualizações e Shorts deste Caso
@@ -831,7 +900,11 @@ export default function VideoPlayer({ user }) {
                 </div>
               )}
 
-              <div className="space-y-3 pt-2">
+              <TheoryForum videoId={videoId} user={user} />
+            </div>
+
+            <aside className="col-span-12 lg:col-span-4">
+              <div className="lg:sticky lg:top-24 space-y-4 border border-dark-border bg-dark-panel p-6">
                 <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
                   Mais de {video.creator_id.username}
                 </p>
@@ -846,7 +919,7 @@ export default function VideoPlayer({ user }) {
                         <img
                           src={related.thumbnail}
                           alt={related.title}
-                          className="w-20 h-11 object-cover flex-shrink-0 border border-dark-border"
+                          className="w-24 h-14 object-cover flex-shrink-0 border border-dark-border"
                         />
                         <div className="min-w-0">
                           <p className="text-sm text-zinc-300 group-hover:text-brand-primary line-clamp-2 leading-snug">
@@ -863,10 +936,7 @@ export default function VideoPlayer({ user }) {
                   <p className="text-sm text-zinc-600 font-mono">Nenhum outro caso deste parceiro.</p>
                 )}
               </div>
-
-            </div>
-          </aside>
-
+            </aside>
           </div>
         </SiteContainer>
       </div>

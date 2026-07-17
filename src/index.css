@@ -106,6 +106,78 @@
     transform: scale(1.2);
 }
 
+/* Timeline do player — fina por padrão, expande no hover */
+.player-timeline-track {
+  padding-top: 0.5rem;
+  padding-bottom: 0.25rem;
+}
+
+.custom-range--timeline {
+  --range-progress: 0%;
+}
+
+.custom-range--timeline::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #f1c40f 0%,
+    #f1c40f var(--range-progress, 0%),
+    rgba(64, 64, 64, 0.75) var(--range-progress, 0%)
+  );
+  transition: height 0.5s ease-in-out, background 0.3s ease;
+}
+
+.player-timeline-track:hover .custom-range--timeline::-webkit-slider-runnable-track {
+  height: 10px;
+}
+
+.custom-range--timeline::-moz-range-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    #f1c40f 0%,
+    #f1c40f var(--range-progress, 0%),
+    rgba(64, 64, 64, 0.75) var(--range-progress, 0%)
+  );
+  transition: height 0.5s ease-in-out, background 0.3s ease;
+}
+
+.player-timeline-track:hover .custom-range--timeline::-moz-range-track {
+  height: 10px;
+}
+
+.custom-range--timeline::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: #f1c40f;
+  margin-top: -5px;
+  transform: scale(0);
+  transition: transform 0.5s ease-in-out, margin-top 0.5s ease-in-out;
+}
+
+.player-timeline-track:hover .custom-range--timeline::-webkit-slider-thumb {
+  transform: scale(1);
+  margin-top: -2px;
+}
+
+.custom-range--timeline::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: #f1c40f;
+  border: none;
+  transform: scale(0);
+  transition: transform 0.5s ease-in-out;
+}
+
+.player-timeline-track:hover .custom-range--timeline::-moz-range-thumb {
+  transform: scale(1);
+}
+
 /* Adicione ao seu src/index.css */
 
 @keyframes fadeOut {

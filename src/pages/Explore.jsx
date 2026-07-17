@@ -116,12 +116,12 @@ export default function Explore({ user }) {
         title="Explorar Casos | Dark Stream"
         description={DEFAULT_SITE_DESCRIPTION}
       />
-      <div className={`bg-dark-pure transition-opacity duration-500 ${isNavigating ? 'opacity-0' : 'opacity-100'}`}>
+      <div className={`transition-opacity duration-500 ${isNavigating ? 'opacity-0' : 'opacity-100'}`}>
         {!loading && featuredVideo && (
           <FeaturedBanner featuredVideo={featuredVideo} onNavigate={handleNavigation} />
         )}
 
-        <div className="space-y-12 pt-12 pb-8">
+        <div className="space-y-12 pt-8 pb-8">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="space-y-4 relative mb-12">

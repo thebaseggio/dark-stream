@@ -30,8 +30,8 @@ function Header({ user, profile, immersive, chromeVisible }) {
         <nav
           className={`sticky top-0 z-30 transition-all duration-300 ${
             immersive
-              ? `bg-transparent border-b border-dark-border ${chromeVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`
-              : 'bg-dark-pure'
+              ? `bg-gradient-to-b from-black/80 to-transparent backdrop-blur-md border-b border-dark-border/50 ${chromeVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`
+              : 'bg-gradient-to-b from-black/80 via-black/30 to-transparent backdrop-blur-md border-b border-dark-border/40'
           }`}
         >
             <SiteContainer>
@@ -127,25 +127,15 @@ export default function MainLayout({ user, profile }) {
         };
     }, [immersive, reportChromeActivity]);
 
-    useEffect(() => {
-        if (!immersive) return undefined;
-
-        const htmlOverflow = document.documentElement.style.overflow;
-        const bodyOverflow = document.body.style.overflow;
-        document.documentElement.style.overflow = 'hidden';
-        document.body.style.overflow = 'hidden';
-
-        return () => {
-            document.documentElement.style.overflow = htmlOverflow;
-            document.body.style.overflow = bodyOverflow;
-        };
-    }, [immersive]);
-
     return (
-        <div className={`flex flex-col text-white font-sans overflow-hidden ${immersive ? 'h-screen bg-dark-pure' : 'min-h-screen bg-dark-pure'}`}>
+        <div className={`flex flex-col min-h-screen text-white font-sans ${
+            immersive
+              ? 'bg-dark-pure'
+              : 'bg-[linear-gradient(180deg,#000000_0%,#000000_10%,#080303_20%,#0b0505_35%,#140606_100%)]'
+        }`}>
             <SeoHead title={DEFAULT_SITE_TITLE} description={DEFAULT_SITE_DESCRIPTION} />
             <Header user={user} profile={profile} immersive={immersive} chromeVisible={chromeVisible} />
-            <main className={`${immersive ? 'flex-1 min-h-0 overflow-hidden' : 'flex-grow'}`}>
+            <main className="flex-grow">
                 {immersive ? (
                     <Outlet context={{ chromeVisible, reportChromeActivity }} />
                 ) : isFullBleedRoute(location.pathname) ? (

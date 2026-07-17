@@ -131,7 +131,7 @@ export default function FeaturedBanner({ featuredVideo, onNavigate }) {
         {/* Máscaras de gradiente (estilo streaming) */}
         <div className="absolute inset-0 z-10 pointer-events-none">
           <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-black via-black/80 to-transparent w-full md:w-[60%] h-full" />
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent h-[40%]" />
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent h-[28%]" />
         </div>
 
         <div className="relative z-20 h-full flex flex-col justify-end pb-10 sm:pb-14">

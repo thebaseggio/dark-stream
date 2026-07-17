@@ -4,8 +4,8 @@ import SiteContainer from './SiteContainer';
 
 export default function Footer() {
   return (
-    <footer className="bg-black border-t border-zinc-800/50 text-zinc-400">
-      <SiteContainer className="py-8 flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
+    <footer className="bg-transparent text-zinc-400">
+      <SiteContainer className="pt-16 pb-12 flex flex-col sm:flex-row justify-between items-center text-center sm:text-left">
         
         <p className="text-sm order-2 sm:order-1 mt-4 sm:mt-0">
           &copy; {new Date().getFullYear()} Dark Stream. Todos os direitos reservados.
