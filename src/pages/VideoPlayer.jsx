@@ -7,6 +7,7 @@ import AnimatedPage from '../AnimatedPage';
 import RestrictedAccessScreen from '../components/RestrictedAccessScreen';
 import PlayerAmbientGlow from '../components/PlayerAmbientGlow';
 import TheoryForum from '../components/TheoryForum';
+import CaseFilesPanel from '../components/CaseFilesPanel';
 import SiteContainer from '../components/SiteContainer';
 import SeoHead, { buildMetaDescription, buildVideoPageTitle } from '../components/SeoHead';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
@@ -778,27 +779,30 @@ export default function VideoPlayer({ user }) {
               </header>
 
               <div className="flex items-center gap-4 py-4 border-y border-dark-border">
-                <Link to={partnerProfilePath} className="flex-shrink-0">
+                <Link
+                  to={partnerProfilePath}
+                  className="flex items-center gap-4 flex-1 min-w-0 group"
+                >
                   <img
                     src={
                       video.creator_id.creatorAvatar
                       || `https://ui-avatars.com/api/?name=${video.creator_id.username.charAt(0)}&background=1a1a1a&color=fff`
                     }
                     alt={video.creator_id.username}
-                    className="w-12 h-12 object-cover border border-dark-border"
+                    className="w-12 h-12 object-cover border border-dark-border group-hover:border-brand-primary transition-colors"
                   />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium text-white group-hover:text-brand-primary transition-colors block truncate">
+                      {video.creator_id.username}
+                    </span>
+                    <p className="text-[11px] font-mono text-zinc-500 mt-0.5 uppercase tracking-wider">
+                      {formatFollowerLabel(subscriberCount)}
+                    </p>
+                    <p className="text-[10px] font-mono text-zinc-600 mt-1 uppercase tracking-widest group-hover:text-zinc-400 transition-colors">
+                      Ver canal do parceiro
+                    </p>
+                  </div>
                 </Link>
-                <div className="flex-1 min-w-0">
-                  <Link
-                    to={partnerProfilePath}
-                    className="font-medium text-white hover:text-brand-primary transition-colors block truncate"
-                  >
-                    {video.creator_id.username}
-                  </Link>
-                  <p className="text-[11px] font-mono text-zinc-500 mt-0.5 uppercase tracking-wider">
-                    {formatFollowerLabel(subscriberCount)}
-                  </p>
-                </div>
                 {user?.id !== video.creator_id.id && (
                   <button
                     type="button"
@@ -858,6 +862,8 @@ export default function VideoPlayer({ user }) {
                   {video.description || 'Nenhuma descrição fornecida.'}
                 </p>
               </div>
+
+              <CaseFilesPanel videoId={videoId} />
 
               {updateShorts.length > 0 && (
                 <div className="space-y-4">

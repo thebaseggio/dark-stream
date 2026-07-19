@@ -6,6 +6,7 @@ import { supabase } from '../supabase';
 import VideoCard from '../components/VideoCard';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
 import { fetchFollowingPartners } from '../utils/subscriptions';
+import { useAuth } from '../contexts/AuthProvider';
 
 const ProfileSection = ({ title, children }) => (
   <div className="bg-zinc-900 p-6 rounded-lg">
@@ -46,8 +47,9 @@ function FollowingPartnerCard({ partner, onNavigate }) {
   );
 }
 
-export default function VisitorProfilePage({ user, profile, onProfileUpdate, onSuccess }) {
+export default function VisitorProfilePage({ onProfileUpdate, onSuccess }) {
   const navigate = useNavigate();
+  const { user, profile, loading, profileLoading, refreshProfile } = useAuth();
   const [following, setFollowing] = useState([]);
   const [isLoadingFollowing, setIsLoadingFollowing] = useState(true);
   const [activeTab, setActiveTab] = useState('seguindo');
@@ -96,7 +98,17 @@ export default function VisitorProfilePage({ user, profile, onProfileUpdate, onS
     fetchDataForTab();
   }, [user, activeTab, history.length]);
 
-  if (!user || !profile) {
+  if (loading || profileLoading) {
+    return (
+      <AnimatedPage>
+        <div className="min-h-[60vh] bg-black flex items-center justify-center text-zinc-400">
+          Carregando credenciais...
+        </div>
+      </AnimatedPage>
+    );
+  }
+
+  if (!user) {
     return (
       <AnimatedPage>
         <div className="text-center p-8">
@@ -108,6 +120,27 @@ export default function VisitorProfilePage({ user, profile, onProfileUpdate, onS
             className="mt-6 bg-[#f1c40f] text-black font-bold py-2 px-6 rounded-lg"
           >
             Fazer Login
+          </button>
+        </div>
+      </AnimatedPage>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <AnimatedPage>
+        <div className="text-center p-8 max-w-md mx-auto">
+          <h1 className="text-2xl font-bold">Perfil indisponível</h1>
+          <p className="mt-2 text-gray-400">
+            Não foi possível carregar seus dados de perfil. Verifique o console do navegador
+            (erro 406 ou coluna inexistente) e confirme se a migration de profiles foi aplicada.
+          </p>
+          <button
+            type="button"
+            onClick={() => refreshProfile()}
+            className="mt-6 bg-[#f1c40f] text-black font-bold py-2 px-6 rounded-lg"
+          >
+            Tentar novamente
           </button>
         </div>
       </AnimatedPage>

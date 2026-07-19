@@ -8,6 +8,7 @@ import SiteContainer from '../components/SiteContainer';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../components/SeoHead';
 import { clearVideoProgressSession } from '../utils/videoPlayback';
 import { clearViewRegisteredSession } from '../utils/videoViews';
+import UserMenu from '../components/UserMenu';
 
 function isVideoPlayerRoute(pathname) {
   return /^\/(video|caso)\/[^/]+$/.test(pathname);
@@ -45,50 +46,30 @@ function Header({ user, profile, immersive, chromeVisible }) {
                             />
                         </Link>
                     </div>
-                    <div className="flex-1 flex justify-center px-2 lg:ml-6 lg:justify-end">
+                    <div className="flex-1 flex items-center justify-end gap-3 px-2 lg:ml-6 min-w-0">
                       <Searchbar immersive={immersive} />
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        {user ? (
-                            <>
-                                <Link to={profile?.role === 'partner' ? '/meu-perfil' : '/investigador'} className="flex-shrink-0">
-                                    <button
-                                      type="button"
-                                      className="rounded-none border border-dark-border text-white bg-transparent hover:bg-dark-panel font-mono uppercase tracking-wider text-[11px] px-4 py-2 transition-colors whitespace-nowrap"
-                                    >
-                                        {profile?.role === 'partner' ? 'Painel do Parceiro' : 'Meu Crachá'}
-                                    </button>
-                                </Link>
-
-                                <button
-                                  type="button"
-                                  onClick={handleLogout}
-                                  className="text-zinc-400 hover:text-white font-mono uppercase tracking-wider text-[11px] px-2 py-2 bg-transparent transition-colors whitespace-nowrap"
-                                >
-                                    Sair
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <Link to="/login" className="flex-shrink-0">
-                                    <button
-                                      type="button"
-                                      className="rounded-none border border-dark-border text-zinc-400 hover:text-white hover:border-zinc-500 font-mono uppercase tracking-wider text-[11px] px-4 py-2 transition-colors whitespace-nowrap"
-                                    >
-                                        Entrar
-                                    </button>
-                                </Link>
-                                <Link to="/inscrever-se" className="flex-shrink-0">
-                                    <button
-                                      type="button"
-                                      className="rounded-none bg-brand-primary text-black hover:opacity-90 px-4 py-2 font-bold text-sm tracking-wider uppercase whitespace-nowrap transition-opacity"
-                                    >
-                                        Seja um Investigador
-                                    </button>
-                                </Link>
-                            </>
-                        )}
+                      {user ? (
+                        <UserMenu profile={profile} onLogout={handleLogout} />
+                      ) : (
+                        <>
+                          <Link to="/login" className="flex-shrink-0">
+                            <button
+                              type="button"
+                              className="rounded-none border border-dark-border text-zinc-400 hover:text-white hover:border-zinc-500 font-mono uppercase tracking-wider text-[11px] px-4 py-2 transition-colors whitespace-nowrap"
+                            >
+                              Entrar
+                            </button>
+                          </Link>
+                          <Link to="/inscrever-se" className="flex-shrink-0">
+                            <button
+                              type="button"
+                              className="rounded-none bg-brand-primary text-black hover:opacity-90 px-4 py-2 font-bold text-sm tracking-wider uppercase whitespace-nowrap transition-opacity"
+                            >
+                              Seja um Investigador
+                            </button>
+                          </Link>
+                        </>
+                      )}
                     </div>
                 </div>
             </SiteContainer>

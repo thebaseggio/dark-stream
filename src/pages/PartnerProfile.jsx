@@ -46,17 +46,19 @@ function SocialIconLink({ href, label, children }) {
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
-      className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-neutral-800 bg-[#121212] text-neutral-400 hover:text-[#eab308] hover:border-neutral-600 transition-colors"
+      className="inline-flex items-center justify-center w-10 h-10 border border-dark-border bg-black/30 text-zinc-400 hover:text-brand-primary hover:border-zinc-600 transition-colors"
     >
       {children}
     </a>
   );
 }
 
+const PAGE_GRADIENT = 'bg-gradient-to-b from-[#000000] via-[#0b0505] to-[#140606]';
+
 function PartnerNotFound({ slug }) {
   return (
-    <div className="bg-black min-h-[70vh] flex items-center justify-center px-6 py-16">
-      <div className="max-w-lg w-full text-center space-y-6 border border-neutral-800 bg-[#121212] p-8 sm:p-10">
+    <div className={`${PAGE_GRADIENT} min-h-[70vh] flex items-center justify-center px-6 py-16`}>
+      <div className="max-w-lg w-full text-center space-y-6 border border-dark-border bg-black/40 backdrop-blur-sm p-8 sm:p-10">
         <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-[#eab308]/80">
           Canal não localizado
         </p>
@@ -88,7 +90,8 @@ export default function PartnerProfile({ currentUser }) {
   const navigate = useNavigate();
 
   const [partnerProfile, setPartnerProfile] = useState(null);
-  const [partnerVideos, setPartnerVideos] = useState([]);
+  const [mainCases, setMainCases] = useState([]);
+  const [shortUpdates, setShortUpdates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [fetchError, setFetchError] = useState(null);
@@ -96,6 +99,7 @@ export default function PartnerProfile({ currentUser }) {
   const [followerCount, setFollowerCount] = useState(0);
   const [isProcessingFollow, setIsProcessingFollow] = useState(false);
   const [bannerFailed, setBannerFailed] = useState(false);
+  const [activeVideoTab, setActiveVideoTab] = useState('main');
 
   const handleFollowerCountUpdate = useCallback((count) => {
     setFollowerCount(count);
@@ -121,7 +125,8 @@ export default function PartnerProfile({ currentUser }) {
       setNotFound(false);
       setFetchError(null);
       setPartnerProfile(null);
-      setPartnerVideos([]);
+      setMainCases([]);
+      setShortUpdates([]);
       setBannerFailed(false);
 
       const { data: profileData, error: profileError } = await fetchPartnerProfileBySlug(supabase, slug);
@@ -131,7 +136,8 @@ export default function PartnerProfile({ currentUser }) {
       if (profileError) {
         console.error('Erro ao buscar perfil do parceiro:', profileError);
         setFetchError(profileError.message || 'Não foi possível carregar o canal.');
-        setPartnerVideos([]);
+        setMainCases([]);
+        setShortUpdates([]);
         setLoading(false);
         return;
       }
@@ -139,7 +145,8 @@ export default function PartnerProfile({ currentUser }) {
       if (!profileData) {
         console.warn(`Perfil do parceiro não encontrado para o slug: "${slug}"`);
         setNotFound(true);
-        setPartnerVideos([]);
+        setMainCases([]);
+        setShortUpdates([]);
         setLoading(false);
         return;
       }
@@ -147,36 +154,54 @@ export default function PartnerProfile({ currentUser }) {
       setPartnerProfile(profileData);
 
       const videoSelectWithDuration =
-        'id, title, thumbnail, views, created_at, duration, is_short';
-      const videoSelectBase = 'id, title, thumbnail, views, created_at, is_short';
+        'id, title, thumbnail, views, created_at, duration, is_short, parent_video_id, short_type';
+      const videoSelectBase = 'id, title, thumbnail, views, created_at, is_short, parent_video_id, short_type';
 
-      let videosResult = await supabase
-        .from('videos')
-        .select(videoSelectWithDuration)
-        .eq('creator_id', profileData.id)
-        .eq('is_short', false)
-        .order('created_at', { ascending: false });
-
-      if (videosResult.error) {
-        videosResult = await supabase
+      const fetchVideos = async (filters) => {
+        let result = await supabase
           .from('videos')
-          .select(videoSelectBase)
+          .select(videoSelectWithDuration)
           .eq('creator_id', profileData.id)
-          .eq('is_short', false)
           .order('created_at', { ascending: false });
-      }
 
-      const { data: videosData, error: videosError } = videosResult;
+        if (result.error) {
+          result = await supabase
+            .from('videos')
+            .select(videoSelectBase)
+            .eq('creator_id', profileData.id)
+            .order('created_at', { ascending: false });
+        }
+
+        if (result.error) return { data: [], error: result.error };
+
+        let rows = result.data || [];
+        if (filters === 'main') {
+          rows = rows.filter((video) => !video.is_short && !video.parent_video_id);
+        } else if (filters === 'shorts') {
+          rows = rows.filter((video) => video.is_short);
+        }
+
+        return {
+          data: rows.map((video) => formatPartnerVideoForCard(video, profileData)),
+          error: null,
+        };
+      };
+
+      const [mainResult, shortsResult] = await Promise.all([
+        fetchVideos('main'),
+        fetchVideos('shorts'),
+      ]);
 
       if (cancelled) return;
 
-      if (videosError) {
-        console.error('Erro ao buscar vídeos do parceiro:', videosError);
-        setPartnerVideos([]);
+      if (mainResult.error || shortsResult.error) {
+        console.error('Erro ao buscar vídeos do parceiro:', mainResult.error || shortsResult.error);
+        setMainCases([]);
+        setShortUpdates([]);
       } else {
-        setPartnerVideos(
-          (videosData || []).map((video) => formatPartnerVideoForCard(video, profileData))
-        );
+        setMainCases(mainResult.data);
+        setShortUpdates(shortsResult.data);
+        setActiveVideoTab(mainResult.data.length > 0 ? 'main' : 'shorts');
       }
 
       const userId = currentUser?.id;
@@ -253,7 +278,7 @@ export default function PartnerProfile({ currentUser }) {
     return (
       <AnimatedPage>
         <SeoHead title="Carregando… | Dark Stream" description={pageDescription} noIndex />
-        <div className="bg-black min-h-[60vh] flex items-center justify-center">
+        <div className={`${PAGE_GRADIENT} min-h-[60vh] flex items-center justify-center`}>
           <p className="text-[11px] font-mono uppercase tracking-widest text-neutral-500">
             Carregando canal…
           </p>
@@ -266,8 +291,8 @@ export default function PartnerProfile({ currentUser }) {
     return (
       <AnimatedPage>
         <SeoHead title="Erro ao carregar canal | Dark Stream" noIndex />
-        <div className="bg-black min-h-[70vh] flex items-center justify-center px-6 py-16">
-          <div className="max-w-lg w-full text-center space-y-6 border border-neutral-800 bg-[#121212] p-8 sm:p-10">
+        <div className={`${PAGE_GRADIENT} min-h-[70vh] flex items-center justify-center px-6 py-16`}>
+          <div className="max-w-lg w-full text-center space-y-6 border border-dark-border bg-black/40 backdrop-blur-sm p-8 sm:p-10">
             <h1 className="font-anton text-2xl text-white">Erro ao carregar o canal</h1>
             <p className="text-sm text-neutral-400">{fetchError}</p>
             <Link
@@ -309,6 +334,8 @@ export default function PartnerProfile({ currentUser }) {
   const showBannerImage = Boolean(bannerUrl) && !bannerFailed;
 
   const showFollowButton = currentUser && currentUser.id !== partnerProfile.id;
+  const hasShortTab = shortUpdates.length > 0;
+  const activeVideos = activeVideoTab === 'shorts' ? shortUpdates : mainCases;
 
   return (
     <AnimatedPage>
@@ -319,9 +346,10 @@ export default function PartnerProfile({ currentUser }) {
         type="profile"
       />
 
-      <div className="bg-black text-white min-h-screen">
-        <section className="relative w-full">
-          <div className="relative h-52 sm:h-64 md:h-72 lg:h-80 overflow-hidden bg-[#121212]">
+      <div className={`relative min-h-screen text-white ${PAGE_GRADIENT}`}>
+        {/* Hero full bleed — sobe por trás do header sticky (h-16) */}
+        <section className="relative -mt-16 pt-16">
+          <div className="relative h-[min(52vh,32rem)] min-h-[18rem] sm:min-h-[22rem] overflow-hidden">
             {showBannerImage ? (
               <img
                 src={bannerUrl}
@@ -331,34 +359,43 @@ export default function PartnerProfile({ currentUser }) {
                 onError={() => setBannerFailed(true)}
               />
             ) : (
-              <div className="absolute inset-0 bg-[#121212]" aria-hidden="true" />
+              <div className={`absolute inset-0 ${PAGE_GRADIENT}`} aria-hidden="true" />
             )}
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/55 to-black/20" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#140606] via-black/70 to-black/30" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/45 via-transparent to-black/45" />
           </div>
 
-          <SiteContainer className="relative -mt-16 sm:-mt-20 pb-8">
-            <div className="flex flex-col sm:flex-row sm:items-end gap-5 sm:gap-6">
+          <SiteContainer className="relative -mt-20 sm:-mt-24 md:-mt-28 pb-8">
+            <div className="flex flex-col lg:flex-row lg:items-end gap-6 lg:gap-8">
               <img
                 src={avatarUrl}
                 alt={partnerProfile.username}
-                className="w-28 h-28 sm:w-32 sm:h-32 rounded-full object-cover border-4 border-black ring-2 ring-neutral-800 shadow-2xl shadow-black/80 flex-shrink-0"
+                className="w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full object-cover border-4 border-black ring-2 ring-dark-border shadow-2xl shadow-black/80 flex-shrink-0"
               />
 
-              <div className="flex-1 min-w-0 pb-1">
-                <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-[#eab308]/80 mb-1">
-                  Canal do Parceiro
-                </p>
-                <h1 className="font-anton text-3xl sm:text-4xl md:text-5xl text-white tracking-wide truncate">
-                  {partnerProfile.username}
-                </h1>
-                <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-500 mt-2">
+              <div className="flex-1 min-w-0 pb-1 space-y-3">
+                <div>
+                  <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-brand-primary/90 mb-2">
+                    Canal do Parceiro
+                  </p>
+                  <h1 className="font-anton text-4xl sm:text-5xl md:text-6xl text-white tracking-wide leading-none">
+                    {partnerProfile.username}
+                  </h1>
+                </div>
+
+                <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
                   {formatFollowerLabel(followerCount)}
                 </p>
 
+                {partnerProfile.bio && (
+                  <p className="max-w-3xl text-sm sm:text-base text-zinc-300 leading-relaxed whitespace-pre-line">
+                    {partnerProfile.bio}
+                  </p>
+                )}
+
                 {(partnerProfile.instagram_url || partnerProfile.x_url) && (
-                  <div className="flex items-center gap-3 mt-3">
+                  <div className="flex items-center gap-3 pt-1">
                     <SocialIconLink href={partnerProfile.instagram_url} label="Instagram">
                       <InstagramIcon className="w-4 h-4" />
                     </SocialIconLink>
@@ -374,36 +411,70 @@ export default function PartnerProfile({ currentUser }) {
                   type="button"
                   onClick={handleFollowToggle}
                   disabled={isProcessingFollow}
-                  className="self-start sm:self-end flex-shrink-0 border border-neutral-800 bg-[#121212] text-white px-5 py-2.5 text-xs font-mono uppercase tracking-wider hover:border-[#eab308] hover:text-[#eab308] transition-colors disabled:opacity-50"
+                  className="self-start lg:self-end flex-shrink-0 border border-dark-border bg-black/40 backdrop-blur-sm text-white px-5 py-2.5 text-xs font-mono uppercase tracking-wider hover:border-brand-primary hover:text-brand-primary transition-colors disabled:opacity-50"
                 >
                   {isProcessingFollow ? '…' : isSubscribed ? 'Seguindo' : 'Seguir'}
                 </button>
               )}
             </div>
-
-            {partnerProfile.bio && (
-              <p className="mt-6 max-w-3xl text-sm sm:text-base text-neutral-300 leading-relaxed whitespace-pre-line">
-                {partnerProfile.bio}
-              </p>
-            )}
           </SiteContainer>
         </section>
 
         <SiteContainer className="pb-16 pt-4">
-          <div className="border-t border-neutral-800 pt-10">
-            <h2 className="font-anton text-2xl sm:text-3xl text-white mb-8">
-              Casos Publicados
-            </h2>
+          <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-dark-border">
+              <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+                <button
+                  type="button"
+                  onClick={() => setActiveVideoTab('main')}
+                  className={`flex-shrink-0 px-4 py-3 text-[11px] font-mono uppercase tracking-widest border-b-2 transition-colors ${
+                    activeVideoTab === 'main'
+                      ? 'border-brand-primary text-white'
+                      : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  Casos Principais
+                  <span className="ml-2 text-zinc-600">{mainCases.length}</span>
+                </button>
+                {hasShortTab && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveVideoTab('shorts')}
+                    className={`flex-shrink-0 px-4 py-3 text-[11px] font-mono uppercase tracking-widest border-b-2 transition-colors ${
+                      activeVideoTab === 'shorts'
+                        ? 'border-brand-primary text-white'
+                        : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    Atualizações &amp; Shorts
+                    <span className="ml-2 text-zinc-600">{shortUpdates.length}</span>
+                  </button>
+                )}
+              </div>
 
-            {partnerVideos.length > 0 ? (
+              <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 pb-3 sm:pb-0">
+                {activeVideoTab === 'main'
+                  ? 'Investigações longas publicadas'
+                  : 'Desdobramentos e flashes do canal'}
+              </p>
+            </div>
+
+            {activeVideos.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
-                {partnerVideos.map((video) => (
-                  <VideoCard key={video.id} video={video} fullWidth />
+                {activeVideos.map((video) => (
+                  <VideoCard
+                    key={video.id}
+                    video={video}
+                    fullWidth
+                    variant={activeVideoTab === 'shorts' ? 'short' : 'default'}
+                  />
                 ))}
               </div>
             ) : (
-              <p className="text-sm font-mono text-neutral-600 py-12 text-center uppercase tracking-wider">
-                Nenhum caso publicado ainda.
+              <p className="text-sm font-mono text-zinc-600 py-12 text-center uppercase tracking-wider border border-dark-border bg-black/20">
+                {activeVideoTab === 'main'
+                  ? 'Nenhum caso principal publicado ainda.'
+                  : 'Nenhuma atualização ou short publicado ainda.'}
               </p>
             )}
           </div>

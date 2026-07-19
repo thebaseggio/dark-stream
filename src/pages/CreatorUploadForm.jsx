@@ -13,6 +13,12 @@ import {
     validateThumbnailFile,
     validateVideoFile,
 } from '../utils/uploadValidation.js';
+import {
+  createEmptyCaseFileRow,
+  fetchCaseFilesForVideo,
+  syncCaseFilesForVideo,
+  validateCaseFilesInput,
+} from '../utils/caseFilesAdmin.js';
 
 const allCategories = [
   'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados',
@@ -25,6 +31,12 @@ const SHORT_TYPE_OPTIONS = [
   { value: 'update', label: 'Atualização' },
   { value: 'intro', label: 'Prévia' },
   { value: 'flash', label: 'Flash' },
+];
+
+const CASE_FILE_TYPE_OPTIONS = [
+  { value: 'document', label: 'Documento' },
+  { value: 'image', label: 'Imagem / Mapa' },
+  { value: 'link', label: 'Link externo' },
 ];
 
 const fallbackExtensionsByType = {
@@ -76,6 +88,16 @@ function normalizeVideoFields(formData, creatorId) {
   };
 }
 
+const TrashIcon = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+    <path d="M3 6h18" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" strokeLinecap="round" strokeLinejoin="round" />
+    <line x1="10" y1="11" x2="10" y2="17" strokeLinecap="round" />
+    <line x1="14" y1="11" x2="14" y2="17" strokeLinecap="round" />
+  </svg>
+);
+
 function ShortToggle({ checked, disabled, onChange }) {
   return (
     <button
@@ -115,6 +137,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [parentVideos, setParentVideos] = useState([]);
+  const [caseFiles, setCaseFiles] = useState([]);
 
   useEffect(() => {
     const fetchUserVideos = async () => {
@@ -145,8 +168,36 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
         short_type: videoToEdit.short_type || null,
         parent_video_id: videoToEdit.parent_video_id || null,
       });
+    } else {
+      setCaseFiles([]);
     }
   }, [videoToEdit]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCaseFiles = async () => {
+      if (!videoToEdit?.id || videoToEdit.is_short) {
+        setCaseFiles([]);
+        return;
+      }
+
+      try {
+        const rows = await fetchCaseFilesForVideo(supabase, videoToEdit.id);
+        if (!cancelled) {
+          setCaseFiles(rows.length ? rows : []);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar evidências do caso:', error);
+        if (!cancelled) setCaseFiles([]);
+      }
+    };
+
+    loadCaseFiles();
+    return () => {
+      cancelled = true;
+    };
+  }, [videoToEdit?.id, videoToEdit?.is_short]);
 
   const handleChange = (e) => setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
@@ -184,6 +235,24 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
       short_type: isShort ? prev.short_type || 'update' : null,
       parent_video_id: isShort ? prev.parent_video_id : null,
     }));
+
+    if (isShort) {
+      setCaseFiles([]);
+    }
+  };
+
+  const handleAddCaseFile = () => {
+    setCaseFiles((prev) => [...prev, createEmptyCaseFileRow()]);
+  };
+
+  const handleRemoveCaseFile = (index) => {
+    setCaseFiles((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
+  };
+
+  const handleCaseFileChange = (index, field, value) => {
+    setCaseFiles((prev) => prev.map((row, rowIndex) => (
+      rowIndex === index ? { ...row, [field]: value } : row
+    )));
   };
 
   const videoOptions = parentVideos.map((video) => ({
@@ -208,8 +277,10 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
       if (!formData.title.trim()) throw new Error('O título do caso é obrigatório.');
 
       if (formData.is_short && !formData.parent_video_id) {
-        throw new Error('Selecione o caso principal para vincular este Short.');
+        throw new Error('Selecione o caso principal vinculado para este Short.');
       }
+
+      const caseFilesPayload = !formData.is_short ? validateCaseFilesInput(caseFiles) : [];
 
       if (!videoToEdit && !videoFile) throw new Error('Um arquivo de vídeo é obrigatório.');
       if (!videoToEdit && !thumbnailFile) throw new Error('Uma thumbnail é obrigatória.');
@@ -266,6 +337,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
           }, {
             action: 'update',
             id: videoToEdit.id,
+            case_files: caseFilesPayload,
             ...dataToUpdate,
           });
 
@@ -281,6 +353,12 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
           .eq('creator_id', user.id);
         if (error) throw error;
 
+        if (!formData.is_short) {
+          await syncCaseFilesForVideo(supabase, videoToEdit.id, caseFilesPayload);
+        } else {
+          await syncCaseFilesForVideo(supabase, videoToEdit.id, []);
+        }
+
         showNotification('success', 'Informações do vídeo atualizadas com sucesso!');
         if (onSuccess) onSuccess();
         return;
@@ -290,6 +368,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
       const videoFileName = `video-${user.id}-${Date.now()}.${videoFileExt}`;
       const metadataToSave = {
         action: 'insert',
+        case_files: caseFilesPayload,
         ...baseVideoFields,
         thumbnail: thumbnailUrl,
         views: 0,
@@ -396,7 +475,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
           <div className="space-y-5 pt-2 border-t border-zinc-800">
             <div>
               <label htmlFor="parent_video_id" className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-                Vincular ao Caso Principal
+                Caso Principal Vinculado
               </label>
               <div className="mt-2">
                 <Select
@@ -405,7 +484,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
                   isClearable
                   isSearchable
                   isDisabled={isDisabled}
-                  placeholder="Selecione o caso ao qual esta atualização pertence…"
+                  placeholder="Selecione o caso principal deste Short…"
                   onChange={handleParentVideoChange}
                   value={videoOptions.find((option) => option.value === formData.parent_video_id) || null}
                   styles={selectStyles}
@@ -439,6 +518,100 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
           </div>
         )}
       </div>
+
+      {!formData.is_short && (
+        <div className="rounded-lg border border-zinc-800 bg-[#121212] p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-white">Evidências e Arquivos Anexos</p>
+              <p className="text-[11px] text-zinc-500 mt-1">
+                Mapas, documentos de tribunal e links exibidos na página do caso.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={isDisabled}
+              onClick={handleAddCaseFile}
+              className="flex-shrink-0 border border-zinc-700 text-zinc-300 hover:text-white hover:border-purple-500 px-4 py-2 text-[11px] font-mono uppercase tracking-widest transition-colors disabled:opacity-50"
+            >
+              + Adicionar Evidência
+            </button>
+          </div>
+
+          {caseFiles.length === 0 ? (
+            <p className="text-[11px] font-mono text-zinc-600 uppercase tracking-wider border border-dashed border-zinc-800 px-4 py-6 text-center">
+              Nenhuma evidência adicionada.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {caseFiles.map((file, index) => (
+                <div
+                  key={file.id || `case-file-${index}`}
+                  className="grid grid-cols-1 md:grid-cols-12 md:items-end gap-3 border border-zinc-800 bg-black/20 p-4"
+                >
+                  <div className="md:col-span-4">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+                      Título
+                    </label>
+                    <input
+                      type="text"
+                      value={file.title}
+                      onChange={(e) => handleCaseFileChange(index, 'title', e.target.value)}
+                      disabled={isDisabled}
+                      placeholder="Ex: Mapa do Local"
+                      className="mt-2 w-full bg-[#121212] rounded-lg border border-zinc-800 px-3 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition-colors disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+                      Tipo
+                    </label>
+                    <select
+                      value={file.type}
+                      onChange={(e) => handleCaseFileChange(index, 'type', e.target.value)}
+                      disabled={isDisabled}
+                      className="mt-2 w-full bg-[#121212] rounded-lg border border-zinc-800 px-3 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition-colors disabled:opacity-50"
+                    >
+                      {CASE_FILE_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-4">
+                    <label className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+                      File URL
+                    </label>
+                    <input
+                      type="url"
+                      value={file.file_url}
+                      onChange={(e) => handleCaseFileChange(index, 'file_url', e.target.value)}
+                      disabled={isDisabled}
+                      placeholder="https://..."
+                      className="mt-2 w-full bg-[#121212] rounded-lg border border-zinc-800 px-3 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition-colors disabled:opacity-50"
+                    />
+                  </div>
+
+                  <div className="flex justify-end md:col-span-1 md:justify-center">
+                    <button
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => handleRemoveCaseFile(index)}
+                      className="flex h-[42px] w-10 shrink-0 items-center justify-center text-zinc-500 transition-colors hover:text-red-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label={`Remover evidência ${index + 1}`}
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="space-y-4">
         <div>

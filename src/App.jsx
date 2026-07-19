@@ -1,10 +1,9 @@
 // src/App.jsx
 
-import React, { useState, useEffect, Fragment } from 'react';
+import React, { useState, Fragment } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { supabase } from './supabase';
 import { NotificationProvider } from './contexts/NotificationProvider.jsx';
-
+import { useAuth } from './contexts/AuthProvider.jsx';
 // Componentes e Páginas
 import MainLayout from './pages/MainLayout';
 import LandingPage from './pages/LandingPage';
@@ -28,20 +27,24 @@ import PoliticaDePrivacidade from './pages/PoliticaDePrivacidade';
 import SejaUmParceiro from './pages/SejaUmParceiro';
 
 
-const PrivateRoute = ({ children, user }) => {
+const AuthLoadingScreen = ({ message = 'Carregando credenciais...' }) => (
+    <div className="min-h-screen bg-black flex items-center justify-center text-zinc-400">
+        {message}
+    </div>
+);
+
+const PrivateRoute = ({ children, user, loading }) => {
+    if (loading) {
+        return <AuthLoadingScreen />;
+    }
+
     return user ? children : <Navigate to="/login" />;
 };
-
 export default function App() {
-    const [user, setUser] = useState(null);
-    const [profile, setProfile] = useState(null);
-    // O estado 'videos' pode ser removido se nenhum outro componente global o utilizar. Por segurança, vamos mantê-lo por enquanto.
-    const [videos, setVideos] = useState([]); 
-    const [loading, setLoading] = useState(true);
+    const { user, profile, loading, refreshProfile } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [videoToEdit, setVideoToEdit] = useState(null);
     const [notification, setNotification] = useState({ isOpen: false, type: 'success', message: '' });
-
     const showNotification = (type, message) => {
         setNotification({ isOpen: true, type, message });
     };
@@ -63,52 +66,13 @@ export default function App() {
     };
     const handleFormSuccess = () => closeModal();
 
-    const fetchProfile = async (userId) => {
-        const { data: profileData } = await supabase
-            .from('profiles')
-            .select('id, username, bio, role, avatar_url, banner_url, youtube_url, instagram_url, x_url, "creatorAvatar"')
-            .eq('id', userId)
-            .single();
-        // Adicionamos o perfil do usuário ao próprio objeto do usuário para fácil acesso global
-        setUser(currentUser => ({...currentUser, profile: profileData}));
-        setProfile(profileData);
-    };
-
     const handleProfileUpdate = async () => {
-        if (user) {
-            await fetchProfile(user.id);
-        }
+        await refreshProfile();
     };
-
-    useEffect(() => {
-        const fetchSessionAndProfile = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                await fetchProfile(session.user.id);
-            }
-            setLoading(false);
-        };
-
-        // A busca de todos os vídeos foi removida daqui.
-        fetchSessionAndProfile();
-
-        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchProfile(session.user.id);
-            } else {
-                setProfile(null);
-            }
-        });
-        
-        return () => authListener.subscription.unsubscribe();
-    }, []);
 
     if (loading) {
-        return <div className="bg-black text-white min-h-screen flex items-center justify-center">Carregando...</div>;
+        return <AuthLoadingScreen message="Carregando..." />;
     }
-
  return (
     <NotificationProvider showNotification={showNotification}>
         <UploadProvider>
@@ -140,15 +104,13 @@ export default function App() {
                     <Route path="/seja-um-parceiro" element={<SejaUmParceiro />} />
 
                     <Route path="/investigador" element={
-                        <PrivateRoute user={user}>
+                        <PrivateRoute user={user} loading={loading}>
                             <InvestigatorProfile user={user} profile={profile} />
                         </PrivateRoute>
-                    } />
-                    <Route path="/perfil" element={<Navigate to="/investigador" replace />} />
+                    } />                    <Route path="/perfil" element={<Navigate to="/investigador" replace />} />
 
                     <Route path="/meu-perfil" element={
-                        <PrivateRoute user={user}>
-                            {profile?.role === 'partner' ? (
+                        <PrivateRoute user={user} loading={loading}>                            {profile?.role === 'partner' ? (
                                 <CreatorDashboard 
                                     user={user} 
                                     profile={profile} 
@@ -159,8 +121,6 @@ export default function App() {
                                 />
                             ) : (
                                 <VisitorProfilePage
-                                    user={user}
-                                    profile={profile}
                                     onProfileUpdate={handleProfileUpdate}
                                     onSuccess={showNotification}
                                 />

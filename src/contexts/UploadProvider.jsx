@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '../supabase.js';
 import { useNotification } from './NotificationProvider.jsx';
+import { syncCaseFilesForVideo } from '../utils/caseFilesAdmin.js';
 import Worker from '../worker.js?worker';
 
 const UploadContext = createContext();
@@ -54,7 +55,7 @@ export const UploadProvider = ({ children }) => {
         throw new Error('Apenas parceiros podem publicar vídeos.');
       }
 
-      const { action = 'insert', id: videoId, ...videoFields } = metadata;
+      const { action = 'insert', id: videoId, case_files: caseFilesPayload, ...videoFields } = metadata;
       const finalMetadata = { ...videoFields, videoUrl };
       let databaseError = null;
       let successMessage = 'Vídeo publicado com sucesso no seu painel!';
@@ -72,10 +73,23 @@ export const UploadProvider = ({ children }) => {
 
         databaseError = error;
         successMessage = 'Vídeo atualizado com sucesso!';
+
+        if (!databaseError && Array.isArray(caseFilesPayload)) {
+          await syncCaseFilesForVideo(supabase, videoId, caseFilesPayload);
+        }
       } else {
-        const { error } = await supabase.from('videos').insert([finalMetadata]);
+        const { data: insertedVideo, error } = await supabase
+          .from('videos')
+          .insert([finalMetadata])
+          .select('id')
+          .single();
 
         databaseError = error;
+        successMessage = 'Vídeo publicado com sucesso no seu painel!';
+
+        if (!databaseError && insertedVideo?.id && Array.isArray(caseFilesPayload)) {
+          await syncCaseFilesForVideo(supabase, insertedVideo.id, caseFilesPayload);
+        }
       }
 
       if (databaseError) throw databaseError;
