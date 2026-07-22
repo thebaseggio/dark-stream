@@ -25,6 +25,7 @@ import NossaMissao from './pages/NossaMissao';
 import TermosDeServico from './pages/TermosDeServico';
 import PoliticaDePrivacidade from './pages/PoliticaDePrivacidade';
 import SejaUmParceiro from './pages/SejaUmParceiro';
+import AccountSettings from './pages/AccountSettings';
 
 
 const AuthLoadingScreen = ({ message = 'Carregando credenciais...' }) => (
@@ -107,16 +108,24 @@ export default function App() {
                         <PrivateRoute user={user} loading={loading}>
                             <InvestigatorProfile user={user} profile={profile} />
                         </PrivateRoute>
-                    } />                    <Route path="/perfil" element={<Navigate to="/investigador" replace />} />
+                    } />
+                    <Route path="/perfil" element={<Navigate to="/investigador" replace />} />
+
+                    <Route path="/conta" element={
+                        <PrivateRoute user={user} loading={loading}>
+                            <AccountSettings />
+                        </PrivateRoute>
+                    } />
 
                     <Route path="/meu-perfil" element={
-                        <PrivateRoute user={user} loading={loading}>                            {profile?.role === 'partner' ? (
-                                <CreatorDashboard 
-                                    user={user} 
-                                    profile={profile} 
+                        <PrivateRoute user={user} loading={loading}>
+                            {profile?.role === 'partner' ? (
+                                <CreatorDashboard
+                                    user={user}
+                                    profile={profile}
                                     onProfileUpdate={handleProfileUpdate}
-                                    onUploadClick={openUploadModal} 
-                                    onEditClick={openEditModal} 
+                                    onUploadClick={openUploadModal}
+                                    onEditClick={openEditModal}
                                     onSuccess={showNotification}
                                 />
                             ) : (

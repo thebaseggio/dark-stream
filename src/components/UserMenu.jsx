@@ -135,12 +135,9 @@ export default function UserMenu({ profile, onLogout }) {
             </MenuLink>
           )}
 
-          <MenuItem
-            onClick={closeMenu}
-            className="text-zinc-500 hover:bg-zinc-900 hover:text-zinc-400"
-          >
+          <MenuLink to="/conta" onSelect={closeMenu}>
             Gerenciar Conta / Planos
-          </MenuItem>
+          </MenuLink>
 
           <div className="border-t border-zinc-800 my-1" role="separator" />
 

@@ -35,9 +35,25 @@ function looksLikeCompleteMediaTarget(value) {
   return IMAGE_FILE_REGEX.test(lastSegment);
 }
 
+/** Select core — compatível com bancos sem colunas de assinatura */
+export const PROFILE_FIELDS_CORE =
+  'id, username, bio, role, avatar_url, banner_url, youtube_url, instagram_url, x_url, "creatorAvatar"';
+
 /** Select explícito — garante que "creatorAvatar" (camelCase) volte do PostgREST */
 export const PROFILE_FIELDS_SELECT =
-  'id, username, bio, role, avatar_url, banner_url, youtube_url, instagram_url, x_url, "creatorAvatar"';
+  `${PROFILE_FIELDS_CORE}, subscription_plan, subscription_status`;
+
+export function isMissingProfileColumnError(error) {
+  if (!error) return false;
+  const message = error.message || '';
+  return (
+    error.code === '42703'
+    || error.code === 'PGRST204'
+    || message.includes('does not exist')
+    || message.includes('subscription_plan')
+    || message.includes('subscription_status')
+  );
+}
 
 /**
  * Valida se a URL pode ser usada em <img> ou background-image.

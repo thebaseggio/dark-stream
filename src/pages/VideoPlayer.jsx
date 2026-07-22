@@ -44,6 +44,57 @@ const VolumeMuteIcon = (props) => (
 const FullscreenIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" /></svg>
 );
+const ExitFullscreenIcon = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" /></svg>
+);
+const TheaterIcon = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M18 4v3H6V4H4v16h2v-3h12v3h2V4h-2z" /></svg>
+);
+
+const ACTION_OVERLAY_MS = 600;
+
+const ACTION_OVERLAY_ICONS = {
+  mute: VolumeMuteIcon,
+  unmute: VolumeHighIcon,
+  'fullscreen-enter': FullscreenIcon,
+  'fullscreen-exit': ExitFullscreenIcon,
+};
+
+function PlayerActionOverlay({ overlay }) {
+  if (!overlay) return null;
+
+  const Icon = overlay.icon ? ACTION_OVERLAY_ICONS[overlay.icon] : null;
+  const isCenter = overlay.placement === 'center';
+
+  return (
+    <div
+      key={overlay.id}
+      className={`pointer-events-none absolute z-30 ${
+        isCenter
+          ? 'inset-0 flex items-center justify-center'
+          : overlay.placement === 'seek-back'
+            ? 'left-[16%] top-1/2 -translate-y-1/2'
+            : 'right-[16%] top-1/2 -translate-y-1/2'
+      }`}
+    >
+      <div
+        className={`animate-action-overlay flex flex-col items-center justify-center gap-1.5 rounded-full border border-zinc-800 bg-black/75 text-brand-primary backdrop-blur-sm ${
+          isCenter ? 'p-5' : 'h-20 w-20'
+        }`}
+      >
+        {Icon && <Icon className="h-8 w-8 flex-shrink-0" />}
+        {overlay.text && (
+          <span className={`font-mono uppercase tracking-widest text-brand-primary ${
+            Icon ? 'text-[10px]' : 'text-sm font-semibold tracking-wide'
+          }`}
+          >
+            {overlay.text}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 const BackIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" /></svg>
 );
@@ -80,6 +131,34 @@ function getEndCardShort(shorts = []) {
   return sequels.length ? sequels[sequels.length - 1] : shorts[shorts.length - 1];
 }
 
+function getAutoplayTarget(video, updateShorts) {
+  const linkedShort = getEndCardShort(updateShorts);
+  if (linkedShort?.id) return linkedShort;
+
+  if (video?.parent_video_id) {
+    return {
+      id: video.parent_video_id,
+      title: 'Caso principal vinculado',
+      thumbnail: video.thumbnail,
+      short_type: null,
+    };
+  }
+
+  return null;
+}
+
+const END_AUTOPLAY_SECONDS = 15;
+const AUTOPLAY_NEXT_KEY = 'darkstream:autoplay-next';
+const SEEK_STEP_SECONDS = 10;
+const VOLUME_STEP = 0.05;
+
+function isEditableElement(element) {
+  if (!element || !(element instanceof HTMLElement)) return false;
+  const tag = element.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return element.isContentEditable;
+}
+
 export default function VideoPlayer({ user }) {
   const { id: videoId } = useParams();
   const navigate = useNavigate();
@@ -106,10 +185,23 @@ export default function VideoPlayer({ user }) {
   const [introStep, setIntroStep] = useState(1);
   const [fadeOutFirstPart, setFadeOutFirstPart] = useState(false);
   const [fadeOutSecondPart, setFadeOutSecondPart] = useState(false);
+  const [isFloating, setIsFloating] = useState(false);
+  const [floatingDismissed, setFloatingDismissed] = useState(false);
+  const [endAutoplayActive, setEndAutoplayActive] = useState(false);
+  const [endAutoplayTarget, setEndAutoplayTarget] = useState(null);
+  const [endAutoplaySeconds, setEndAutoplaySeconds] = useState(END_AUTOPLAY_SECONDS);
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [playerOverlay, setPlayerOverlay] = useState(null);
+  const [timelineHover, setTimelineHover] = useState(null);
 
   const inactivityTimerRef = useRef(null);
   const videoRef = useRef(null);
-  const playerContainerRef = useRef(null);
+  const playerRef = useRef(null);
+  const playerSurfaceRef = useRef(null);
+  const timelineTrackRef = useRef(null);
+  const actionOverlayTimerRef = useRef(null);
+  const playerWasFullscreenRef = useRef(false);
+  const floatingDismissedRef = useRef(false);
   const lastPlaybackSaveRef = useRef(0);
   const videoDataRef = useRef(null);
   const hasRestoredProgressRef = useRef(false);
@@ -141,6 +233,18 @@ export default function VideoPlayer({ user }) {
     setIsPlaying(false);
   }, []);
 
+  const handleVideoEnded = useCallback(() => {
+    setIsPlaying(false);
+    setIsFloating(false);
+
+    const target = getAutoplayTarget(videoDataRef.current, updateShorts);
+    if (!target?.id) return;
+
+    setEndAutoplayTarget(target);
+    setEndAutoplaySeconds(END_AUTOPLAY_SECONDS);
+    setEndAutoplayActive(true);
+  }, [updateShorts]);
+
   const handleDurationChange = useCallback((e) => {
     const el = e.currentTarget;
     if (Number.isFinite(el.duration)) {
@@ -171,6 +275,15 @@ export default function VideoPlayer({ user }) {
     }
   }, []);
 
+  const showActionOverlay = useCallback((overlay) => {
+    const overlayId = Date.now();
+    setPlayerOverlay({ ...overlay, id: overlayId });
+    if (actionOverlayTimerRef.current) clearTimeout(actionOverlayTimerRef.current);
+    actionOverlayTimerRef.current = window.setTimeout(() => {
+      setPlayerOverlay((current) => (current?.id === overlayId ? null : current));
+    }, ACTION_OVERLAY_MS);
+  }, []);
+
   const toggleMute = useCallback(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo) return;
@@ -180,7 +293,12 @@ export default function VideoPlayer({ user }) {
       currentVideo.volume = 1;
       setVolume(1);
     }
-  }, []);
+    showActionOverlay({
+      placement: 'center',
+      icon: currentVideo.muted ? 'mute' : 'unmute',
+      text: currentVideo.muted ? 'Mudo' : null,
+    });
+  }, [showActionOverlay]);
 
   const handleVolumeChange = useCallback((e) => {
     const currentVideo = videoRef.current;
@@ -207,8 +325,58 @@ export default function VideoPlayer({ user }) {
   }, []);
 
   const toggleFullScreen = useCallback(() => {
-    if (!document.fullscreenElement) playerContainerRef.current?.requestFullscreen();
+    if (!document.fullscreenElement) playerSurfaceRef.current?.requestFullscreen();
     else document.exitFullscreen();
+  }, []);
+
+  const seekBySeconds = useCallback((delta) => {
+    const currentVideo = videoRef.current;
+    if (!currentVideo) return;
+    const maxTime = Number.isFinite(currentVideo.duration) ? currentVideo.duration : 0;
+    const nextTime = Math.max(0, Math.min(maxTime, currentVideo.currentTime + delta));
+    currentVideo.currentTime = nextTime;
+    setCurrentTime(nextTime);
+    setProgress((nextTime / currentVideo.duration) * 100 || 0);
+    showActionOverlay({
+      placement: delta < 0 ? 'seek-back' : 'seek-forward',
+      text: delta < 0 ? '-10s' : '+10s',
+    });
+  }, [showActionOverlay]);
+
+  const adjustVolume = useCallback((delta) => {
+    const currentVideo = videoRef.current;
+    if (!currentVideo) return;
+    const nextVolume = Math.max(0, Math.min(1, currentVideo.volume + delta));
+    currentVideo.volume = nextVolume;
+    setVolume(nextVolume);
+    if (nextVolume === 0) {
+      currentVideo.muted = true;
+      setIsMuted(true);
+    } else if (currentVideo.muted) {
+      currentVideo.muted = false;
+      setIsMuted(false);
+    }
+  }, []);
+
+  const toggleTheaterMode = useCallback(() => {
+    setIsTheaterMode((current) => !current);
+  }, []);
+
+  const handleTimelineMouseMove = useCallback((e) => {
+    const track = timelineTrackRef.current;
+    const currentVideo = videoRef.current;
+    if (!track || !currentVideo || !Number.isFinite(currentVideo.duration) || currentVideo.duration <= 0) {
+      return;
+    }
+
+    const rect = track.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, x / rect.width));
+    setTimelineHover({ time: ratio * currentVideo.duration, x });
+  }, []);
+
+  const handleTimelineMouseLeave = useCallback(() => {
+    setTimelineHover(null);
   }, []);
 
   const handleFollowToggle = async () => {
@@ -255,8 +423,30 @@ export default function VideoPlayer({ user }) {
   const handleWatchEndCardShort = useCallback(() => {
     const short = getEndCardShort(updateShorts);
     if (!short?.id) return;
+    sessionStorage.setItem(AUTOPLAY_NEXT_KEY, '1');
     navigate(`/video/${short.id}`);
   }, [navigate, updateShorts]);
+
+  const handleNavigateAutoplayTarget = useCallback((targetId) => {
+    if (!targetId) return;
+    setEndAutoplayActive(false);
+    setEndAutoplayTarget(null);
+    sessionStorage.setItem(AUTOPLAY_NEXT_KEY, '1');
+    navigate(`/video/${targetId}`);
+  }, [navigate]);
+
+  const handleCancelEndAutoplay = useCallback(() => {
+    setEndAutoplayActive(false);
+    setEndAutoplayTarget(null);
+    setEndAutoplaySeconds(END_AUTOPLAY_SECONDS);
+  }, []);
+
+  const handleCloseFloatingPlayer = useCallback(() => {
+    floatingDismissedRef.current = true;
+    setFloatingDismissed(true);
+    setIsFloating(false);
+    playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   const endCardShort = useMemo(() => getEndCardShort(updateShorts), [updateShorts]);
 
@@ -324,6 +514,12 @@ export default function VideoPlayer({ user }) {
     hasRestoredProgressRef.current = false;
     hasStartedPlaybackRef.current = false;
     hasLoadedVideoRef.current = false;
+    setIsFloating(false);
+    setFloatingDismissed(false);
+    floatingDismissedRef.current = false;
+    setEndAutoplayActive(false);
+    setEndAutoplayTarget(null);
+    setEndAutoplaySeconds(END_AUTOPLAY_SECONDS);
 
     const savedTime = readVideoProgress(user?.id, videoId);
     setCurrentTime(savedTime);
@@ -438,6 +634,13 @@ export default function VideoPlayer({ user }) {
   }, [video?.creator_id?.id, videoId]);
 
   useEffect(() => {
+    if (!loading && video?.id && sessionStorage.getItem(AUTOPLAY_NEXT_KEY) === '1') {
+      setShowIntro(false);
+      setIntroStep(2);
+    }
+  }, [loading, video?.id]);
+
+  useEffect(() => {
     if (!loading && video?.id) {
       const t1 = setTimeout(() => setFadeOutFirstPart(true), 3500);
       const t2 = setTimeout(() => setIntroStep(2), 4000);
@@ -465,11 +668,75 @@ export default function VideoPlayer({ user }) {
     currentVideo.muted = false;
     setVolume(0.8);
     setIsMuted(false);
+
+    const shouldAutoplayNext = sessionStorage.getItem(AUTOPLAY_NEXT_KEY) === '1';
+    if (shouldAutoplayNext) {
+      sessionStorage.removeItem(AUTOPLAY_NEXT_KEY);
+    }
+
     const playPromise = currentVideo.play();
     if (playPromise !== undefined) {
       playPromise.catch(() => setIsPlaying(false));
     }
   }, [showIntro, videoId, user?.id]);
+
+  useEffect(() => {
+    floatingDismissedRef.current = floatingDismissed;
+  }, [floatingDismissed]);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      const wasPlaying = !videoRef.current.paused;
+      if (wasPlaying) {
+        videoRef.current.play().catch(() => {});
+      }
+    }
+  }, [isFloating]);
+
+  useEffect(() => {
+    if (showIntro) return undefined;
+
+    const handleScroll = () => {
+      if (!playerRef.current) return;
+      const rect = playerRef.current.getBoundingClientRect();
+      const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+
+      if (
+        !floatingDismissedRef.current
+        && (rect.bottom < 0 || scrollY > 400)
+      ) {
+        setIsFloating(true);
+      } else if (rect.top >= 0 && scrollY <= 400) {
+        setIsFloating(false);
+        setFloatingDismissed(false);
+        floatingDismissedRef.current = false;
+      }
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    document.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('scroll', handleScroll);
+    };
+  }, [showIntro]);
+
+  useEffect(() => {
+    if (!endAutoplayActive || !endAutoplayTarget?.id) return undefined;
+
+    if (endAutoplaySeconds <= 0) {
+      handleNavigateAutoplayTarget(endAutoplayTarget.id);
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setEndAutoplaySeconds((current) => current - 1);
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [endAutoplayActive, endAutoplayTarget, endAutoplaySeconds, handleNavigateAutoplayTarget]);
 
   // Backup passivo do progresso ao sair da aba — sem tocar em play/pause ou recarregar mídia.
   useEffect(() => {
@@ -486,11 +753,14 @@ export default function VideoPlayer({ user }) {
   }, [videoId, user?.id]);
 
   useEffect(() => {
+    if (showIntro) return undefined;
+
     const handleKeyDown = (e) => {
-      const target = e.target;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      if (isEditableElement(e.target) || isEditableElement(document.activeElement)) return;
+
       switch (e.key.toLowerCase()) {
         case ' ':
+        case 'k':
           e.preventDefault();
           togglePlayPause();
           break;
@@ -500,11 +770,23 @@ export default function VideoPlayer({ user }) {
         case 'm':
           toggleMute();
           break;
-        case 'arrowright':
-          if (videoRef.current) videoRef.current.currentTime += 5;
-          break;
         case 'arrowleft':
-          if (videoRef.current) videoRef.current.currentTime -= 5;
+        case 'j':
+          e.preventDefault();
+          seekBySeconds(-SEEK_STEP_SECONDS);
+          break;
+        case 'arrowright':
+        case 'l':
+          e.preventDefault();
+          seekBySeconds(SEEK_STEP_SECONDS);
+          break;
+        case 'arrowup':
+          e.preventDefault();
+          adjustVolume(VOLUME_STEP);
+          break;
+        case 'arrowdown':
+          e.preventDefault();
+          adjustVolume(-VOLUME_STEP);
           break;
         default:
           break;
@@ -513,7 +795,30 @@ export default function VideoPlayer({ user }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlayPause, toggleFullScreen, toggleMute]);
+  }, [showIntro, togglePlayPause, toggleFullScreen, toggleMute, seekBySeconds, adjustVolume]);
+
+  useEffect(() => () => {
+    if (actionOverlayTimerRef.current) clearTimeout(actionOverlayTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (showIntro) return undefined;
+
+    const handleFullscreenChange = () => {
+      const isPlayerFullscreen = document.fullscreenElement === playerSurfaceRef.current;
+
+      if (isPlayerFullscreen && !playerWasFullscreenRef.current) {
+        showActionOverlay({ placement: 'center', icon: 'fullscreen-enter' });
+      } else if (!isPlayerFullscreen && playerWasFullscreenRef.current) {
+        showActionOverlay({ placement: 'center', icon: 'fullscreen-exit' });
+      }
+
+      playerWasFullscreenRef.current = isPlayerFullscreen;
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, [showIntro, showActionOverlay]);
 
   if (!user) {
     return (
@@ -582,176 +887,314 @@ export default function VideoPlayer({ user }) {
 
   const categories = formatCategories(video.category);
 
+  const renderVideoSurface = (floating) => (
+    <div className={floating ? 'relative w-full h-full min-h-[8rem] overflow-hidden' : 'contents'}>
+      {floating && (
+        <button
+          type="button"
+          onClick={handleCloseFloatingPlayer}
+          className="absolute top-2 right-2 z-40 w-7 h-7 flex items-center justify-center rounded-full bg-black/80 border border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+          aria-label="Fechar mini player e voltar ao topo"
+        >
+          ✕
+        </button>
+      )}
+      <video
+        key={videoId}
+        ref={videoRef}
+        playsInline
+        onClick={togglePlayPause}
+        onDoubleClick={toggleFullScreen}
+        onTimeUpdate={handleTimeUpdate}
+        onPlay={handlePlay}
+        onPause={handlePause}
+        onEnded={handleVideoEnded}
+        onDurationChange={handleDurationChange}
+        onLoadedMetadata={handleDurationChange}
+        onLoadedData={handleLoadedData}
+        className={
+          floating
+            ? 'relative z-0 block w-full h-full min-h-[8rem] object-cover bg-black'
+            : 'absolute inset-0 z-0 w-full h-full object-contain bg-black'
+        }
+        src={video.videoUrl}
+      />
+
+      <PlayerActionOverlay overlay={playerOverlay} />
+
+      {!floating && (
+        <div
+          className={`absolute top-0 left-0 w-full z-20 px-5 py-4 flex items-center gap-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent transition-all duration-500 ease-in-out ${
+            chromeVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        >
+          <button
+            onClick={() => navigate('/casos')}
+            className="flex items-center gap-2 text-white/80 hover:text-brand-primary border border-dark-border px-3 py-2 transition-colors"
+            title="Voltar ao catálogo"
+          >
+            <BackIcon className="w-4 h-4 flex-shrink-0" />
+            <span className="text-[10px] font-mono uppercase tracking-widest hidden sm:inline">
+              Voltar ao catálogo
+            </span>
+          </button>
+        </div>
+      )}
+
+      <div
+        className={`absolute bottom-0 left-0 w-full z-20 transition-all duration-500 ease-in-out ${
+          areControlsVisible || floating ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div
+          className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"
+          aria-hidden="true"
+        />
+        <div className={`relative z-10 pb-1 ${floating ? 'pt-2' : 'pt-12'}`}>
+          <div
+            ref={timelineTrackRef}
+            className="player-timeline-track relative px-4"
+            onMouseMove={handleTimelineMouseMove}
+            onMouseLeave={handleTimelineMouseLeave}
+          >
+            {timelineHover && (
+              <div
+                className="pointer-events-none absolute bottom-full z-30 mb-2 -translate-x-1/2"
+                style={{ left: `${timelineHover.x}px` }}
+              >
+                <div className="whitespace-nowrap rounded border border-brand-primary/50 bg-black/95 px-2.5 py-1 text-[11px] font-mono tracking-wider text-brand-primary shadow-lg shadow-black/60">
+                  {formatTime(timelineHover.time)}
+                </div>
+              </div>
+            )}
+            <input
+              type="range"
+              min="0"
+              max={duration}
+              value={currentTime}
+              onChange={handleProgressChange}
+              style={{ '--range-progress': `${progress}%` }}
+              className="custom-range custom-range--timeline block w-full"
+              aria-label="Progresso do vídeo"
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-2 min-h-[2rem] transition-opacity duration-500 ease-in-out">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                onClick={togglePlayPause}
+                className="w-5 h-5 flex-shrink-0 text-white/90 hover:text-brand-primary transition-colors duration-300"
+                aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
+              >
+                {isPlaying ? <PauseIcon /> : <PlayIcon />}
+              </button>
+              {!floating && (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={toggleMute}
+                    className="w-5 h-5 text-white/90 hover:text-brand-primary transition-colors duration-300"
+                    aria-label={isMuted ? 'Ativar som' : 'Silenciar'}
+                  >
+                    {isMuted || volume === 0 ? <VolumeMuteIcon /> : <VolumeHighIcon />}
+                  </button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={isMuted ? 0 : volume}
+                    onChange={handleVolumeChange}
+                    className="w-20 custom-range hidden sm:block"
+                    aria-label="Volume"
+                  />
+                </div>
+              )}
+              <span className="text-[11px] font-mono text-white/60 tracking-wider whitespace-nowrap">
+                {formatTime(currentTime)} / {formatTime(duration)}
+              </span>
+            </div>
+            {!floating && (
+              <div className="flex flex-shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleTheaterMode}
+                  className={`h-5 w-5 transition-colors duration-300 ${
+                    isTheaterMode ? 'text-brand-primary' : 'text-white/90 hover:text-brand-primary'
+                  }`}
+                  aria-label={isTheaterMode ? 'Sair do modo cinema' : 'Modo cinema'}
+                  aria-pressed={isTheaterMode}
+                >
+                  <TheaterIcon className="h-full w-full" />
+                </button>
+                <button
+                  onClick={toggleFullScreen}
+                  className="h-5 w-5 flex-shrink-0 text-white/90 transition-colors duration-300 hover:text-brand-primary"
+                  aria-label="Tela cheia"
+                >
+                  <FullscreenIcon />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {!floating && endCardShort && (
+        <div
+          className={`absolute bottom-24 right-4 sm:right-6 z-30 w-[min(calc(100%-2rem),340px)] transition-all duration-500 ease-in-out ${
+            showEndCard && !endAutoplayActive
+              ? 'opacity-100 translate-y-0 pointer-events-auto'
+              : 'opacity-0 translate-y-3 pointer-events-none'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          aria-hidden={!showEndCard}
+        >
+          <div className="border border-dark-border/80 bg-black/85 backdrop-blur-md shadow-2xl shadow-black/60 p-3 sm:p-4">
+            <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-zinc-500 mb-2">
+              Próximo no caso
+            </p>
+            <div className="flex gap-3">
+              <div className="relative flex-shrink-0 w-16 h-24 sm:w-[4.5rem] sm:h-28 overflow-hidden border border-dark-border">
+                <img
+                  src={endCardShort.thumbnail}
+                  alt={endCardShort.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="min-w-0 flex-1 flex flex-col justify-between gap-2">
+                <div>
+                  <span className="inline-block text-[9px] font-mono uppercase tracking-widest text-[#f1c40f] bg-[#8e44ad]/20 border border-[#8e44ad]/30 px-2 py-0.5 mb-1.5">
+                    Atualização
+                  </span>
+                  <p className="text-sm text-white leading-snug line-clamp-2">
+                    {endCardShort.title}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleWatchEndCardShort}
+                  className="self-start bg-brand-primary text-black text-[10px] font-mono uppercase tracking-widest px-3 py-2 hover:opacity-90 transition-opacity"
+                >
+                  Assistir Agora
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!floating && endAutoplayActive && endAutoplayTarget && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/90 p-4 sm:p-6">
+          <div className="w-full max-w-md border border-zinc-800 bg-zinc-950/95 backdrop-blur-sm shadow-2xl p-5 sm:p-6 space-y-4">
+            <div className="space-y-1">
+              <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-zinc-500">
+                Reprodução automática
+              </p>
+              <h3 className="text-lg text-white leading-snug line-clamp-2">
+                {endAutoplayTarget.title}
+              </h3>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                <span>Próximo caso em</span>
+                <span className="text-brand-primary">{endAutoplaySeconds}s</span>
+              </div>
+              <div className="h-1.5 w-full bg-zinc-800 overflow-hidden">
+                <div
+                  className="h-full bg-brand-primary transition-all duration-1000 ease-linear"
+                  style={{ width: `${(endAutoplaySeconds / END_AUTOPLAY_SECONDS) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleCancelEndAutoplay}
+                className="flex-1 border border-zinc-700 px-3 py-2.5 text-[10px] font-mono uppercase tracking-widest text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleNavigateAutoplayTarget(endAutoplayTarget.id)}
+                className="flex-1 bg-brand-primary text-black px-3 py-2.5 text-[10px] font-mono uppercase tracking-widest hover:opacity-90 transition-opacity"
+              >
+                Assistir agora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <AnimatedPage className="min-h-full">
+    <div className="min-h-full">
       <SeoHead
         title={videoSeoTitle}
         description={videoSeoDescription}
         image={videoSeoImage}
         type="video.other"
       />
-      <div className="min-h-full bg-dark-pure text-white font-sans relative flex flex-col">
-        <PlayerAmbientGlow thumbnail={video.thumbnail} />
-
-        {/* Player em modo cinema — largura total no topo */}
-        <section className="relative z-10 w-full flex-shrink-0 bg-black">
+      <div className={`min-h-full bg-dark-pure text-white font-sans flex flex-col ${isTheaterMode ? 'bg-black' : ''}`}>
+        {isTheaterMode && !isFloating && (
           <div
-            ref={playerContainerRef}
-            className={`relative w-full overflow-hidden bg-black/90 group h-[450px] md:h-[600px] lg:h-[min(56.25vw,85vh)] ${
-              !areControlsVisible && isPlaying ? 'cursor-none' : ''
+            className="pointer-events-none fixed inset-0 z-[8] bg-black/80 transition-opacity duration-500"
+            aria-hidden="true"
+          />
+        )}
+        <div className={`relative flex-shrink-0 ${isTheaterMode && !isFloating ? 'z-[15]' : ''}`}>
+          <PlayerAmbientGlow thumbnail={video.thumbnail} />
+
+          {/* Player em modo cinema — sem transform/overflow nos pais do surface */}
+          <section
+            className={`w-full flex-shrink-0 bg-black transition-all duration-500 ${
+              isTheaterMode && !isFloating ? 'shadow-2xl shadow-black' : ''
             }`}
-            onMouseMove={handleActivity}
-            onMouseLeave={() => setAreControlsVisible(false)}
-            onTouchStart={handleActivity}
           >
-            <video
-              key={videoId}
-              ref={videoRef}
-              playsInline
-              onClick={togglePlayPause}
-              onDoubleClick={toggleFullScreen}
-              onTimeUpdate={handleTimeUpdate}
-              onPlay={handlePlay}
-              onPause={handlePause}
-              onDurationChange={handleDurationChange}
-              onLoadedMetadata={handleDurationChange}
-              onLoadedData={handleLoadedData}
-              className="absolute inset-0 z-0 w-full h-full object-contain bg-black"
-              src={video.videoUrl}
-            />
-
             <div
-              className={`absolute top-0 left-0 w-full z-20 px-5 py-4 flex items-center gap-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent transition-all duration-500 ease-in-out ${
-                chromeVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              ref={playerRef}
+              className={`relative w-full transition-all duration-500 ${
+                isTheaterMode && !isFloating
+                  ? 'h-[min(56.25vw,85vh)] min-h-[420px]'
+                  : 'h-[450px] md:h-[600px] lg:h-[min(56.25vw,85vh)]'
               }`}
             >
-              <button
-                onClick={() => navigate('/casos')}
-                className="flex items-center gap-2 text-white/80 hover:text-brand-primary border border-dark-border px-3 py-2 transition-colors"
-                title="Voltar ao catálogo"
-              >
-                <BackIcon className="w-4 h-4 flex-shrink-0" />
-                <span className="text-[10px] font-mono uppercase tracking-widest hidden sm:inline">
-                  Voltar ao catálogo
-                </span>
-              </button>
-            </div>
-
-            <div
-              className={`absolute bottom-0 left-0 w-full z-20 transition-all duration-500 ease-in-out ${
-                areControlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-              }`}
-            >
+              {isFloating && (
+                <div className="absolute inset-0 bg-black/90" aria-hidden="true" />
+              )}
               <div
-                className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"
-                aria-hidden="true"
-              />
-              <div className="relative z-10 pt-12 pb-1">
-                <div className="player-timeline-track px-4">
-                  <input
-                    type="range"
-                    min="0"
-                    max={duration}
-                    value={currentTime}
-                    onChange={handleProgressChange}
-                    style={{ '--range-progress': `${progress}%` }}
-                    className="w-full custom-range custom-range--timeline block"
-                    aria-label="Progresso do vídeo"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-4 px-4 pb-4 pt-2 min-h-[2rem] transition-opacity duration-500 ease-in-out">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <button
-                      onClick={togglePlayPause}
-                      className="w-5 h-5 flex-shrink-0 text-white/90 hover:text-brand-primary transition-colors duration-300"
-                      aria-label={isPlaying ? 'Pausar' : 'Reproduzir'}
-                    >
-                      {isPlaying ? <PauseIcon /> : <PlayIcon />}
-                    </button>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={toggleMute}
-                        className="w-5 h-5 text-white/90 hover:text-brand-primary transition-colors duration-300"
-                        aria-label={isMuted ? 'Ativar som' : 'Silenciar'}
-                      >
-                        {isMuted || volume === 0 ? <VolumeMuteIcon /> : <VolumeHighIcon />}
-                      </button>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={isMuted ? 0 : volume}
-                        onChange={handleVolumeChange}
-                        className="w-20 custom-range hidden sm:block"
-                        aria-label="Volume"
-                      />
-                    </div>
-                    <span className="text-[11px] font-mono text-white/60 tracking-wider whitespace-nowrap">
-                      {formatTime(currentTime)} / {formatTime(duration)}
-                    </span>
-                  </div>
-                  <button
-                    onClick={toggleFullScreen}
-                    className="w-5 h-5 flex-shrink-0 text-white/90 hover:text-brand-primary transition-colors duration-300"
-                    aria-label="Tela cheia"
-                  >
-                    <FullscreenIcon />
-                  </button>
-                </div>
+                ref={playerSurfaceRef}
+                className={
+                  isFloating
+                    ? 'fixed bottom-6 right-6 w-80 md:w-96 z-[99999] bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-slide-up pointer-events-auto aspect-video'
+                    : `absolute inset-0 bg-black/90 overflow-hidden group ${
+                        !areControlsVisible && isPlaying ? 'cursor-none' : ''
+                      }`
+                }
+                onMouseMove={handleActivity}
+                onMouseLeave={() => {
+                  if (!isFloating) setAreControlsVisible(false);
+                }}
+                onTouchStart={handleActivity}
+              >
+                {renderVideoSurface(isFloating)}
               </div>
             </div>
-
-            {endCardShort && (
-              <div
-                className={`absolute bottom-24 right-4 sm:right-6 z-30 w-[min(calc(100%-2rem),340px)] transition-all duration-500 ease-in-out ${
-                  showEndCard
-                    ? 'opacity-100 translate-y-0 pointer-events-auto'
-                    : 'opacity-0 translate-y-3 pointer-events-none'
-                }`}
-                onClick={(e) => e.stopPropagation()}
-                onDoubleClick={(e) => e.stopPropagation()}
-                aria-hidden={!showEndCard}
-              >
-                <div className="border border-dark-border/80 bg-black/85 backdrop-blur-md shadow-2xl shadow-black/60 p-3 sm:p-4">
-                  <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-zinc-500 mb-2">
-                    Próximo no caso
-                  </p>
-                  <div className="flex gap-3">
-                    <div className="relative flex-shrink-0 w-16 h-24 sm:w-[4.5rem] sm:h-28 overflow-hidden border border-dark-border">
-                      <img
-                        src={endCardShort.thumbnail}
-                        alt={endCardShort.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1 flex flex-col justify-between gap-2">
-                      <div>
-                        <span className="inline-block text-[9px] font-mono uppercase tracking-widest text-[#f1c40f] bg-[#8e44ad]/20 border border-[#8e44ad]/30 px-2 py-0.5 mb-1.5">
-                          Atualização
-                        </span>
-                        <p className="text-sm text-white leading-snug line-clamp-2">
-                          {endCardShort.title}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleWatchEndCardShort}
-                        className="self-start bg-brand-primary text-black text-[10px] font-mono uppercase tracking-widest px-3 py-2 hover:opacity-90 transition-opacity"
-                      >
-                        Assistir Agora
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+          </section>
+        </div>
 
         {/* Conteúdo abaixo do player */}
-        <SiteContainer className="relative z-10 py-8 lg:py-10">
+        <SiteContainer
+          className={`relative z-10 py-8 lg:py-10 transition-all duration-500 ${
+            isTheaterMode && !isFloating
+              ? 'pointer-events-none select-none opacity-25 blur-[1px]'
+              : ''
+          }`}
+        >
           <div className="grid grid-cols-12 gap-8 lg:gap-10">
             <div className="col-span-12 lg:col-span-8 space-y-8">
               <header className="space-y-3">
@@ -946,6 +1389,6 @@ export default function VideoPlayer({ user }) {
           </div>
         </SiteContainer>
       </div>
-    </AnimatedPage>
+    </div>
   );
 }

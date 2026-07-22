@@ -6,13 +6,25 @@ import React, {
   useState,
 } from 'react';
 import { supabase } from '../supabase';
-import { PROFILE_FIELDS_SELECT } from '../utils/profileMedia';
+import {
+  PROFILE_FIELDS_CORE,
+  PROFILE_FIELDS_SELECT,
+  isMissingProfileColumnError,
+} from '../utils/profileMedia';
 
 const AuthContext = createContext(null);
 
 function applyProfileToState(setUser, setProfile, profileData) {
   setUser((currentUser) => ({ ...currentUser, profile: profileData }));
   setProfile(profileData);
+}
+
+async function queryProfileBySelect(userId, selectFields) {
+  return supabase
+    .from('profiles')
+    .select(selectFields)
+    .eq('id', userId)
+    .maybeSingle();
 }
 
 export function AuthProvider({ children }) {
@@ -30,11 +42,18 @@ export function AuthProvider({ children }) {
     setProfileLoading(true);
 
     try {
-      const { data, error, status, statusText } = await supabase
-        .from('profiles')
-        .select(PROFILE_FIELDS_SELECT)
-        .eq('id', userId)
-        .maybeSingle();
+      let { data, error, status, statusText } = await queryProfileBySelect(
+        userId,
+        PROFILE_FIELDS_SELECT
+      );
+
+      if (error && isMissingProfileColumnError(error)) {
+        console.warn('[Auth] Colunas de assinatura ausentes — fallback para PROFILE_FIELDS_CORE.');
+        ({ data, error, status, statusText } = await queryProfileBySelect(
+          userId,
+          PROFILE_FIELDS_CORE
+        ));
+      }
 
       if (error) {
         console.error('Erro detalhado do Supabase ao buscar perfil:', error);
@@ -46,9 +65,7 @@ export function AuthProvider({ children }) {
           status,
           statusText,
           userId,
-          select: PROFILE_FIELDS_SELECT,
         });
-        setProfile(null);
         return null;
       }
 
@@ -65,7 +82,7 @@ export function AuthProvider({ children }) {
               bio: '',
             },
           ])
-          .select(PROFILE_FIELDS_SELECT)
+          .select(PROFILE_FIELDS_CORE)
           .single();
 
         if (!insertError && newProfile) {
@@ -76,11 +93,10 @@ export function AuthProvider({ children }) {
         console.error('Falha ao criar perfil automaticamente:', insertError);
 
         if (insertError?.code === '23505') {
-          const { data: existingProfile, error: refetchError } = await supabase
-            .from('profiles')
-            .select(PROFILE_FIELDS_SELECT)
-            .eq('id', userId)
-            .maybeSingle();
+          const { data: existingProfile, error: refetchError } = await queryProfileBySelect(
+            userId,
+            PROFILE_FIELDS_CORE
+          );
 
           if (!refetchError && existingProfile) {
             applyProfileToState(setUser, setProfile, existingProfile);
@@ -88,7 +104,6 @@ export function AuthProvider({ children }) {
           }
         }
 
-        setProfile(null);
         return null;
       }
 
@@ -96,7 +111,6 @@ export function AuthProvider({ children }) {
       return data;
     } catch (unexpectedError) {
       console.error('Erro inesperado ao buscar perfil:', unexpectedError);
-      setProfile(null);
       return null;
     } finally {
       setProfileLoading(false);
