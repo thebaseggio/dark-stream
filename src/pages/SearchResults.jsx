@@ -7,6 +7,7 @@ import AnimatedPage from '../AnimatedPage';
 import SkeletonCard from './SkeletonCard';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
+import SiteContainer from '../components/SiteContainer';
 
 // Componente para um card de vídeo individual (reutilizado)
 function VideoCard({ video, onNavigate }) {
@@ -34,7 +35,7 @@ function PartnerResultGroup({ partner, videos, onNavigate, partnerId }) {
                     <h2 className="font-anton text-white text-3xl group-hover/partner:text-[#f1c40f] transition-colors">{partner.username}</h2>
                 </div>
             </Link>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {videos.map(video => <VideoCard key={video.id} video={video} onNavigate={onNavigate} />)}
             </div>
         </div>
@@ -97,19 +98,19 @@ export default function SearchResults() {
               title={query ? `Busca: ${query} | Dark Stream` : 'Buscar | Dark Stream'}
               description={DEFAULT_SITE_DESCRIPTION}
             />
-            <div className="space-y-8">
+            <SiteContainer className="my-8 py-8">
                 <div>
                     <h2 className="font-anton text-white text-2xl mb-6 text-left">
                         {query ? `Resultados da busca para: "${query}"` : 'Faça uma busca'}
                     </h2>
 
                     {loading ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-10">
+                        <div className="grid grid-cols-1 gap-6 pb-10 md:grid-cols-2 lg:grid-cols-3">
                             {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
                         </div>
                     ) : (
                         (partnerGroups.length > 0 || groupedResults.videos.length > 0) ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pb-10">
+                            <div className="grid grid-cols-1 gap-6 pb-10 md:grid-cols-2 lg:grid-cols-3">
                                 {partnerGroups.map(([creatorId, partnerData]) => (
                                     <PartnerResultGroup key={creatorId} partner={partnerData} partnerId={creatorId} videos={partnerData.videos} onNavigate={handleNavigation} />
                                 ))}
@@ -124,7 +125,7 @@ export default function SearchResults() {
                         )
                     )}
                 </div>
-            </div>
+            </SiteContainer>
         </AnimatedPage>
     );
 }

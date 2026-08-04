@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
+import SiteContainer from '../components/SiteContainer';
 
 const MARCOS_CAMPOS_PARTNER = {
   username: 'Marcos Campos',
@@ -47,29 +48,28 @@ export default function LandingPage() {
 
       {/* 3. O CONTEÚDO (CABEÇALHO E TEXTO PRINCIPAL) */}
       {/* Todo o conteúdo visível fica aqui, com um z-index para garantir que esteja na frente do fundo */}
-      <div className="relative z-10 flex flex-col flex-grow">
-      <header className="absolute top-0 left-0 right-0 z-10 p-6 flex justify-between items-center">
-          {/* LOGO AGORA POSICIONADA IGUAL ÀS OUTRAS PÁGINAS */}
+      <div className="relative z-10 flex flex-col flex-grow overflow-x-hidden">
+      <SiteContainer as="header" className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center py-6">
           <Link to="/" title="Voltar para a Home">
               <img src="/LogoT.png" alt="Dark Stream Home" className="h-16 w-auto" />
           </Link>
-          
-          {/* Botões */}
+
           <div className="flex items-center gap-2">
               <Link to="/login">
-                  <button className="font-semibold px-4 py-2 rounded-md text-white hover:bg-zinc-800 transition-colors text-sm">
+                  <button type="button" className="touch-target rounded-md px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-zinc-800">
                       Entrar
                   </button>
               </Link>
               <Link to="/inscrever-se">
-                  <button className="bg-[#f1c40f] hover:bg-opacity-90 text-black font-bold px-4 py-2 rounded-md transition-colors text-sm">
+                  <button type="button" className="touch-target rounded-md bg-[#f1c40f] px-4 py-2 text-sm font-bold text-black transition-colors hover:bg-opacity-90">
                       Inscrever-se
                   </button>
               </Link>
           </div>
-      </header>
+      </SiteContainer>
 
-        <main className="flex-grow flex items-center justify-center text-center px-4">
+        <main className="flex-grow flex items-center justify-center text-center">
+          <SiteContainer>
           <motion.div
             className="flex flex-col items-center"
             variants={containerVariants}
@@ -95,11 +95,12 @@ export default function LandingPage() {
           </motion.p>
             
             <motion.div variants={itemVariants}>
-              <Link to="/casos" className="bg-[#f1c40f] hover:bg-opacity-90 text-black font-bold py-3 px-8 rounded-lg text-lg inline-block transition-transform duration-200 hover:scale-105">
+              <Link to="/casos" className="touch-target inline-block rounded-lg bg-[#f1c40f] px-8 py-3 text-lg font-bold text-black transition-transform duration-200 hover:scale-105 hover:bg-opacity-90">
                 Investigue Agora
               </Link>
             </motion.div>
-          </motion.div>
+            </motion.div>
+          </SiteContainer>
         </main>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
+import SiteContainer from './SiteContainer';
 
 const MARCOS_CAMPOS_CREATOR_ID = 'd0781217-8eb0-4d8d-b32b-ce785dbb6227';
 const TRAILER_DELAY_MS = 3000;
@@ -98,99 +99,95 @@ export default function FeaturedBanner({ featuredVideo, onNavigate }) {
   };
 
   return (
-    <div className="-mt-6">
-      <section className="relative w-full h-[52vh] min-h-[300px] max-h-[560px] overflow-hidden border-b border-dark-border">
-        {/* Mídia de fundo */}
-        <div className="absolute inset-0 z-0 w-full h-full overflow-hidden">
-          {thumbnail && (
-            <img
-              src={thumbnail}
-              alt=""
-              className={`w-full h-full object-cover object-center transition-opacity duration-1000 ${
-                showTrailer ? 'opacity-0' : 'opacity-100'
-              }`}
-            />
-          )}
+    <div className="FeaturedBanner relative w-full min-h-[450px] overflow-hidden bg-zinc-950 md:min-h-[550px]">
+      <div className="absolute inset-0">
+        {thumbnail && (
+          <img
+            src={thumbnail}
+            alt=""
+            className={`h-full w-full object-cover object-right transition-opacity duration-1000 md:object-center ${
+              showTrailer ? 'opacity-0' : 'opacity-100'
+            }`}
+          />
+        )}
 
-          {featuredVideo.videoUrl && (
-            <video
-              ref={videoRef}
-              src={featuredVideo.videoUrl}
-              className={`w-full h-full object-cover object-center transition-opacity duration-1000 ${
-                showTrailer ? 'opacity-100' : 'opacity-0'
-              }`}
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              aria-hidden="true"
-            />
-          )}
-        </div>
+        {featuredVideo.videoUrl && (
+          <video
+            ref={videoRef}
+            src={featuredVideo.videoUrl}
+            className={`absolute inset-0 h-full w-full object-cover object-right transition-opacity duration-1000 md:object-center ${
+              showTrailer ? 'opacity-100' : 'opacity-0'
+            }`}
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            aria-hidden="true"
+          />
+        )}
 
-        {/* Máscaras de gradiente (estilo streaming) */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-black via-black/80 to-transparent w-full md:w-[60%] h-full" />
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent h-[28%]" />
-        </div>
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black via-black/70 to-transparent md:h-40" />
+      </div>
 
-        <div className="relative z-20 h-full flex flex-col justify-end pb-10 sm:pb-14">
+      <div className="relative z-10 flex min-h-[450px] flex-col justify-end py-16 sm:py-24 md:min-h-[550px]">
+        <SiteContainer>
           <div className="max-w-2xl space-y-4">
-          {categories[0] && (
-            <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-brand-primary">
-              {categories[0]}
-            </p>
-          )}
+            {categories[0] && (
+              <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-brand-primary">
+                {categories[0]}
+              </p>
+            )}
 
-          <h1 className="font-anton text-3xl sm:text-5xl lg:text-6xl text-white leading-tight">
-            {featuredVideo.title}
-          </h1>
+            <h1 className="font-anton text-3xl leading-tight text-white sm:text-5xl lg:text-6xl">
+              {featuredVideo.title}
+            </h1>
 
-          {creator?.username && (
-            <p className="text-xs font-mono uppercase tracking-wider text-zinc-400">
-              Por{' '}
-              {creatorProfilePath ? (
-                <Link
-                  to={creatorProfilePath}
-                  className="hover:text-brand-primary transition-colors underline-offset-2 hover:underline"
-                >
-                  {creator.username}
-                </Link>
-              ) : (
-                creator.username
-              )}
-            </p>
-          )}
+            {creator?.username && (
+              <p className="text-xs font-mono uppercase tracking-wider text-zinc-400">
+                Por{' '}
+                {creatorProfilePath ? (
+                  <Link
+                    to={creatorProfilePath}
+                    className="underline-offset-2 transition-colors hover:text-brand-primary hover:underline"
+                  >
+                    {creator.username}
+                  </Link>
+                ) : (
+                  creator.username
+                )}
+              </p>
+            )}
 
-          {featuredVideo.description && (
-            <p className="text-sm text-zinc-400 line-clamp-3 max-w-xl hidden sm:block">
-              {featuredVideo.description}
-            </p>
-          )}
+            {featuredVideo.description && (
+              <p className="hidden text-sm leading-relaxed text-zinc-400 line-clamp-3 sm:block">
+                {featuredVideo.description}
+              </p>
+            )}
 
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={handleWatch}
-              className="rounded-none bg-brand-primary text-black font-mono uppercase tracking-wider text-xs px-6 py-3 hover:opacity-90 transition-opacity"
-            >
-              Assistir
-            </button>
-
-            {showTrailer && featuredVideo.videoUrl && (
+            <div className="flex items-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={toggleMute}
-                className="rounded-none border border-dark-border bg-dark-panel/60 text-zinc-300 p-3 hover:text-white hover:border-zinc-500 transition-colors"
-                aria-label={isMuted ? 'Ativar som do trailer' : 'Silenciar trailer'}
+                onClick={handleWatch}
+                className="touch-target rounded-none bg-brand-primary px-6 py-3 font-mono text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-90"
               >
-                {isMuted ? <VolumeMuteIcon className="w-4 h-4" /> : <VolumeHighIcon className="w-4 h-4" />}
+                Assistir
               </button>
-            )}
+
+              {showTrailer && featuredVideo.videoUrl && (
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className="touch-target flex items-center justify-center rounded-none border border-dark-border bg-dark-panel/60 p-3 text-zinc-300 transition-colors hover:border-zinc-500 hover:text-white"
+                  aria-label={isMuted ? 'Ativar som do trailer' : 'Silenciar trailer'}
+                >
+                  {isMuted ? <VolumeMuteIcon className="h-4 w-4" /> : <VolumeHighIcon className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-        </div>
-      </section>
+        </SiteContainer>
+      </div>
     </div>
   );
 }

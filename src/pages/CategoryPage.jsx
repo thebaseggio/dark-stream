@@ -7,6 +7,7 @@ import AnimatedPage from '../AnimatedPage';
 import SkeletonCard from './SkeletonCard';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
+import SiteContainer from '../components/SiteContainer';
 
 // Reutilizamos o VideoCard do Explore.jsx (idealmente, ele viveria em src/components/)
 function VideoCard({ video }) {
@@ -84,17 +85,17 @@ export default function CategoryPage() {
               title={`${decodeURIComponent(categoryName)} | Dark Stream`}
               description={DEFAULT_SITE_DESCRIPTION}
             />
-            <div className="py-8">
+            <SiteContainer className="my-8 py-8">
                 <h2 className="font-anton text-white text-3xl mb-8">
                     Categoria: <span className="text-[#f1c40f]">{decodeURIComponent(categoryName)}</span>
                 </h2>
                 {loading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
                     </div>
                 ) : (
                     videos.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                             {videos.map((video) => (
                                 <VideoCard key={video.id} video={video} />
                             ))}
@@ -103,7 +104,7 @@ export default function CategoryPage() {
                         <p className="text-gray-400 text-center">Nenhum vídeo encontrado nesta categoria.</p>
                     )
                 )}
-            </div>
+            </SiteContainer>
         </AnimatedPage>
     );
 }

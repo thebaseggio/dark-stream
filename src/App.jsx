@@ -77,6 +77,7 @@ export default function App() {
  return (
     <NotificationProvider showNotification={showNotification}>
         <UploadProvider>
+            <div className="w-full max-w-full overflow-x-hidden min-h-screen bg-black text-white">
             <Router>
             <>
             <Routes>
@@ -170,6 +171,7 @@ export default function App() {
             </Transition>
         </>
         </Router>
+            </div>
   </UploadProvider>
 </NotificationProvider>
   );

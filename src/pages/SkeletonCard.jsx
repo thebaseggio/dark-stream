@@ -13,9 +13,9 @@ export default function SkeletonCard({ variant = 'default' }) {
   }
 
   return (
-    <div className="relative flex-shrink-0 w-64 animate-pulse">
-      <div className="relative border border-dark-border overflow-hidden rounded-sm bg-dark-panel">
-        <div className="w-full aspect-[16/9] bg-zinc-800" />
+    <div className="relative w-64 max-w-full flex-shrink-0 animate-pulse sm:w-72 lg:w-80 xl:w-[300px]">
+      <div className="relative overflow-hidden rounded-lg border border-dark-border bg-dark-panel">
+        <div className="aspect-video w-full rounded-lg bg-zinc-800" />
       </div>
       <div className="mt-2 h-4 bg-zinc-800 rounded w-full" />
       <div className="mt-1 h-3 bg-zinc-800 rounded w-2/3" />

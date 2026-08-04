@@ -11,7 +11,7 @@ const animations = {
 const AnimatedPage = ({ children, className = '' }) => {
   return (
     <motion.div
-      className={className}
+      className={`w-full min-w-0 max-w-full overflow-x-hidden ${className}`.trim()}
       variants={animations}
       initial="initial"
       animate="animate"

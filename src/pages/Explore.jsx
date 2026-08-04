@@ -6,6 +6,7 @@ import AnimatedPage from '../AnimatedPage';
 import SkeletonCard from './SkeletonCard';
 import CategoryRow from '../components/CategoryRow';
 import FeaturedBanner, { pickFeaturedVideo } from '../components/FeaturedBanner';
+import SiteContainer from '../components/SiteContainer';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -111,53 +112,60 @@ export default function Explore({ user }) {
   );
 
   return (
-    <AnimatedPage>
+    <AnimatedPage className="w-full">
       <SeoHead
         title="Explorar Casos | Dark Stream"
         description={DEFAULT_SITE_DESCRIPTION}
       />
-      <div className={`transition-opacity duration-500 ${isNavigating ? 'opacity-0' : 'opacity-100'}`}>
+
+      <div className={`w-full transition-opacity duration-500 ${isNavigating ? 'opacity-0' : 'opacity-100'}`}>
         {!loading && featuredVideo && (
           <FeaturedBanner featuredVideo={featuredVideo} onNavigate={handleNavigation} />
         )}
 
-        <div className="space-y-12 pt-8 pb-8">
+        <div className="pb-12">
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="space-y-4 relative mb-12">
-                <div className="h-8 w-48 max-w-[40%] bg-dark-panel animate-pulse rounded-sm" />
-                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                  {Array.from({ length: 4 }).map((_, j) => (
-                    <SkeletonCard key={j} />
-                  ))}
+              <SiteContainer key={i} className="my-8 space-y-4">
+                <div className="h-8 w-48 max-w-[40%] animate-pulse rounded-sm bg-dark-panel" />
+                <div className="relative w-full overflow-hidden">
+                  <div className="flex w-full touch-pan-y gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                    {Array.from({ length: 4 }).map((_, j) => (
+                      <SkeletonCard key={j} />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </SiteContainer>
             ))
           ) : (
             <>
               {recommendedVideos.length > 0 && (
-                <CategoryRow
-                  key="recommended-for-you"
-                  title="Recomendados para Você"
-                  videos={recommendedVideos}
-                  onNavigate={handleNavigation}
-                  linkable={false}
-                />
+                <SiteContainer className="my-8">
+                  <CategoryRow
+                    title="Recomendados para Você"
+                    videos={recommendedVideos}
+                    onNavigate={handleNavigation}
+                    linkable={false}
+                  />
+                </SiteContainer>
               )}
 
               {categories.map((category) => (
-                <CategoryRow
-                  key={category}
-                  title={category}
-                  videos={groupedVideos[category]}
-                  onNavigate={handleNavigation}
-                />
+                <SiteContainer key={category} className="my-8">
+                  <CategoryRow
+                    title={category}
+                    videos={groupedVideos[category]}
+                    onNavigate={handleNavigation}
+                  />
+                </SiteContainer>
               ))}
 
               {!hasContent && (
-                <p className="text-center text-zinc-500 font-mono uppercase tracking-wider text-sm py-16">
-                  Nenhum caso disponível no catálogo.
-                </p>
+                <SiteContainer className="my-8">
+                  <p className="py-16 text-center font-mono text-sm uppercase tracking-wider text-zinc-500">
+                    Nenhum caso disponível no catálogo.
+                  </p>
+                </SiteContainer>
               )}
             </>
           )}

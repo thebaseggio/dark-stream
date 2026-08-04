@@ -423,7 +423,7 @@ export default function PartnerProfile({ currentUser }) {
         <SiteContainer className="pb-16 pt-4">
           <div className="space-y-8">
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-dark-border">
-              <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+              <div className="flex touch-pan-y gap-1 overflow-x-auto scrollbar-hide">
                 <button
                   type="button"
                   onClick={() => setActiveVideoTab('main')}
@@ -460,7 +460,7 @@ export default function PartnerProfile({ currentUser }) {
             </div>
 
             {activeVideos.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 sm:gap-6">
+              <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {activeVideos.map((video) => (
                   <VideoCard
                     key={video.id}

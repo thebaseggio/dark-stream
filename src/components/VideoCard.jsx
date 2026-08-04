@@ -151,18 +151,20 @@ export default function VideoCard({
 
   const duration = formatDuration(video);
   const ratingLabel = formatRatingLabel(video);
-  const widthClass = fullWidth ? 'w-full' : 'flex-shrink-0 w-64';
+  const widthClass = fullWidth
+    ? 'w-full max-w-full'
+    : 'w-64 max-w-full flex-shrink-0 sm:w-72 lg:w-80 xl:w-[300px]';
 
   return (
     <div
-      className={`relative ${widthClass} cursor-pointer group/card transition-transform duration-300 ease-out hover:scale-[1.02] hover:z-30`}
+      className={`relative ${widthClass} min-w-0 max-w-full cursor-pointer group/card transition-transform duration-300 ease-out hover:scale-[1.02] hover:z-30`}
       onClick={handleCardClick}
     >
-      <div className="relative border border-dark-border overflow-hidden rounded-sm bg-dark-panel">
+      <div className="relative overflow-hidden rounded-lg border border-dark-border bg-dark-panel">
         <img
           src={thumbnail}
           alt={video.title}
-          className="w-full aspect-[16/9] object-cover object-center transition-transform duration-300 group-hover/card:scale-105"
+          className="aspect-video w-full rounded-lg object-cover object-center transition-transform duration-300 group-hover/card:scale-105"
         />
 
         <div className="absolute inset-x-0 bottom-0 translate-y-2 opacity-0 group-hover/card:translate-y-0 group-hover/card:opacity-100 transition-all duration-300">

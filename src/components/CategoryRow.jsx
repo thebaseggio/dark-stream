@@ -11,7 +11,7 @@ export default function CategoryRow({ title, videos, onNavigate, variant, linkab
   };
 
   return (
-    <div className="space-y-4 relative mb-12">
+    <div className="relative min-w-0 max-w-full space-y-4">
       <div
         onClick={handleTitleClick}
         className={linkable ? 'cursor-pointer' : ''}

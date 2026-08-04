@@ -5,6 +5,7 @@ import AnimatedPage from '../AnimatedPage';
 import { Dialog, Transition } from '@headlessui/react';
 import ProfileEditor from '../components/ProfileEditor';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
+import { SITE_CONTAINER_CLASS } from '../components/SiteContainer';
 import { OpsPanel, OpsStatCard, PeriodSelector } from '../components/ops/OpsPanel';
 import InquiryRetentionBars from '../components/ops/InquiryRetentionBars';
 import FieldStatusList from '../components/ops/FieldStatusList';
@@ -333,8 +334,8 @@ export default function CreatorDashboard({
         description={DEFAULT_SITE_DESCRIPTION}
       />
       <AnimatedPage>
-        <div className="bg-black min-h-screen -mx-6 md:-mx-12 px-6 md:px-12 py-8 md:py-10">
-          <div className="max-w-[1440px] mx-auto w-full space-y-8 md:space-y-10">
+        <div className={`${SITE_CONTAINER_CLASS} py-8 md:py-10`}>
+          <div className="w-full space-y-8 md:space-y-10">
             <header
               className="relative border border-neutral-800 overflow-hidden"
               style={

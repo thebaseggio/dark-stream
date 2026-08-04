@@ -26,7 +26,7 @@ export default function UploadStatus() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 bg-zinc-800 text-white p-4 rounded-lg shadow-lg w-72 z-50 border border-zinc-700">
+    <div className="fixed bottom-4 right-4 z-50 w-72 max-w-full overflow-hidden rounded-lg border border-zinc-700 bg-zinc-800 p-4 text-white shadow-lg">
       <p className="font-semibold text-sm mb-2">{getStatusMessage()}</p>
       {(uploadState.status === 'uploading' || uploadState.status === 'saving') && (
         <div className="w-full bg-zinc-600 rounded-full h-2">

@@ -125,7 +125,7 @@ export default function Searchbar({ immersive = false }) {
     : 'w-full rounded-none bg-dark-panel border border-dark-border text-white placeholder-zinc-500 py-2 pl-4 pr-10 focus:outline-none focus:border-brand-primary transition-colors text-sm';
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-xs">
+    <div ref={containerRef} className="relative w-48 sm:w-56 md:w-64">
       <form onSubmit={handleSubmit} className="relative">
         <input
           type="text"

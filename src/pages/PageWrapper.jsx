@@ -1,10 +1,9 @@
-// src/components/PageWrapper.jsx
 import React from 'react';
-
+import { SITE_CONTAINER_CLASS } from '../components/SiteContainer';
 export default function PageWrapper({ children }) {
   return (
-    <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-8 lg:px-12">
-      <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pb-10">
+    <div className={SITE_CONTAINER_CLASS}>
+      <div className="mt-6 grid grid-cols-1 gap-4 pb-10 md:grid-cols-2 lg:grid-cols-3">
         {children}
       </div>
     </div>

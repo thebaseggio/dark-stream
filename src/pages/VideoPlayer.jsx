@@ -888,7 +888,7 @@ export default function VideoPlayer({ user }) {
   const categories = formatCategories(video.category);
 
   const renderVideoSurface = (floating) => (
-    <div className={floating ? 'relative w-full h-full min-h-[8rem] overflow-hidden' : 'contents'}>
+    <div className={floating ? 'relative w-full h-full min-h-[8rem] overflow-hidden' : 'relative h-full w-full max-w-full overflow-hidden'}>
       {floating && (
         <button
           type="button"
@@ -942,18 +942,18 @@ export default function VideoPlayer({ user }) {
       )}
 
       <div
-        className={`absolute bottom-0 left-0 w-full z-20 transition-all duration-500 ease-in-out ${
+        className={`absolute bottom-0 left-0 w-full max-w-full overflow-hidden z-20 transition-all duration-500 ease-in-out ${
           areControlsVisible || floating ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
         <div
-          className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"
           aria-hidden="true"
         />
-        <div className={`relative z-10 pb-1 ${floating ? 'pt-2' : 'pt-12'}`}>
+        <div className={`relative z-10 max-w-full overflow-hidden pb-1 ${floating ? 'pt-2' : 'pt-12'}`}>
           <div
             ref={timelineTrackRef}
-            className="player-timeline-track relative px-4"
+            className="player-timeline-track relative max-w-full overflow-hidden px-4"
             onMouseMove={handleTimelineMouseMove}
             onMouseLeave={handleTimelineMouseLeave}
           >
@@ -974,7 +974,7 @@ export default function VideoPlayer({ user }) {
               value={currentTime}
               onChange={handleProgressChange}
               style={{ '--range-progress': `${progress}%` }}
-              className="custom-range custom-range--timeline block w-full"
+              className="custom-range custom-range--timeline block w-full max-w-full"
               aria-label="Progresso do vídeo"
             />
           </div>
@@ -1132,7 +1132,7 @@ export default function VideoPlayer({ user }) {
   );
 
   return (
-    <div className="min-h-full">
+    <div className="VideoPlayer min-h-full w-full max-w-full overflow-x-hidden">
       <SeoHead
         title={videoSeoTitle}
         description={videoSeoDescription}
@@ -1146,7 +1146,7 @@ export default function VideoPlayer({ user }) {
             aria-hidden="true"
           />
         )}
-        <div className={`relative flex-shrink-0 ${isTheaterMode && !isFloating ? 'z-[15]' : ''}`}>
+        <div className={`relative flex-shrink-0 overflow-hidden ${isTheaterMode && !isFloating ? 'z-[15]' : ''}`}>
           <PlayerAmbientGlow thumbnail={video.thumbnail} />
 
           {/* Player em modo cinema — sem transform/overflow nos pais do surface */}
@@ -1170,7 +1170,7 @@ export default function VideoPlayer({ user }) {
                 ref={playerSurfaceRef}
                 className={
                   isFloating
-                    ? 'fixed bottom-6 right-6 w-80 md:w-96 z-[99999] bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden animate-slide-up pointer-events-auto aspect-video'
+                    ? 'fixed bottom-6 right-6 z-[99999] aspect-video w-80 max-w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl animate-slide-up pointer-events-auto md:w-96'
                     : `absolute inset-0 bg-black/90 overflow-hidden group ${
                         !areControlsVisible && isPlaying ? 'cursor-none' : ''
                       }`
