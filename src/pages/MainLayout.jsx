@@ -32,15 +32,17 @@ function Header({ user, profile, immersive, chromeVisible }) {
       }`}
     >
       <SiteContainer>
-        <div className="flex h-16 w-full items-center justify-between sm:h-20">
+        <div className="flex h-14 w-full items-center justify-between gap-2 md:h-16">
           <Link to="/casos" className="flex-shrink-0">
             <img
               src="/LogoT.png"
               alt="Dark Stream"
-              className={`w-auto transition-opacity ${immersive ? 'h-12 opacity-70 hover:opacity-100' : 'h-14 sm:h-16'}`}
+              className={`w-auto transition-opacity ${
+                immersive ? 'h-10 opacity-70 hover:opacity-100 md:h-12' : 'h-7 md:h-9'
+              }`}
             />
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
             <Searchbar immersive={immersive} />
             {user ? (
               <UserMenu profile={profile} onLogout={handleLogout} />
@@ -49,7 +51,7 @@ function Header({ user, profile, immersive, chromeVisible }) {
                 <Link to="/login" className="flex-shrink-0">
                   <button
                     type="button"
-                    className="touch-target flex-shrink-0 rounded-none border border-dark-border px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-zinc-400 transition-colors hover:border-zinc-500 hover:text-white whitespace-nowrap"
+                    className="touch-target flex-shrink-0 rounded-none border border-dark-border px-2 py-1 font-mono text-xs uppercase tracking-wider text-zinc-400 transition-colors hover:border-zinc-500 hover:text-white md:px-4 md:py-2 md:text-sm whitespace-nowrap"
                   >
                     Entrar
                   </button>
@@ -57,9 +59,10 @@ function Header({ user, profile, immersive, chromeVisible }) {
                 <Link to="/inscrever-se" className="flex-shrink-0">
                   <button
                     type="button"
-                    className="touch-target flex-shrink-0 rounded-none bg-brand-primary px-4 py-2 text-sm font-bold uppercase tracking-wider text-black whitespace-nowrap transition-opacity hover:opacity-90"
+                    className="touch-target flex-shrink-0 rounded-none bg-brand-primary px-2 py-1 text-xs font-bold uppercase tracking-wider text-black transition-opacity hover:opacity-90 md:px-4 md:py-2 md:text-sm whitespace-nowrap"
                   >
-                    Seja um Investigador
+                    <span className="sm:hidden">Parceiro</span>
+                    <span className="hidden sm:inline">Seja Parceiro</span>
                   </button>
                 </Link>
               </>
