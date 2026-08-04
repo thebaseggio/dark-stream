@@ -129,6 +129,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
     description: '',
     category: [],
     tags: '',
+    videoUrl: '',
     is_short: false,
     short_type: null,
     parent_video_id: null,
@@ -164,6 +165,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
         description: videoToEdit.description || '',
         category: Array.isArray(videoToEdit.category) ? videoToEdit.category : [],
         tags: Array.isArray(videoToEdit.tags) ? videoToEdit.tags.join(', ') : '',
+        videoUrl: videoToEdit.videoUrl || '',
         is_short: videoToEdit.is_short || false,
         short_type: videoToEdit.short_type || null,
         parent_video_id: videoToEdit.parent_video_id || null,
@@ -282,7 +284,9 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
 
       const caseFilesPayload = !formData.is_short ? validateCaseFilesInput(caseFiles) : [];
 
-      if (!videoToEdit && !videoFile) throw new Error('Um arquivo de vídeo é obrigatório.');
+      if (!videoToEdit && !videoFile && !formData.videoUrl.trim()) {
+        throw new Error('Envie um arquivo de vídeo ou informe o link do vídeo.');
+      }
       if (!videoToEdit && !thumbnailFile) throw new Error('Uma thumbnail é obrigatória.');
 
       if (videoFile) {
@@ -322,7 +326,11 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
       }
 
       if (videoToEdit) {
-        const dataToUpdate = { ...baseVideoFields, thumbnail: thumbnailUrl };
+        const dataToUpdate = {
+          ...baseVideoFields,
+          thumbnail: thumbnailUrl,
+          ...(formData.videoUrl.trim() ? { videoUrl: formData.videoUrl.trim() } : {}),
+        };
 
         if (videoFile) {
           const videoFileExt = getFileExtension(videoFile);
@@ -364,8 +372,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
         return;
       }
 
-      const videoFileExt = getFileExtension(videoFile);
-      const videoFileName = `video-${user.id}-${Date.now()}.${videoFileExt}`;
+      const videoUrl = formData.videoUrl.trim();
       const metadataToSave = {
         action: 'insert',
         case_files: caseFilesPayload,
@@ -375,7 +382,29 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
         gostei_muito: 0,
         gostei: 0,
         nao_gostei: 0,
+        ...(videoUrl ? { videoUrl } : {}),
       };
+
+      if (!videoFile && videoUrl) {
+        const { action, case_files, ...videoRow } = metadataToSave;
+        const { data: insertedVideo, error } = await supabase
+          .from('videos')
+          .insert([videoRow])
+          .select('id')
+          .single();
+        if (error) throw error;
+
+        if (insertedVideo?.id && caseFilesPayload.length) {
+          await syncCaseFilesForVideo(supabase, insertedVideo.id, caseFilesPayload);
+        }
+
+        showNotification('success', 'Caso publicado com sucesso!');
+        if (onSuccess) onSuccess();
+        return;
+      }
+
+      const videoFileExt = getFileExtension(videoFile);
+      const videoFileName = `video-${user.id}-${Date.now()}.${videoFileExt}`;
 
       startUpload({
         file: videoFile,
@@ -420,7 +449,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
           disabled={isDisabled}
           label="Thumbnail"
           hint="Arraste a imagem aqui ou clique para selecionar"
-          formatsHint={`JPEG, PNG ou WebP`}
+          formatsHint="JPEG, PNG ou WebP"
           maxSizeHint={`Máx. ${formatFileSize(MAX_THUMBNAIL_SIZE_BYTES)}`}
           selectedFile={thumbnailFile}
           existingPreviewUrl={videoToEdit?.thumbnail}
@@ -431,13 +460,29 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
           id="videoFile"
           accept={ACCEPTED_VIDEO_TYPES.join(',')}
           disabled={isDisabled}
-          label="Vídeo Principal"
+          label="Upload do Vídeo"
           hint="Arraste o vídeo aqui ou clique para selecionar"
           formatsHint="MP4 ou WebM"
           maxSizeHint={`Máx. ${formatFileSize(MAX_VIDEO_SIZE_BYTES)}`}
           selectedFile={videoFile}
           onFileSelect={handleVideoFile}
           previewType="video"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="videoUrl" className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+          Link do Vídeo (alternativa ao upload)
+        </label>
+        <input
+          type="url"
+          id="videoUrl"
+          name="videoUrl"
+          value={formData.videoUrl}
+          onChange={handleChange}
+          disabled={isDisabled}
+          placeholder="https://..."
+          className="mt-2 w-full rounded-lg border border-zinc-800 bg-zinc-900/80 px-4 py-3 text-white transition-colors focus:border-brand-primary focus:outline-none disabled:opacity-50"
         />
       </div>
 
@@ -656,7 +701,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
       <button
         type="submit"
         disabled={isDisabled}
-        className="w-full bg-[#8e44ad] hover:bg-[#803d9c] text-white font-mono uppercase tracking-wider text-sm py-3.5 rounded-lg transition-colors duration-200 disabled:bg-zinc-700 disabled:cursor-not-allowed"
+        className="w-full rounded-lg bg-brand-primary py-3.5 font-mono text-sm uppercase tracking-wider text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
       >
         {isSubmitting
           ? 'Preparando…'

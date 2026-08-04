@@ -1,6 +1,6 @@
 // src/App.jsx
 
-import React, { useState, Fragment } from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { NotificationProvider } from './contexts/NotificationProvider.jsx';
 import { useAuth } from './contexts/AuthProvider.jsx';
@@ -10,9 +10,7 @@ import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import Explore from './pages/Explore';
 import VideoPlayer from './pages/VideoPlayer';
-import CreatorDashboard from './pages/CreatorDashboard';
-import CreatorUploadForm from './pages/CreatorUploadForm';
-import { Dialog, Transition } from '@headlessui/react';
+import PartnerDashboard from './pages/PartnerDashboard';
 import InvestigatorProfile from './pages/InvestigatorProfile';
 import PartnerProfile from './pages/PartnerProfile';
 import SignupPage from './pages/SignupPage';
@@ -26,6 +24,7 @@ import TermosDeServico from './pages/TermosDeServico';
 import PoliticaDePrivacidade from './pages/PoliticaDePrivacidade';
 import SejaUmParceiro from './pages/SejaUmParceiro';
 import AccountSettings from './pages/AccountSettings';
+import PlansPage from './pages/PlansPage';
 
 
 const AuthLoadingScreen = ({ message = 'Carregando credenciais...' }) => (
@@ -43,8 +42,6 @@ const PrivateRoute = ({ children, user, loading }) => {
 };
 export default function App() {
     const { user, profile, loading, refreshProfile } = useAuth();
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [videoToEdit, setVideoToEdit] = useState(null);
     const [notification, setNotification] = useState({ isOpen: false, type: 'success', message: '' });
     const showNotification = (type, message) => {
         setNotification({ isOpen: true, type, message });
@@ -53,19 +50,6 @@ export default function App() {
     const closeNotification = () => {
         setNotification({ ...notification, isOpen: false });
     };
-
-    const closeModal = () => { setIsModalOpen(false); setTimeout(() => setVideoToEdit(null), 300); };
-    const openUploadModal = () => {
-        if (profile?.role !== 'partner') return;
-        setVideoToEdit(null);
-        setIsModalOpen(true);
-    };
-    const openEditModal = (video) => {
-        if (profile?.role !== 'partner') return;
-        setVideoToEdit(video);
-        setIsModalOpen(true);
-    };
-    const handleFormSuccess = () => closeModal();
 
     const handleProfileUpdate = async () => {
         await refreshProfile();
@@ -105,6 +89,9 @@ export default function App() {
                     <Route path="/politica-de-privacidade" element={<PoliticaDePrivacidade />} />
                     <Route path="/seja-um-parceiro" element={<SejaUmParceiro />} />
 
+                    <Route path="/plans" element={<PlansPage />} />
+                    <Route path="/subscribe" element={<Navigate to="/plans" replace />} />
+
                     <Route path="/investigador" element={
                         <PrivateRoute user={user} loading={loading}>
                             <InvestigatorProfile user={user} profile={profile} />
@@ -112,23 +99,31 @@ export default function App() {
                     } />
                     <Route path="/perfil" element={<Navigate to="/investigador" replace />} />
 
-                    <Route path="/conta" element={
+                    <Route path="/account" element={
                         <PrivateRoute user={user} loading={loading}>
                             <AccountSettings />
+                        </PrivateRoute>
+                    } />
+                    <Route path="/conta" element={<Navigate to="/account" replace />} />
+
+                    <Route path="/partner/dashboard" element={
+                        <PrivateRoute user={user} loading={loading}>
+                            {(profile?.role === 'partner' || profile?.role === 'admin' || profile?.role === 'tester') ? (
+                                <PartnerDashboard
+                                    user={user}
+                                    profile={profile}
+                                    onSuccess={showNotification}
+                                />
+                            ) : (
+                                <Navigate to="/meu-perfil" replace />
+                            )}
                         </PrivateRoute>
                     } />
 
                     <Route path="/meu-perfil" element={
                         <PrivateRoute user={user} loading={loading}>
-                            {profile?.role === 'partner' ? (
-                                <CreatorDashboard
-                                    user={user}
-                                    profile={profile}
-                                    onProfileUpdate={handleProfileUpdate}
-                                    onUploadClick={openUploadModal}
-                                    onEditClick={openEditModal}
-                                    onSuccess={showNotification}
-                                />
+                            {(profile?.role === 'partner' || profile?.role === 'admin' || profile?.role === 'tester') ? (
+                                <Navigate to="/partner/dashboard" replace />
                             ) : (
                                 <VisitorProfilePage
                                     onProfileUpdate={handleProfileUpdate}
@@ -148,27 +143,6 @@ export default function App() {
                 type={notification.type}
                 message={notification.message}
             />
-
-            <Transition appear show={isModalOpen} as={Fragment}>
-                <Dialog as="div" className="relative z-50" onClose={closeModal}>
-                    <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
-                        <div className="fixed inset-0 bg-black/70" />
-                    </Transition.Child>
-                    <div className="fixed inset-0 overflow-y-auto">
-                        <div className="flex min-h-full items-center justify-center p-4">
-                            <Dialog.Panel className="w-full max-w-2xl transform bg-[#0a0a0a] border border-neutral-800 p-8 text-left align-middle shadow-2xl transition-all">
-                                <Dialog.Title as="h3" className="text-lg font-mono uppercase tracking-wider text-white mb-2">
-                                    {videoToEdit ? 'Editar Vídeo' : 'Novo Vídeo'}
-                                </Dialog.Title>
-                                <p className="text-[11px] font-mono text-zinc-500 mb-6">
-                                    {videoToEdit ? 'Atualize as informações do caso.' : 'Publique um novo caso ou Short de atualização.'}
-                                </p>
-                                <CreatorUploadForm user={user} profile={profile} onSuccess={handleFormSuccess} videoToEdit={videoToEdit} />
-                            </Dialog.Panel>
-                        </div>
-                    </div>
-                </Dialog>
-            </Transition>
         </>
         </Router>
             </div>

@@ -91,6 +91,44 @@ npx supabase functions deploy send-partner-application
 
 A function valida campos, escapa HTML nos e-mails, limita a 3 envios por hora por IP e retorna erro genérico em falhas internas.
 
+### Checkout Stripe (planos de investigador)
+
+A página `/plans` usa Stripe Checkout via Edge Functions quando `VITE_STRIPE_CHECKOUT_ENABLED=true`.
+
+**1. Stripe Dashboard**
+
+- Crie produtos/preços recorrentes (Mensal e Anual) em BRL.
+- Anote os Price IDs (`price_...`).
+- Em **Developers → Webhooks**, crie um endpoint apontando para:
+  `https://<project-ref>.supabase.co/functions/v1/stripe-webhook`
+- Eventos recomendados: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`.
+
+**2. Secrets no Supabase**
+
+```bash
+npx supabase secrets set STRIPE_SECRET_KEY=sk_test_...
+npx supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
+npx supabase secrets set STRIPE_PRICE_MONTHLY=price_...
+npx supabase secrets set STRIPE_PRICE_ANNUAL=price_...
+npx supabase secrets set SITE_URL=https://darkstream.tv
+```
+
+**3. Variável no frontend (Vercel / `.env`)**
+
+| Variável | Descrição |
+|----------|-----------|
+| `VITE_STRIPE_CHECKOUT_ENABLED` | `true` para usar Stripe; omita ou `false` para modo demo local |
+
+**4. Migration e deploy**
+
+```bash
+npx supabase db push
+npx supabase functions deploy create-checkout-session
+npx supabase functions deploy stripe-webhook
+```
+
+Sem `VITE_STRIPE_CHECKOUT_ENABLED=true`, o checkout continua em **modo demonstrativo** (atualiza o perfil no Supabase sem cobrança).
+
 ## Segurança (RLS)
 
 Políticas recomendadas estão em `supabase/migrations/`. **Revise no Dashboard antes de aplicar** — o banco remoto pode já ter políticas equivalentes.
@@ -128,6 +166,7 @@ Ao substituir o arquivo de um vídeo existente, o banco só é atualizado depois
 |----------|----------|
 | `VITE_SUPABASE_URL` | Production, Preview, Development |
 | `VITE_SUPABASE_ANON_KEY` | Production, Preview, Development |
+| `VITE_STRIPE_CHECKOUT_ENABLED` | Production (opcional: Preview para testes) |
 
 6. Configure o domínio customizado (`darkstream.tv`) em **Settings → Domains**.
 

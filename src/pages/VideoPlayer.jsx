@@ -26,8 +26,11 @@ import {
 import { registerVideoView, normalizeVideoViews } from '../utils/videoViews';
 import {
   readVideoProgress,
-  saveVideoProgress,
 } from '../utils/videoPlayback';
+import {
+  fetchWatchProgress,
+  persistWatchProgress,
+} from '../utils/watchHistory';
 
 const PlayIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
@@ -207,6 +210,7 @@ export default function VideoPlayer({ user }) {
   const hasRestoredProgressRef = useRef(false);
   const hasStartedPlaybackRef = useRef(false);
   const hasLoadedVideoRef = useRef(false);
+  const savedProgressRef = useRef(0);
 
   useEffect(() => {
     videoDataRef.current = video;
@@ -218,10 +222,17 @@ export default function VideoPlayer({ user }) {
     setProgress((el.currentTime / el.duration) * 100 || 0);
 
     const now = Date.now();
-    if (videoId && now - lastPlaybackSaveRef.current > 2000) {
+    if (videoId && now - lastPlaybackSaveRef.current > 10000) {
       lastPlaybackSaveRef.current = now;
-      saveVideoProgress(user?.id, videoId, el.currentTime);
+      persistWatchProgress(user?.id, videoId, el.currentTime, el.duration);
     }
+  }, [videoId, user?.id]);
+
+  const flushWatchProgress = useCallback(() => {
+    const el = videoRef.current;
+    if (!el || !videoId) return;
+    persistWatchProgress(user?.id, videoId, el.currentTime, el.duration);
+    lastPlaybackSaveRef.current = Date.now();
   }, [videoId, user?.id]);
 
   // Espelham o estado nativo do <video>; nunca disparam .play()/.pause() imperativos.
@@ -229,9 +240,14 @@ export default function VideoPlayer({ user }) {
     setIsPlaying(true);
   }, []);
 
-  const handlePause = useCallback(() => {
+  const handlePause = useCallback((e) => {
     setIsPlaying(false);
-  }, []);
+    const el = e?.currentTarget || videoRef.current;
+    if (el && videoId) {
+      persistWatchProgress(user?.id, videoId, el.currentTime, el.duration);
+      lastPlaybackSaveRef.current = Date.now();
+    }
+  }, [videoId, user?.id]);
 
   const handleVideoEnded = useCallback(() => {
     setIsPlaying(false);
@@ -256,7 +272,7 @@ export default function VideoPlayer({ user }) {
     if (hasRestoredProgressRef.current) return;
 
     const el = e.currentTarget;
-    const savedTime = readVideoProgress(user?.id, videoId);
+    const savedTime = savedProgressRef.current || readVideoProgress(user?.id, videoId);
     if (savedTime > 0 && el.currentTime < 1) {
       el.currentTime = savedTime;
       setCurrentTime(savedTime);
@@ -514,16 +530,32 @@ export default function VideoPlayer({ user }) {
     hasRestoredProgressRef.current = false;
     hasStartedPlaybackRef.current = false;
     hasLoadedVideoRef.current = false;
+    savedProgressRef.current = 0;
     setIsFloating(false);
     setFloatingDismissed(false);
     floatingDismissedRef.current = false;
     setEndAutoplayActive(false);
     setEndAutoplayTarget(null);
     setEndAutoplaySeconds(END_AUTOPLAY_SECONDS);
+  }, [videoId, user?.id]);
 
-    const savedTime = readVideoProgress(user?.id, videoId);
-    setCurrentTime(savedTime);
-    setProgress(0);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSavedProgress() {
+      const progress = await fetchWatchProgress(user?.id, videoId);
+      if (cancelled) return;
+      savedProgressRef.current = progress;
+      if (progress > 0) {
+        setCurrentTime(progress);
+      }
+    }
+
+    loadSavedProgress();
+
+    return () => {
+      cancelled = true;
+    };
   }, [videoId, user?.id]);
 
   useEffect(() => {
@@ -656,7 +688,7 @@ export default function VideoPlayer({ user }) {
 
     hasStartedPlaybackRef.current = true;
 
-    const savedTime = readVideoProgress(user?.id, videoId);
+    const savedTime = savedProgressRef.current || readVideoProgress(user?.id, videoId);
     if (savedTime > 0 && currentVideo.currentTime < 1) {
       currentVideo.currentTime = savedTime;
       setCurrentTime(savedTime);
@@ -742,15 +774,16 @@ export default function VideoPlayer({ user }) {
   useEffect(() => {
     const persistProgressOnHide = () => {
       if (!document.hidden) return;
-      const el = videoRef.current;
-      if (!el || !videoId) return;
-      saveVideoProgress(user?.id, videoId, el.currentTime);
-      lastPlaybackSaveRef.current = Date.now();
+      flushWatchProgress();
     };
 
     document.addEventListener('visibilitychange', persistProgressOnHide);
     return () => document.removeEventListener('visibilitychange', persistProgressOnHide);
-  }, [videoId, user?.id]);
+  }, [flushWatchProgress]);
+
+  useEffect(() => () => {
+    flushWatchProgress();
+  }, [flushWatchProgress]);
 
   useEffect(() => {
     if (showIntro) return undefined;
@@ -1198,6 +1231,7 @@ export default function VideoPlayer({ user }) {
           <div className="grid grid-cols-12 gap-8 lg:gap-10">
             <div className="col-span-12 lg:col-span-8 space-y-8">
               <header className="space-y-3">
+                <div className="space-y-3 min-w-0">
                 <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
                   Caso em exibição
                 </p>
@@ -1219,9 +1253,10 @@ export default function VideoPlayer({ user }) {
                     </>
                   )}
                 </div>
+                </div>
               </header>
 
-              <div className="flex items-center gap-4 py-4 border-y border-dark-border">
+              <div className="flex flex-wrap items-center gap-3 gap-y-4 py-4 border-y border-dark-border">
                 <Link
                   to={partnerProfilePath}
                   className="flex items-center gap-4 flex-1 min-w-0 group"
@@ -1251,7 +1286,7 @@ export default function VideoPlayer({ user }) {
                     type="button"
                     onClick={handleFollowToggle}
                     disabled={isProcessingFollow}
-                    className={`flex-shrink-0 border px-3 py-1 text-xs uppercase tracking-wider transition-colors disabled:opacity-50 ${
+                    className={`flex-shrink-0 border px-3 py-2 text-xs uppercase tracking-wider transition-colors disabled:opacity-50 ${
                       isSubscribed
                         ? 'border-brand-primary/60 text-brand-primary hover:border-brand-primary'
                         : 'border-dark-border text-white hover:bg-dark-border'

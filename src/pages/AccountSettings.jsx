@@ -1,9 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import AnimatedPage from '../AnimatedPage';
+import SiteContainer from '../components/SiteContainer';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import { useAuth } from '../contexts/AuthProvider';
 import { PROFILE_FIELDS_SELECT, resolveAvatarUrl } from '../utils/profileMedia';
 import { supabase } from '../supabase';
+
+const TABS = [
+  { id: 'overview', label: 'Visão Geral' },
+  { id: 'subscription', label: 'Assinatura' },
+  { id: 'security', label: 'Segurança' },
+  { id: 'devices', label: 'Aparelhos' },
+];
 
 const INVESTIGATOR_PLANS = [
   {
@@ -47,23 +56,34 @@ const INVESTIGATOR_PLANS = [
   },
 ];
 
+const MOCK_DEVICES = [
+  { id: '1', name: 'Windows · Chrome', location: 'São Paulo, BR', lastActive: 'Agora', current: true },
+  { id: '2', name: 'iPhone · Safari', location: 'São Paulo, BR', lastActive: 'Há 2 dias', current: false },
+];
+
 function SectionCard({ title, subtitle, children, accent = false }) {
   return (
     <section
-      className={`border bg-zinc-950/80 p-6 md:p-8 space-y-5 ${
+      className={`space-y-5 border bg-zinc-950/80 p-6 md:p-8 ${
         accent
           ? 'border-brand-primary/30 shadow-[0_0_40px_rgba(241,196,15,0.06)]'
           : 'border-zinc-800'
       }`}
     >
-      <header className="space-y-1">
-        <p className="text-[10px] font-mono uppercase tracking-[0.35em] text-zinc-600">
-          {subtitle}
-        </p>
-        <h2 className="text-lg md:text-xl font-mono uppercase tracking-wider text-white">
-          {title}
-        </h2>
-      </header>
+      {(title || subtitle) && (
+        <header className="space-y-1">
+          {subtitle && (
+            <p className="text-[10px] font-mono uppercase tracking-[0.35em] text-zinc-600">
+              {subtitle}
+            </p>
+          )}
+          {title && (
+            <h2 className="text-lg font-mono uppercase tracking-wider text-white md:text-xl">
+              {title}
+            </h2>
+          )}
+        </header>
+      )}
       {children}
     </section>
   );
@@ -72,19 +92,19 @@ function SectionCard({ title, subtitle, children, accent = false }) {
 function PlanOptionCard({ plan, isCurrent, isSaving, onSelect }) {
   return (
     <article
-      className={`relative flex flex-col border p-5 md:p-6 transition-colors ${
+      className={`relative flex flex-col border p-5 transition-colors md:p-6 ${
         plan.highlight
           ? 'border-brand-primary/50 bg-[linear-gradient(180deg,#140606_0%,#0a0a0a_100%)]'
           : 'border-zinc-800 bg-black/40 hover:border-zinc-700'
       }`}
     >
       {plan.highlight && (
-        <span className="absolute -top-3 left-4 bg-brand-primary text-black text-[9px] font-mono font-bold uppercase tracking-widest px-2 py-0.5">
+        <span className="absolute -top-3 left-4 bg-brand-primary px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest text-black">
           Recomendado
         </span>
       )}
 
-      <div className="space-y-1 mb-4">
+      <div className="mb-4 space-y-1">
         <h3 className="text-sm font-mono uppercase tracking-wider text-white">{plan.name}</h3>
         {plan.savings && (
           <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-500/90">
@@ -100,10 +120,10 @@ function PlanOptionCard({ plan, isCurrent, isSaving, onSelect }) {
         </p>
       </div>
 
-      <ul className="space-y-2 mb-6 flex-1">
+      <ul className="mb-6 flex-1 space-y-2">
         {plan.benefits.map((benefit) => (
-          <li key={benefit} className="flex gap-2 text-[12px] text-zinc-400 leading-snug">
-            <span className="text-brand-primary shrink-0" aria-hidden="true">▸</span>
+          <li key={benefit} className="flex gap-2 text-[12px] leading-snug text-zinc-400">
+            <span className="shrink-0 text-brand-primary" aria-hidden="true">▸</span>
             {benefit}
           </li>
         ))}
@@ -115,12 +135,12 @@ function PlanOptionCard({ plan, isCurrent, isSaving, onSelect }) {
         onClick={() => onSelect(plan)}
         className={`w-full py-2.5 text-[11px] font-mono uppercase tracking-widest transition-colors ${
           isCurrent
-            ? 'border border-zinc-700 text-zinc-500 cursor-default'
+            ? 'cursor-default border border-zinc-700 text-zinc-500'
             : isSaving
-              ? 'border border-zinc-700 text-zinc-600 cursor-wait'
-            : plan.highlight
-              ? 'bg-brand-primary text-black hover:opacity-90'
-              : 'border border-zinc-700 text-zinc-200 hover:border-brand-primary/50 hover:text-brand-primary'
+              ? 'cursor-wait border border-zinc-700 text-zinc-600'
+              : plan.highlight
+                ? 'bg-brand-primary text-black hover:opacity-90'
+                : 'border border-zinc-700 text-zinc-200 hover:border-brand-primary/50 hover:text-brand-primary'
         }`}
       >
         {isCurrent ? 'Plano Atual' : isSaving ? 'Salvando...' : 'Selecionar Plano'}
@@ -129,14 +149,54 @@ function PlanOptionCard({ plan, isCurrent, isSaving, onSelect }) {
   );
 }
 
+function QuickLink({ children, onClick, to }) {
+  const className =
+    'flex w-full items-center justify-between border border-zinc-800 bg-black/30 px-4 py-3 text-left transition-colors hover:border-brand-primary/40 hover:bg-zinc-900/50';
+
+  if (to) {
+    return (
+      <Link to={to} className={className}>
+        <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-300">{children}</span>
+        <span className="text-brand-primary" aria-hidden="true">→</span>
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} className={className}>
+      <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-300">{children}</span>
+      <span className="text-brand-primary" aria-hidden="true">→</span>
+    </button>
+  );
+}
+
+function TabPlaceholder({ title, description }) {
+  return (
+    <SectionCard title={title} subtitle="Em breve">
+      <p className="text-sm leading-relaxed text-zinc-400">{description}</p>
+    </SectionCard>
+  );
+}
+
 export default function AccountSettings() {
   const { user, profile, loading, profileLoading, refreshProfile } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState('overview');
   const [accountLoading, setAccountLoading] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [planError, setPlanError] = useState(null);
+  const subscriptionSuccess = searchParams.get('subscribed') === '1';
+
+  useEffect(() => {
+    if (!subscriptionSuccess) return undefined;
+    const timer = setTimeout(() => {
+      setSearchParams({}, { replace: true });
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [subscriptionSuccess, setSearchParams]);
 
   useEffect(() => {
     if (loading || profileLoading || !user?.id) return undefined;
@@ -145,7 +205,6 @@ export default function AccountSettings() {
     setAccountLoading(true);
 
     const loadAccountData = async () => {
-      // Placeholder até integração com billing/Stripe no Supabase.
       const activePlanId = profile?.subscription_plan || null;
       const activeStatus = profile?.subscription_status || null;
       const savedPayment = profile?.payment_method_last4
@@ -153,7 +212,7 @@ export default function AccountSettings() {
             brand: profile?.payment_method_brand || 'Cartão',
             last4: profile.payment_method_last4,
           }
-        : null;
+        : { brand: 'Pix', last4: null, isPix: true };
 
       if (!isMounted) return;
 
@@ -175,8 +234,9 @@ export default function AccountSettings() {
       return {
         id: 'free',
         label: 'Gratuito / Recruta',
-        description: 'Acesso ao catálogo público, crachá de investigador e participação básica na comunidade.',
+        description: 'Acesso ao catálogo público e participação básica na comunidade.',
         isPaid: false,
+        price: 'R$ 0,00',
       };
     }
 
@@ -184,14 +244,21 @@ export default function AccountSettings() {
     const isActive = subscriptionStatus === 'active';
     return {
       id: selectedPlanId,
-      label: matched
-        ? `Investigador — Plano ${matched.name}`
-        : 'Investigador Premium',
+      label: matched ? `Investigador — Plano ${matched.name}` : 'Investigador Premium',
       description: 'Plano ativo com benefícios premium desbloqueados.',
       isPaid: true,
       isActive,
+      price: matched?.price || '—',
+      cadence: matched?.cadence || '',
     };
   }, [selectedPlanId, subscriptionStatus]);
+
+  const memberSinceYear = useMemo(() => {
+    if (profile?.created_at) {
+      return new Date(profile.created_at).getFullYear();
+    }
+    return 2026;
+  }, [profile?.created_at]);
 
   const avatarUrl = resolveAvatarUrl(profile);
 
@@ -228,17 +295,201 @@ export default function AccountSettings() {
     setPaymentMethod({
       brand: 'Visa',
       last4: '4242',
+      isPix: false,
     });
+  };
+
+  const renderOverview = () => (
+    <div className="space-y-6">
+      <SectionCard accent={currentPlan.isPaid}>
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="space-y-2">
+              <p className="text-[10px] font-mono uppercase tracking-[0.35em] text-brand-primary">
+                {currentPlan.isPaid ? `Assinante desde ${memberSinceYear}` : 'Conta gratuita'}
+              </p>
+              <h2 className="text-xl font-mono uppercase tracking-wider text-white md:text-2xl">
+                {currentPlan.label}
+              </h2>
+              {currentPlan.isPaid && currentPlan.isActive && (
+                <span className="inline-flex items-center border border-emerald-500/40 bg-emerald-950/30 px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest text-emerald-400">
+                  Ativo
+                </span>
+              )}
+            </div>
+            {currentPlan.isPaid && (
+              <p className="text-right font-mono text-brand-primary">
+                {currentPlan.price}
+                <span className="text-sm text-zinc-500">{currentPlan.cadence}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 border-t border-zinc-800 pt-6 sm:grid-cols-2">
+            <div>
+              <p className="mb-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                Próxima cobrança
+              </p>
+              <p className="text-sm font-mono text-zinc-200">
+                {currentPlan.isPaid ? '15/03/2026' : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                Forma de pagamento
+              </p>
+              <p className="text-sm font-mono text-zinc-200">
+                {paymentMethod?.isPix
+                  ? 'Pix (cadastrado)'
+                  : paymentMethod?.last4
+                    ? `${paymentMethod.brand} ·••• ${paymentMethod.last4}`
+                    : 'Não cadastrado'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Atalhos Rápidos" subtitle="Central da conta">
+        <div className="space-y-2">
+          <QuickLink to="/plans">Alterar plano</QuickLink>
+          <QuickLink onClick={() => setActiveTab('subscription')}>Gerenciar forma de pagamento</QuickLink>
+          <QuickLink onClick={() => setActiveTab('devices')}>Gerenciar aparelhos</QuickLink>
+        </div>
+      </SectionCard>
+    </div>
+  );
+
+  const renderSubscription = () => (
+    <div className="space-y-6">
+      <SectionCard title="Informações do Plano" subtitle="Assinatura">
+        <div className="space-y-2">
+          <p className="text-xl font-mono uppercase tracking-wider text-white">{currentPlan.label}</p>
+          <p className="text-sm text-zinc-400">{currentPlan.description}</p>
+          {planError && <p className="text-sm text-red-400">{planError}</p>}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Forma de Pagamento" subtitle="Billing">
+        {paymentMethod && !paymentMethod.isPix ? (
+          <div className="flex flex-col gap-4 border border-zinc-800 bg-black/30 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="mb-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                Cartão cadastrado
+              </p>
+              <p className="text-sm font-mono text-zinc-200">
+                {paymentMethod.brand} ·••• {paymentMethod.last4}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddCard}
+              className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 transition-colors hover:text-brand-primary"
+            >
+              Atualizar cartão
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4 border border-dashed border-zinc-800 px-5 py-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-zinc-500">
+              {paymentMethod?.isPix ? 'Pix cadastrado como forma de pagamento.' : 'Nenhum método cadastrado.'}
+            </p>
+            <button
+              type="button"
+              onClick={handleAddCard}
+              className="border border-zinc-700 px-5 py-2.5 text-[11px] font-mono uppercase tracking-widest text-zinc-200 transition-colors hover:border-brand-primary/50 hover:text-brand-primary"
+            >
+              {paymentMethod?.isPix ? 'Alterar para cartão' : 'Adicionar cartão'}
+            </button>
+          </div>
+        )}
+        <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-600">
+          Integração de pagamento em breve — fluxo demonstrativo local.
+        </p>
+      </SectionCard>
+
+      <div className="space-y-5">
+        <header className="space-y-1">
+          <p className="text-[10px] font-mono uppercase tracking-[0.35em] text-zinc-600">
+            Escolha seu nível
+          </p>
+          <h2 className="text-lg font-mono uppercase tracking-wider text-white md:text-xl">
+            Planos de Investigador
+          </h2>
+        </header>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {INVESTIGATOR_PLANS.map((plan) => (
+            <PlanOptionCard
+              key={plan.id}
+              plan={plan}
+              isCurrent={selectedPlanId === plan.id && subscriptionStatus === 'active'}
+              isSaving={isSavingPlan}
+              onSelect={handleSelectPlan}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSecurity = () => (
+    <TabPlaceholder
+      title="Segurança"
+      description="Em breve você poderá alterar sua senha, ativar verificação em duas etapas e revisar sessões ativas da conta."
+    />
+  );
+
+  const renderDevices = () => (
+    <div className="space-y-6">
+      <SectionCard title="Aparelhos Conectados" subtitle="Sessões ativas">
+        <ul className="divide-y divide-zinc-800">
+          {MOCK_DEVICES.map((device) => (
+            <li
+              key={device.id}
+              className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div>
+                <p className="text-sm font-mono text-white">{device.name}</p>
+                <p className="text-[11px] text-zinc-500">
+                  {device.location} · {device.lastActive}
+                </p>
+              </div>
+              {device.current ? (
+                <span className="text-[10px] font-mono uppercase tracking-wider text-brand-primary">
+                  Este aparelho
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 transition-colors hover:text-red-400"
+                >
+                  Encerrar sessão
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </SectionCard>
+    </div>
+  );
+
+  const tabContent = {
+    overview: renderOverview,
+    subscription: renderSubscription,
+    security: renderSecurity,
+    devices: renderDevices,
   };
 
   if (loading || profileLoading || accountLoading) {
     return (
       <AnimatedPage>
-        <div className="min-h-[60vh] flex items-center justify-center">
-          <p className="text-[11px] font-mono uppercase tracking-widest text-zinc-500 animate-pulse">
-            Carregando credenciais...
-          </p>
-        </div>
+        <SiteContainer className="py-12">
+          <div className="flex min-h-[50vh] items-center justify-center">
+            <p className="animate-pulse text-[11px] font-mono uppercase tracking-widest text-zinc-500">
+              Carregando credenciais...
+            </p>
+          </div>
+        </SiteContainer>
       </AnimatedPage>
     );
   }
@@ -246,23 +497,22 @@ export default function AccountSettings() {
   return (
     <AnimatedPage>
       <SeoHead
-        title="Gerenciar Conta e Planos | Dark Stream"
+        title="Minha Conta | Dark Stream"
         description={DEFAULT_SITE_DESCRIPTION}
       />
 
-      <div className="max-w-5xl mx-auto py-8 md:py-12 space-y-8 md:space-y-10">
-        <header className="space-y-4 border-b border-zinc-800/80 pb-8">
+      <SiteContainer className="py-8 md:py-12">
+        <header className="mb-8 space-y-4 border-b border-zinc-800 pb-8">
           <p className="text-[10px] font-mono uppercase tracking-[0.35em] text-zinc-600">
-            Central de Credenciais
+            Central de Configurações
           </p>
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="space-y-2">
-              <h1 className="text-2xl md:text-3xl font-mono uppercase tracking-wider text-white">
-                Gerenciar Conta / Planos
+              <h1 className="text-2xl font-mono uppercase tracking-wider text-white md:text-3xl">
+                Minha Conta
               </h1>
-              <p className="text-sm text-zinc-400 max-w-2xl">
-                Controle sua assinatura de investigador, forma de pagamento e nível de acesso
-                na plataforma Dark Stream.
+              <p className="max-w-2xl text-sm text-zinc-400">
+                Gerencie assinatura, pagamento, segurança e aparelhos conectados.
               </p>
             </div>
             {profile?.username && (
@@ -271,10 +521,10 @@ export default function AccountSettings() {
                   <img
                     src={avatarUrl}
                     alt={profile.username}
-                    className="w-10 h-10 rounded-md object-cover border border-zinc-800"
+                    className="h-10 w-10 rounded-md border border-zinc-800 object-cover"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-md bg-zinc-900 border border-zinc-800" />
+                  <div className="h-10 w-10 rounded-md border border-zinc-800 bg-zinc-900" />
                 )}
                 <div>
                   <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
@@ -287,104 +537,41 @@ export default function AccountSettings() {
           </div>
         </header>
 
-        <SectionCard
-          title="Informações do Plano"
-          subtitle="Status da assinatura"
-          accent={!currentPlan.isPaid}
-        >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="space-y-2">
-              <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-                Plano atual
-              </p>
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-xl font-mono uppercase tracking-wider text-white">
-                  {currentPlan.label}
-                </p>
-                {currentPlan.isPaid && currentPlan.isActive && (
-                  <span className="inline-flex items-center border border-emerald-500/40 bg-emerald-950/30 px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest text-emerald-400">
-                    Ativo
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-zinc-400 max-w-xl">{currentPlan.description}</p>
-              {planError && (
-                <p className="text-sm text-red-400">{planError}</p>
-              )}
-            </div>
-
-            {!currentPlan.isPaid && (
-              <a
-                href="#planos"
-                className="inline-flex justify-center shrink-0 bg-[linear-gradient(135deg,#140606_0%,#2a0a0a_100%)] border border-red-900/40 px-6 py-3 text-[11px] font-mono uppercase tracking-widest text-brand-primary hover:border-brand-primary/40 transition-colors"
-              >
-                Assinar plano investigador
-              </a>
-            )}
+        {subscriptionSuccess && (
+          <div className="mb-8 border border-emerald-500/40 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-300">
+            Assinatura confirmada. Seu plano será atualizado em instantes após a confirmação do pagamento.
           </div>
-        </SectionCard>
+        )}
 
-        <SectionCard title="Forma de Pagamento" subtitle="Billing">
-          {paymentMethod ? (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border border-zinc-800 bg-black/30 px-5 py-4">
-              <div>
-                <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-1">
-                  Cartão cadastrado
-                </p>
-                <p className="text-sm font-mono text-zinc-200">
-                  {paymentMethod.brand} ·••• {paymentMethod.last4}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleAddCard}
-                className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 hover:text-brand-primary transition-colors"
-              >
-                Atualizar cartão
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border border-dashed border-zinc-800 px-5 py-6">
-              <p className="text-sm text-zinc-500">
-                Nenhum método de pagamento cadastrado.
-              </p>
-              <button
-                type="button"
-                onClick={handleAddCard}
-                className="border border-zinc-700 px-5 py-2.5 text-[11px] font-mono uppercase tracking-widest text-zinc-200 hover:border-brand-primary/50 hover:text-brand-primary transition-colors"
-              >
-                Adicionar Cartão
-              </button>
-            </div>
-          )}
-          <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">
-            Integração de pagamento em breve — fluxo demonstrativo local.
-          </p>
-        </SectionCard>
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
+          <nav
+            className="space-y-1 md:col-span-1"
+            aria-label="Configurações da conta"
+          >
+            {TABS.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full border px-4 py-3 text-left text-[11px] font-mono uppercase tracking-wider transition-colors ${
+                    isActive
+                      ? 'border-brand-primary/50 bg-brand-primary/10 text-brand-primary'
+                      : 'border-zinc-800 bg-zinc-950/50 text-zinc-400 hover:border-zinc-700 hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
 
-        <div id="planos" className="scroll-mt-8 space-y-5">
-          <header className="space-y-1">
-            <p className="text-[10px] font-mono uppercase tracking-[0.35em] text-zinc-600">
-              Escolha seu nível
-            </p>
-            <h2 className="text-lg md:text-xl font-mono uppercase tracking-wider text-white">
-              Planos de Investigador
-            </h2>
-          </header>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
-            {INVESTIGATOR_PLANS.map((plan) => (
-              <PlanOptionCard
-                key={plan.id}
-                plan={plan}
-                isCurrent={selectedPlanId === plan.id && subscriptionStatus === 'active'}
-                isSaving={isSavingPlan}
-                onSelect={handleSelectPlan}
-              />
-            ))}
+          <div className="md:col-span-3">
+            {tabContent[activeTab]?.()}
           </div>
         </div>
-      </div>
+      </SiteContainer>
     </AnimatedPage>
   );
 }

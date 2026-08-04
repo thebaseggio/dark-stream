@@ -1,5 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthProvider';
+import WatchlistButton from './WatchlistButton';
 
 const VerifiedIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor">
@@ -55,9 +57,14 @@ export default function VideoCard({
   orientation = 'vertical',
   variant = 'default',
   fullWidth = false,
+  progressPercent,
+  showProgressBar = false,
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const thumbnail = getThumbnail(video);
+  const watchProgress = progressPercent ?? video.watchProgressPercent;
+  const displayProgress = showProgressBar && typeof watchProgress === 'number' && watchProgress > 0;
 
   const handleCardClick = () => {
     const path = `/video/${video.id}`;
@@ -157,15 +164,40 @@ export default function VideoCard({
 
   return (
     <div
-      className={`relative ${widthClass} min-w-0 max-w-full cursor-pointer group/card transition-transform duration-300 ease-out hover:scale-[1.02] hover:z-30`}
+      className={`relative ${widthClass} min-w-0 max-w-full cursor-pointer group/card`}
       onClick={handleCardClick}
     >
       <div className="relative overflow-hidden rounded-lg border border-dark-border bg-dark-panel">
         <img
           src={thumbnail}
           alt={video.title}
-          className="aspect-video w-full rounded-lg object-cover object-center transition-transform duration-300 group-hover/card:scale-105"
+          className="aspect-video w-full object-cover object-center transition-transform duration-300 group-hover/card:scale-105"
         />
+
+        {displayProgress && watchProgress < 95 && (
+          <div className="absolute inset-x-0 bottom-0 z-10 h-1 bg-zinc-900/90">
+            <div
+              className="h-full bg-brand-primary transition-all duration-300"
+              style={{ width: `${watchProgress}%` }}
+            />
+          </div>
+        )}
+
+        <div
+          className="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover/card:opacity-100"
+          onClick={(event) => {
+            event.stopPropagation();
+            event.preventDefault();
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <WatchlistButton
+            userId={user?.id}
+            videoId={video.id}
+            variant="card"
+            loginReturnPath={`/video/${video.id}`}
+          />
+        </div>
 
         <div className="absolute inset-x-0 bottom-0 translate-y-2 opacity-0 group-hover/card:translate-y-0 group-hover/card:opacity-100 transition-all duration-300">
           <div className="bg-gradient-to-t from-black via-black/85 to-transparent px-3 pb-3 pt-10">
@@ -185,12 +217,14 @@ export default function VideoCard({
         </div>
       </div>
 
-      <h3 className="mt-2 text-[11px] font-mono uppercase tracking-wider text-white line-clamp-2 leading-snug group-hover/card:text-brand-primary transition-colors duration-300">
-        {video.title}
-      </h3>
-      <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mt-1">
-        {formattedViews(video.views)} · {timeAgo(video.created_at)}
-      </p>
+      <div className="mt-2 px-1">
+        <h3 className="text-[11px] font-mono uppercase tracking-wider text-white line-clamp-2 leading-snug group-hover/card:text-brand-primary transition-colors duration-300">
+          {video.title}
+        </h3>
+        <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider mt-1">
+          {formattedViews(video.views)} · {timeAgo(video.created_at)}
+        </p>
+      </div>
     </div>
   );
 }

@@ -68,7 +68,7 @@ function MenuLink({ to, onSelect, children, className = '' }) {
 export default function UserMenu({ profile, onLogout }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
-  const isPartner = profile?.role === 'partner';
+  const isDashboardUser = ['partner', 'admin', 'tester'].includes(profile?.role);
 
   const closeMenu = () => setOpen(false);
 
@@ -129,14 +129,14 @@ export default function UserMenu({ profile, onLogout }) {
             Meu Crachá
           </MenuLink>
 
-          {isPartner && (
-            <MenuLink to="/meu-perfil" onSelect={closeMenu}>
+          {isDashboardUser && (
+            <MenuLink to="/partner/dashboard" onSelect={closeMenu}>
               Painel do Parceiro
             </MenuLink>
           )}
 
-          <MenuLink to="/conta" onSelect={closeMenu}>
-            Gerenciar Conta / Planos
+          <MenuLink to="/account" onSelect={closeMenu}>
+            Minha Conta
           </MenuLink>
 
           <div className="border-t border-zinc-800 my-1" role="separator" />

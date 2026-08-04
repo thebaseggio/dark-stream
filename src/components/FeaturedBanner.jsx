@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
 import SiteContainer from './SiteContainer';
+import WatchlistButton from './WatchlistButton';
 
 const MARCOS_CAMPOS_CREATOR_ID = 'd0781217-8eb0-4d8d-b32b-ce785dbb6227';
 const TRAILER_DELAY_MS = 3000;
@@ -29,7 +30,7 @@ export function pickFeaturedVideo(videos) {
   return marcosVideo || videos[0];
 }
 
-export default function FeaturedBanner({ featuredVideo, onNavigate }) {
+export default function FeaturedBanner({ featuredVideo, onNavigate, user }) {
   const navigate = useNavigate();
   const videoRef = useRef(null);
   const [showTrailer, setShowTrailer] = useState(false);
@@ -165,7 +166,7 @@ export default function FeaturedBanner({ featuredVideo, onNavigate }) {
               </p>
             )}
 
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
               <button
                 type="button"
                 onClick={handleWatch}
@@ -173,6 +174,13 @@ export default function FeaturedBanner({ featuredVideo, onNavigate }) {
               >
                 Assistir
               </button>
+
+              <WatchlistButton
+                userId={user?.id}
+                videoId={featuredVideo.id}
+                variant="hero"
+                loginReturnPath="/casos"
+              />
 
               {showTrailer && featuredVideo.videoUrl && (
                 <button

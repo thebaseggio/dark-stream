@@ -2,7 +2,14 @@ import React from 'react';
 import CarouselContainer from './CarouselContainer';
 import VideoCard from './VideoCard';
 
-export default function CategoryRow({ title, videos, onNavigate, variant, linkable = true }) {
+export default function CategoryRow({
+  title,
+  videos,
+  onNavigate,
+  variant,
+  linkable = true,
+  showProgressBar = false,
+}) {
   if (!videos || videos.length === 0) return null;
 
   const handleTitleClick = () => {
@@ -31,6 +38,7 @@ export default function CategoryRow({ title, videos, onNavigate, variant, linkab
             video={video}
             onNavigate={onNavigate}
             variant={variant}
+            showProgressBar={showProgressBar}
           />
         ))}
       </CarouselContainer>

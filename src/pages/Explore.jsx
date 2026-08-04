@@ -1,6 +1,6 @@
 // src/pages/Explore.jsx
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
 import SkeletonCard from './SkeletonCard';
@@ -9,36 +9,72 @@ import FeaturedBanner, { pickFeaturedVideo } from '../components/FeaturedBanner'
 import SiteContainer from '../components/SiteContainer';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthProvider';
 import {
   fetchUserFeedback,
   normalizeFeedbackEntries,
   filterVideosByFeedback,
   buildRecommendedVideos,
 } from '../utils/userFeedback';
+import { fetchContinueWatching } from '../utils/watchHistory';
+import { fetchWatchlist } from '../utils/watchlist';
 
 const DEFAULT_CATEGORIES = [
   'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados',
   'Serial Killers', 'Documentários', 'Sobrenaturais',
 ];
 
-export default function Explore({ user }) {
+export default function Explore({ user: userProp }) {
   const navigate = useNavigate();
+  const { user: authUser, loading: authLoading } = useAuth();
+  const user = authUser || userProp;
+  const userId = user?.id;
+
   const [groupedVideos, setGroupedVideos] = useState({});
   const [categories, setCategories] = useState([]);
   const [featuredVideo, setFeaturedVideo] = useState(null);
   const [recommendedVideos, setRecommendedVideos] = useState([]);
+  const [continueWatching, setContinueWatching] = useState([]);
+  const [watchlist, setWatchlist] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isNavigating, setIsNavigating] = useState(false);
 
+  const loadUserLibrary = useCallback(async (activeUserId) => {
+    if (!activeUserId) {
+      setContinueWatching([]);
+      setWatchlist([]);
+      return;
+    }
+
+    const [continueRes, watchlistRes] = await Promise.all([
+      fetchContinueWatching(activeUserId),
+      fetchWatchlist(activeUserId),
+    ]);
+
+    setContinueWatching(continueRes || []);
+    setWatchlist(watchlistRes || []);
+  }, []);
+
   useEffect(() => {
-    const fetchInitialData = async () => {
+    if (authLoading) return undefined;
+
+    loadUserLibrary(userId);
+
+    const handleFocus = () => {
+      if (userId) {
+        loadUserLibrary(userId);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [authLoading, userId, loadUserLibrary]);
+
+  useEffect(() => {
+    const fetchCatalogData = async () => {
       setLoading(true);
 
-      const [
-        categoriesRes,
-        videosRes,
-        feedbackRes,
-      ] = await Promise.all([
+      const [categoriesRes, videosRes, feedbackRes] = await Promise.all([
         supabase
           .from('categories')
           .select('name')
@@ -49,7 +85,7 @@ export default function Explore({ user }) {
           .eq('is_short', false)
           .is('parent_video_id', null)
           .order('created_at', { ascending: false }),
-        user?.id ? fetchUserFeedback(user.id) : Promise.resolve([]),
+        userId ? fetchUserFeedback(userId) : Promise.resolve([]),
       ]);
 
       let categoriesData = [];
@@ -97,8 +133,10 @@ export default function Explore({ user }) {
       setLoading(false);
     };
 
-    fetchInitialData();
-  }, [user?.id]);
+    if (!authLoading) {
+      fetchCatalogData();
+    }
+  }, [userId, authLoading]);
 
   const handleNavigation = (path) => {
     setIsNavigating(true);
@@ -106,9 +144,11 @@ export default function Explore({ user }) {
   };
 
   const hasContent = useMemo(
-    () => recommendedVideos.length > 0
+    () => continueWatching.length > 0
+      || watchlist.length > 0
+      || recommendedVideos.length > 0
       || categories.some((category) => groupedVideos[category]?.length > 0),
-    [recommendedVideos.length, categories, groupedVideos]
+    [continueWatching.length, watchlist.length, recommendedVideos.length, categories, groupedVideos]
   );
 
   return (
@@ -120,7 +160,7 @@ export default function Explore({ user }) {
 
       <div className={`w-full transition-opacity duration-500 ${isNavigating ? 'opacity-0' : 'opacity-100'}`}>
         {!loading && featuredVideo && (
-          <FeaturedBanner featuredVideo={featuredVideo} onNavigate={handleNavigation} />
+          <FeaturedBanner featuredVideo={featuredVideo} onNavigate={handleNavigation} user={user} />
         )}
 
         <div className="pb-12">
@@ -139,6 +179,29 @@ export default function Explore({ user }) {
             ))
           ) : (
             <>
+              {userId && watchlist.length > 0 && (
+                <SiteContainer className="my-8">
+                  <CategoryRow
+                    title="Sua Lista"
+                    videos={watchlist}
+                    onNavigate={handleNavigation}
+                    linkable={false}
+                  />
+                </SiteContainer>
+              )}
+
+              {userId && continueWatching.length > 0 && (
+                <SiteContainer className="my-8">
+                  <CategoryRow
+                    title="Continuar Assistindo"
+                    videos={continueWatching}
+                    onNavigate={handleNavigation}
+                    linkable={false}
+                    showProgressBar
+                  />
+                </SiteContainer>
+              )}
+
               {recommendedVideos.length > 0 && (
                 <SiteContainer className="my-8">
                   <CategoryRow
