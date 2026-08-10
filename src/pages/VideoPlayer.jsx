@@ -23,6 +23,12 @@ import {
   saveUserFeedback,
   saveLocalFeedback,
 } from '../utils/userFeedback';
+import {
+  playIntroSound,
+  preloadIntroSound,
+  retryIntroSoundAfterUserGesture,
+  stopIntroSound,
+} from '../utils/soundEffects';
 import { registerVideoView, normalizeVideoViews } from '../utils/videoViews';
 import {
   readVideoProgress,
@@ -162,6 +168,14 @@ function isEditableElement(element) {
   return element.isContentEditable;
 }
 
+const INTRO_PRIMARY_LINE_CLASS =
+  'text-2xl font-medium tracking-[0.2em] uppercase text-zinc-300 text-center max-w-3xl leading-relaxed';
+
+const INTRO_SECONDARY_LINE_CLASS =
+  'mt-3 text-sm tracking-widest uppercase text-zinc-500 text-center';
+
+const INTRO_DISSOLVE_MS = 1200;
+
 export default function VideoPlayer({ user }) {
   const { id: videoId } = useParams();
   const navigate = useNavigate();
@@ -178,6 +192,8 @@ export default function VideoPlayer({ user }) {
   const [isProcessingRating, setIsProcessingRating] = useState(false);
 
   const [showIntro, setShowIntro] = useState(true);
+  const [isIntroDissolving, setIsIntroDissolving] = useState(false);
+  const [introStep, setIntroStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(0.8);
@@ -185,9 +201,6 @@ export default function VideoPlayer({ user }) {
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [areControlsVisible, setAreControlsVisible] = useState(true);
-  const [introStep, setIntroStep] = useState(1);
-  const [fadeOutFirstPart, setFadeOutFirstPart] = useState(false);
-  const [fadeOutSecondPart, setFadeOutSecondPart] = useState(false);
   const [isFloating, setIsFloating] = useState(false);
   const [floatingDismissed, setFloatingDismissed] = useState(false);
   const [endAutoplayActive, setEndAutoplayActive] = useState(false);
@@ -211,10 +224,51 @@ export default function VideoPlayer({ user }) {
   const hasStartedPlaybackRef = useRef(false);
   const hasLoadedVideoRef = useRef(false);
   const savedProgressRef = useRef(0);
+  const introSoundBlockedRef = useRef(false);
+  const introSequenceRef = useRef(0);
+
+  const isIntroBlockingUi = showIntro || isIntroDissolving;
+
+  useEffect(() => {
+    preloadIntroSound();
+  }, []);
 
   useEffect(() => {
     videoDataRef.current = video;
   }, [video]);
+
+  const finishIntroOverlay = useCallback(() => {
+    setShowIntro(false);
+    setIsIntroDissolving(false);
+    setIntroStep(0);
+  }, []);
+
+  const startIntroDissolve = useCallback(() => {
+    introSequenceRef.current += 1;
+    setIsIntroDissolving(true);
+    window.setTimeout(finishIntroOverlay, INTRO_DISSOLVE_MS);
+  }, [finishIntroOverlay]);
+
+  const handleSkipIntro = useCallback(async () => {
+    if (introSoundBlockedRef.current) {
+      await retryIntroSoundAfterUserGesture();
+      introSoundBlockedRef.current = false;
+    }
+    await stopIntroSound({ fadeOutMs: 180 });
+    if (introStep < 1) {
+      setIntroStep(1);
+    }
+    startIntroDissolve();
+  }, [introStep, startIntroDissolve]);
+
+  const handleIntroPointerDown = useCallback(async () => {
+    if (!introSoundBlockedRef.current) return;
+
+    const result = await retryIntroSoundAfterUserGesture();
+    if (result.ok) {
+      introSoundBlockedRef.current = false;
+    }
+  }, []);
 
   useEffect(() => {
     if (video) {
@@ -467,7 +521,6 @@ export default function VideoPlayer({ user }) {
     floatingDismissedRef.current = true;
     setFloatingDismissed(true);
     setIsFloating(false);
-    playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
   const endCardShort = useMemo(() => getEndCardShort(updateShorts), [updateShorts]);
@@ -523,10 +576,12 @@ export default function VideoPlayer({ user }) {
   };
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+
     setShowIntro(true);
-    setIntroStep(1);
-    setFadeOutFirstPart(false);
-    setFadeOutSecondPart(false);
+    setIsIntroDissolving(false);
+    setIntroStep(0);
+    introSequenceRef.current += 1;
     setIsPlaying(false);
     setDuration(0);
     setVolume(0.8);
@@ -673,24 +728,54 @@ export default function VideoPlayer({ user }) {
 
   useEffect(() => {
     if (!loading && video?.id && sessionStorage.getItem(AUTOPLAY_NEXT_KEY) === '1') {
-      setShowIntro(false);
-      setIntroStep(2);
+      introSequenceRef.current += 1;
+      finishIntroOverlay();
     }
-  }, [loading, video?.id]);
+  }, [loading, video?.id, finishIntroOverlay]);
 
   useEffect(() => {
-    if (!loading && video?.id) {
-      const t1 = setTimeout(() => setFadeOutFirstPart(true), 3500);
-      const t2 = setTimeout(() => setIntroStep(2), 4000);
-      const t3 = setTimeout(() => setFadeOutSecondPart(true), 7500);
-      const t4 = setTimeout(() => setShowIntro(false), 8000);
-      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
-    }
-  }, [loading, video?.id]);
+    if (!showIntro || loading || !video?.id) return undefined;
+
+    const sequenceId = introSequenceRef.current + 1;
+    introSequenceRef.current = sequenceId;
+
+    let cancelled = false;
+
+    playIntroSound().then((result) => {
+      introSoundBlockedRef.current = Boolean(result.blocked);
+      if (cancelled && result.ok) {
+        stopIntroSound({ fadeOutMs: 180 });
+      }
+    });
+
+    const timer1 = window.setTimeout(() => {
+      if (introSequenceRef.current !== sequenceId) return;
+      setIntroStep(1);
+    }, 2500);
+
+    const timer2 = window.setTimeout(() => {
+      if (introSequenceRef.current !== sequenceId) return;
+      setIsIntroDissolving(true);
+    }, 5000);
+
+    const timer3 = window.setTimeout(() => {
+      if (introSequenceRef.current !== sequenceId) return;
+      finishIntroOverlay();
+    }, 5000 + INTRO_DISSOLVE_MS);
+
+    return () => {
+      cancelled = true;
+      stopIntroSound({ fadeOutMs: 220 });
+      window.clearTimeout(timer1);
+      window.clearTimeout(timer2);
+      window.clearTimeout(timer3);
+    };
+  }, [showIntro, loading, finishIntroOverlay, video?.id]);
 
   useEffect(() => {
     const currentVideo = videoRef.current;
-    if (showIntro !== false || !currentVideo || hasStartedPlaybackRef.current) return;
+    if (!currentVideo || hasStartedPlaybackRef.current) return;
+    if (showIntro && !isIntroDissolving) return;
 
     hasStartedPlaybackRef.current = true;
 
@@ -716,7 +801,7 @@ export default function VideoPlayer({ user }) {
     if (playPromise !== undefined) {
       playPromise.catch(() => setIsPlaying(false));
     }
-  }, [showIntro, videoId, user?.id]);
+  }, [showIntro, isIntroDissolving, videoId, user?.id]);
 
   useEffect(() => {
     floatingDismissedRef.current = floatingDismissed;
@@ -732,7 +817,7 @@ export default function VideoPlayer({ user }) {
   }, [isFloating]);
 
   useEffect(() => {
-    if (showIntro) return undefined;
+    if (isIntroBlockingUi) return undefined;
 
     const handleScroll = () => {
       if (!playerRef.current) return;
@@ -759,7 +844,7 @@ export default function VideoPlayer({ user }) {
       window.removeEventListener('scroll', handleScroll);
       document.removeEventListener('scroll', handleScroll);
     };
-  }, [showIntro]);
+  }, [isIntroBlockingUi]);
 
   useEffect(() => {
     if (!endAutoplayActive || !endAutoplayTarget?.id) return undefined;
@@ -792,7 +877,7 @@ export default function VideoPlayer({ user }) {
   }, [flushWatchProgress]);
 
   useEffect(() => {
-    if (showIntro) return undefined;
+    if (isIntroBlockingUi) return undefined;
 
     const handleKeyDown = (e) => {
       if (isEditableElement(e.target) || isEditableElement(document.activeElement)) return;
@@ -834,14 +919,14 @@ export default function VideoPlayer({ user }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showIntro, togglePlayPause, toggleFullScreen, toggleMute, seekBySeconds, adjustVolume]);
+  }, [isIntroBlockingUi, togglePlayPause, toggleFullScreen, toggleMute, seekBySeconds, adjustVolume]);
 
   useEffect(() => () => {
     if (actionOverlayTimerRef.current) clearTimeout(actionOverlayTimerRef.current);
   }, []);
 
   useEffect(() => {
-    if (showIntro) return undefined;
+    if (isIntroBlockingUi) return undefined;
 
     const handleFullscreenChange = () => {
       const isPlayerFullscreen = document.fullscreenElement === playerSurfaceRef.current;
@@ -857,7 +942,7 @@ export default function VideoPlayer({ user }) {
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [showIntro, showActionOverlay]);
+  }, [isIntroBlockingUi, showActionOverlay]);
 
   if (!user) {
     return (
@@ -893,36 +978,49 @@ export default function VideoPlayer({ user }) {
   const partnerProfilePath =
     getPartnerProfilePath(video.creator_id) || `/parceiro/${video.creator_id?.id}`;
 
-  if (showIntro) {
+  const renderIntroOverlay = () => {
+    if (!isIntroBlockingUi) return null;
+
     return (
-      <div className="bg-dark-pure w-full h-full fixed inset-0 flex items-center justify-center z-50 overflow-hidden font-sans">
-        <SeoHead
-          title={videoSeoTitle}
-          description={videoSeoDescription}
-          image={videoSeoImage}
-          type="video.other"
-        />
-        {introStep === 1 ? (
-          <div className={`text-center text-white p-4 animate-fade-in ${fadeOutFirstPart ? 'animate-fade-out' : ''}`}>
-            <p className="text-2xl font-medium tracking-[0.2em] uppercase text-zinc-400">
-              Dark Stream <span className="text-white">&</span> {video.creator_id?.username || 'Criador'}
+      <div
+        className={`fixed inset-0 z-[100] flex items-center justify-center overflow-hidden bg-black font-sans transition-opacity duration-[1200ms] ease-out ${
+          isIntroDissolving ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        }`}
+        onPointerDown={handleIntroPointerDown}
+      >
+        <div className="relative flex min-h-[12rem] w-full max-w-3xl items-center justify-center px-4">
+          <div
+            className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-1000 ease-in-out ${
+              introStep === 0 && !isIntroDissolving ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            <p className={INTRO_PRIMARY_LINE_CLASS}>
+              Dark Stream <span className="text-white/80">&</span> {video.creator_id?.username || 'Criador'}
             </p>
-            <p className="text-sm font-mono text-zinc-500 mt-3 tracking-widest uppercase">Apresentam</p>
+            <p className={INTRO_SECONDARY_LINE_CLASS}>Apresentam</p>
           </div>
-        ) : (
-          <div className={`text-center text-white p-4 animate-fade-in max-w-4xl ${fadeOutSecondPart ? 'animate-fade-out' : ''}`}>
-            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-tight">{video.title}</h1>
+
+          <div
+            className={`absolute inset-0 flex flex-col items-center justify-center px-4 transition-opacity duration-1000 ease-in-out ${
+              introStep >= 1 ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            <h1 className={INTRO_PRIMARY_LINE_CLASS}>{video.title}</h1>
           </div>
+        </div>
+
+        {!isIntroDissolving && (
+          <button
+            type="button"
+            onClick={handleSkipIntro}
+            className="absolute bottom-8 right-8 border border-dark-border text-white text-[11px] font-mono uppercase tracking-[0.15em] px-4 py-2 hover:bg-dark-panel transition-colors"
+          >
+            Pular intro
+          </button>
         )}
-        <button
-          onClick={() => setShowIntro(false)}
-          className="absolute bottom-8 right-8 border border-dark-border text-white text-[11px] font-mono uppercase tracking-[0.15em] px-4 py-2 hover:bg-dark-panel transition-colors"
-        >
-          Pular intro
-        </button>
       </div>
     );
-  }
+  };
 
   const categories = formatCategories(video.category);
   const showCommunitySuggestionBadge = Boolean(
@@ -1176,6 +1274,7 @@ export default function VideoPlayer({ user }) {
 
   return (
     <div className="VideoPlayer min-h-full w-full max-w-full overflow-x-hidden">
+      {renderIntroOverlay()}
       <SeoHead
         title={videoSeoTitle}
         description={videoSeoDescription}
