@@ -24,6 +24,122 @@ export function saveLocalFeedback(videoId, rating) {
   writeLocalFeedback(map);
 }
 
+export function clearLocalFeedback(videoId) {
+  const map = readLocalFeedback();
+  delete map[videoId];
+  writeLocalFeedback(map);
+}
+
+export function reactionToFeedbackType(reaction) {
+  if (reaction === FEEDBACK_LIKE) return 'gostei';
+  if (reaction === FEEDBACK_DISLIKE) return 'nao_gostei';
+  return null;
+}
+
+export function applyVideoFeedbackCounters(video, previousFeedbackType, nextFeedbackType) {
+  if (!video) return video;
+
+  const updates = { ...video };
+
+  if (previousFeedbackType === 'gostei') {
+    updates.gostei = Math.max(0, (video.gostei || 0) - 1);
+  } else if (previousFeedbackType === 'nao_gostei') {
+    updates.nao_gostei = Math.max(0, (video.nao_gostei || 0) - 1);
+  }
+
+  if (nextFeedbackType === 'gostei') {
+    updates.gostei = (updates.gostei ?? video.gostei ?? 0) + 1;
+  } else if (nextFeedbackType === 'nao_gostei') {
+    updates.nao_gostei = (updates.nao_gostei ?? video.nao_gostei ?? 0) + 1;
+  }
+
+  return updates;
+}
+
+function isMissingRpcError(error) {
+  if (!error) return false;
+
+  const message = error.message || '';
+  return (
+    error.code === 'PGRST202'
+    || error.code === '42883'
+    || error.code === '404'
+    || message.includes('apply_video_feedback_change')
+    || message.includes('increment_video_feedback')
+    || message.includes('Could not find the function')
+    || message.includes('404')
+  );
+}
+
+async function syncVideoFeedbackCounters(videoId, previousFeedbackType, nextFeedbackType) {
+  const { error: rpcError } = await supabase.rpc('apply_video_feedback_change', {
+    video_row_id: videoId,
+    previous_type: previousFeedbackType,
+    next_type: nextFeedbackType,
+  });
+
+  if (!rpcError) {
+    return { ok: true };
+  }
+
+  if (!isMissingRpcError(rpcError)) {
+    return { ok: false, error: rpcError };
+  }
+
+  if (!previousFeedbackType && nextFeedbackType) {
+    const { error: incrementError } = await supabase.rpc('increment_video_feedback', {
+      video_row_id: videoId,
+      feedback_type: nextFeedbackType,
+    });
+
+    if (!incrementError) {
+      return { ok: true, fallback: 'increment' };
+    }
+
+    if (!isMissingRpcError(incrementError)) {
+      return { ok: false, error: incrementError };
+    }
+  }
+
+  return { ok: true, skippedCounters: true };
+}
+
+export async function persistVideoReaction({
+  userId,
+  videoId,
+  previousReaction,
+  nextReaction,
+}) {
+  const previousFeedbackType = reactionToFeedbackType(previousReaction);
+  const nextFeedbackType = reactionToFeedbackType(nextReaction);
+
+  try {
+    const counterResult = await syncVideoFeedbackCounters(
+      videoId,
+      previousFeedbackType,
+      nextFeedbackType,
+    );
+
+    if (!counterResult.ok) {
+      return { ok: false, error: counterResult.error };
+    }
+
+    if (userId) {
+      if (nextReaction) {
+        const { error } = await saveUserFeedback(userId, videoId, nextReaction);
+        if (error) return { ok: false, error };
+      } else {
+        const { error } = await removeUserFeedback(userId, videoId);
+        if (error) return { ok: false, error };
+      }
+    }
+
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
 export async function saveUserFeedback(userId, videoId, rating) {
   if (!userId || !videoId) return { error: new Error('Usuário ou vídeo inválido') };
 
@@ -38,6 +154,18 @@ export async function saveUserFeedback(userId, videoId, rating) {
       },
       { onConflict: 'user_id,video_id' }
     );
+
+  return { error };
+}
+
+export async function removeUserFeedback(userId, videoId) {
+  if (!userId || !videoId) return { error: new Error('Usuário ou vídeo inválido') };
+
+  const { error } = await supabase
+    .from('user_feedback')
+    .delete()
+    .eq('user_id', userId)
+    .eq('video_id', videoId);
 
   return { error };
 }

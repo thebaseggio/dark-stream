@@ -16,6 +16,18 @@ function isVideoPlayerRoute(pathname) {
 
 function Header({ user, profile, immersive, chromeVisible }) {
   const navigate = useNavigate();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   const handleLogout = async () => {
     clearVideoProgressSession();
     clearViewRegisteredSession();
@@ -23,13 +35,13 @@ function Header({ user, profile, immersive, chromeVisible }) {
     navigate('/');
   };
 
+  const headerSurfaceClass = isScrolled
+    ? 'bg-black/90 backdrop-blur-md border-b border-zinc-800/80 shadow-2xl'
+    : 'border-b border-transparent bg-gradient-to-b from-black/90 via-black/40 to-transparent';
+
   return (
     <header
-      className={`sticky top-0 z-50 w-full bg-black/90 ${
-        immersive
-          ? `border-b border-dark-border/50 backdrop-blur-md transition-all duration-300 ${chromeVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`
-          : 'border-b border-dark-border/40'
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${headerSurfaceClass}`}
     >
       <SiteContainer>
         <div className="flex h-14 w-full items-center justify-between gap-2 md:h-16">
@@ -109,7 +121,7 @@ export default function MainLayout({ user, profile }) {
     <div className="w-full max-w-full overflow-x-hidden min-h-screen bg-black text-white flex flex-col font-sans">
       <SeoHead title={DEFAULT_SITE_TITLE} description={DEFAULT_SITE_DESCRIPTION} />
       <Header user={user} profile={profile} immersive={immersive} chromeVisible={chromeVisible} />
-      <main className="w-full max-w-full min-w-0 flex-1">
+      <main className="w-full max-w-full min-w-0 flex-1 pt-16 md:pt-20">
         {immersive ? (
           <Outlet context={{ chromeVisible, reportChromeActivity }} />
         ) : (

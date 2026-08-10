@@ -1,6 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthProvider';
+import { buildVideoPathWithResume } from '../utils/videoPlayback';
+import { playIntroSound, unlockAudioContext } from '../utils/soundEffects';
 import WatchlistButton from './WatchlistButton';
 
 const VerifiedIcon = (props) => (
@@ -24,10 +26,36 @@ function getCreatorRole(video) {
   return video.creator?.role || video.creator_role;
 }
 
-function formatDuration(video) {
-  if (video.duration) return video.duration;
-  if (video.runtime) return video.runtime;
-  return null;
+function formatDurationLabel(video) {
+  const candidates = [video.duration, video.runtime, video.duration_seconds];
+
+  for (const value of candidates) {
+    if (typeof value === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(value.trim())) {
+      return value.trim();
+    }
+  }
+
+  const seconds = Number(
+    video.duration_seconds ?? (
+      typeof video.duration === 'number'
+        ? video.duration
+        : typeof video.runtime === 'number'
+          ? video.runtime
+          : Number(video.duration ?? video.runtime)
+    ),
+  );
+
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
 function getDaysSinceCreation(timestamp) {
@@ -67,7 +95,16 @@ export default function VideoCard({
   const displayProgress = showProgressBar && typeof watchProgress === 'number' && watchProgress > 0;
 
   const handleCardClick = () => {
-    const path = `/video/${video.id}`;
+    const isResume = showProgressBar && video.watchProgressSeconds > 0;
+    const path = isResume
+      ? buildVideoPathWithResume(video.id, video.watchProgressSeconds)
+      : `/video/${video.id}`;
+
+    void unlockAudioContext();
+    if (!isResume) {
+      void playIntroSound();
+    }
+
     if (onNavigate) onNavigate(path);
     else navigate(path);
   };
@@ -156,7 +193,7 @@ export default function VideoCard({
     );
   }
 
-  const duration = formatDuration(video);
+  const durationLabel = formatDurationLabel(video);
   const ratingLabel = formatRatingLabel(video);
   const widthClass = fullWidth
     ? 'w-full max-w-full'
@@ -184,6 +221,12 @@ export default function VideoCard({
           </div>
         )}
 
+        {durationLabel && (
+          <span className="absolute bottom-2 right-2 z-10 whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-zinc-200">
+            {durationLabel}
+          </span>
+        )}
+
         <div
           className="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover/card:opacity-100"
           onClick={(event) => {
@@ -208,8 +251,8 @@ export default function VideoCard({
                 <VerifiedIcon className="w-3 h-3 text-zinc-500 flex-shrink-0" title="Parceiro Verificado" />
               )}
             </div>
-            <div className="flex items-center justify-between gap-2 mt-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-              <span>{duration || formattedViews(video.views)}</span>
+            <div className="mt-1 flex items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-wider text-zinc-500">
+              <span className="normal-case tracking-wide">{durationLabel || formattedViews(video.views)}</span>
               {ratingLabel && (
                 <span className="text-brand-primary/80">{ratingLabel} ★</span>
               )}

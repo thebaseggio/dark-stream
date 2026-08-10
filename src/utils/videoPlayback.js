@@ -16,6 +16,22 @@ export function saveVideoProgress(userId, videoId, currentTime) {
   sessionStorage.setItem(getVideoProgressKey(userId, videoId), String(currentTime));
 }
 
+export function parseResumeSecondsFromSearch(search = '') {
+  const params = new URLSearchParams(search);
+  const seconds = Number(params.get('t'));
+  return Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+}
+
+export function shouldFetchResumeProgressFromSearch(search = '') {
+  return new URLSearchParams(search).get('resume') === '1';
+}
+
+export function buildVideoPathWithResume(videoId, progressSeconds) {
+  if (!videoId) return '/casos';
+  if (!progressSeconds || progressSeconds <= 0) return `/video/${videoId}`;
+  return `/video/${videoId}?t=${Math.floor(progressSeconds)}`;
+}
+
 export function clearVideoProgressSession() {
   const keysToRemove = [];
 

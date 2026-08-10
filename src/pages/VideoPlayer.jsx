@@ -1,7 +1,7 @@
 // src/pages/VideoPlayer.jsx
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, Link, useOutletContext } from 'react-router-dom';
+import { useParams, useNavigate, Link, useOutletContext, useLocation } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
 import RestrictedAccessScreen from '../components/RestrictedAccessScreen';
@@ -20,8 +20,11 @@ import {
 import {
   FEEDBACK_LIKE,
   FEEDBACK_DISLIKE,
-  saveUserFeedback,
   saveLocalFeedback,
+  clearLocalFeedback,
+  applyVideoFeedbackCounters,
+  persistVideoReaction,
+  reactionToFeedbackType,
 } from '../utils/userFeedback';
 import {
   playIntroSound,
@@ -31,7 +34,8 @@ import {
 } from '../utils/soundEffects';
 import { registerVideoView, normalizeVideoViews } from '../utils/videoViews';
 import {
-  readVideoProgress,
+  parseResumeSecondsFromSearch,
+  shouldFetchResumeProgressFromSearch,
 } from '../utils/videoPlayback';
 import {
   fetchWatchProgress,
@@ -118,9 +122,27 @@ function getSessionVoteKey(videoId) {
   return `darkstream:video-vote:${videoId}`;
 }
 
-function readSessionVote(videoId) {
+function readStoredUserReaction(videoId) {
   if (!videoId) return null;
-  return sessionStorage.getItem(getSessionVoteKey(videoId));
+
+  const raw = sessionStorage.getItem(getSessionVoteKey(videoId));
+  if (raw === RECOMMEND_VOTE || raw === FEEDBACK_LIKE) return FEEDBACK_LIKE;
+  if (raw === NOT_RECOMMEND_VOTE || raw === FEEDBACK_DISLIKE) return FEEDBACK_DISLIKE;
+  return null;
+}
+
+function persistStoredUserReaction(videoId, reaction) {
+  if (!videoId) return;
+
+  if (!reaction) {
+    sessionStorage.removeItem(getSessionVoteKey(videoId));
+    return;
+  }
+
+  sessionStorage.setItem(
+    getSessionVoteKey(videoId),
+    reaction === FEEDBACK_LIKE ? RECOMMEND_VOTE : NOT_RECOMMEND_VOTE,
+  );
 }
 
 function formatCategories(category) {
@@ -178,6 +200,7 @@ const INTRO_DISSOLVE_MS = 1200;
 
 export default function VideoPlayer({ user }) {
   const { id: videoId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const { chromeVisible = true, reportChromeActivity } = useOutletContext() || {};
 
@@ -188,7 +211,7 @@ export default function VideoPlayer({ user }) {
   const [subscriberCount, setSubscriberCount] = useState(0);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isProcessingFollow, setIsProcessingFollow] = useState(false);
-  const [sessionVote, setSessionVote] = useState(null);
+  const [userReaction, setUserReaction] = useState(null);
   const [isProcessingRating, setIsProcessingRating] = useState(false);
 
   const [showIntro, setShowIntro] = useState(true);
@@ -207,6 +230,7 @@ export default function VideoPlayer({ user }) {
   const [endAutoplayTarget, setEndAutoplayTarget] = useState(null);
   const [endAutoplaySeconds, setEndAutoplaySeconds] = useState(END_AUTOPLAY_SECONDS);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const [playerOverlay, setPlayerOverlay] = useState(null);
   const [timelineHover, setTimelineHover] = useState(null);
 
@@ -250,11 +274,7 @@ export default function VideoPlayer({ user }) {
   }, [finishIntroOverlay]);
 
   const handleSkipIntro = useCallback(async () => {
-    if (introSoundBlockedRef.current) {
-      await retryIntroSoundAfterUserGesture();
-      introSoundBlockedRef.current = false;
-    }
-    await stopIntroSound({ fadeOutMs: 180 });
+    await stopIntroSound({ immediate: true });
     if (introStep < 1) {
       setIntroStep(1);
     }
@@ -332,12 +352,17 @@ export default function VideoPlayer({ user }) {
     if (hasRestoredProgressRef.current) return;
 
     const el = e.currentTarget;
-    const savedTime = savedProgressRef.current || readVideoProgress(user?.id, videoId);
+    const savedTime = savedProgressRef.current;
     if (savedTime > 0 && el.currentTime < 1) {
       el.currentTime = savedTime;
       setCurrentTime(savedTime);
       setProgress((savedTime / el.duration) * 100 || 0);
       hasRestoredProgressRef.current = true;
+      return;
+    }
+
+    if (savedTime <= 0) {
+      el.currentTime = 0;
     }
   }, [videoId, user?.id]);
 
@@ -539,48 +564,57 @@ export default function VideoPlayer({ user }) {
   };
 
   const handleFeedbackVote = async (voteType) => {
-    if (sessionVote || isProcessingRating) return;
+    if (isProcessingRating) return;
+
+    const previousReaction = userReaction;
+    const targetReaction = voteType === RECOMMEND_VOTE ? FEEDBACK_LIKE : FEEDBACK_DISLIKE;
+    const nextReaction = previousReaction === targetReaction ? null : targetReaction;
+    const previousFeedbackType = reactionToFeedbackType(previousReaction);
+    const nextFeedbackType = reactionToFeedbackType(nextReaction);
+
+    setUserReaction(nextReaction);
+    setVideo((prev) => applyVideoFeedbackCounters(prev, previousFeedbackType, nextFeedbackType));
+    persistStoredUserReaction(videoId, nextReaction);
+
+    if (nextReaction) {
+      saveLocalFeedback(videoId, nextReaction);
+    } else {
+      clearLocalFeedback(videoId);
+    }
 
     setIsProcessingRating(true);
 
-    const feedbackType = voteType === RECOMMEND_VOTE ? 'gostei' : 'nao_gostei';
-    const preferenceRating = voteType === RECOMMEND_VOTE ? FEEDBACK_LIKE : FEEDBACK_DISLIKE;
+    try {
+      const result = await persistVideoReaction({
+        userId: user?.id,
+        videoId,
+        previousReaction,
+        nextReaction,
+      });
 
-    const [{ error }, preferenceResult] = await Promise.all([
-      supabase.rpc('increment_video_feedback', {
-        video_row_id: videoId,
-        feedback_type: feedbackType,
-      }),
-      user
-        ? saveUserFeedback(user.id, videoId, preferenceRating)
-        : Promise.resolve({ error: null }),
-    ]);
-
-    if (error) {
+      if (!result.ok) {
+        throw result.error || new Error('Falha ao registrar feedback.');
+      }
+    } catch (error) {
       console.error('Erro ao registrar feedback:', error);
-    } else {
-      sessionStorage.setItem(getSessionVoteKey(videoId), voteType);
-      saveLocalFeedback(videoId, preferenceRating);
-      setSessionVote(voteType);
-      setVideo((prev) => ({
-        ...prev,
-        [feedbackType]: (prev?.[feedbackType] || 0) + 1,
-      }));
-    }
 
-    if (preferenceResult?.error) {
-      console.error('Erro ao salvar preferência do usuário:', preferenceResult.error);
-    }
+      setUserReaction(previousReaction);
+      setVideo((prev) => applyVideoFeedbackCounters(prev, nextFeedbackType, previousFeedbackType));
+      persistStoredUserReaction(videoId, previousReaction);
 
-    setIsProcessingRating(false);
+      if (previousReaction) {
+        saveLocalFeedback(videoId, previousReaction);
+      } else {
+        clearLocalFeedback(videoId);
+      }
+    } finally {
+      setIsProcessingRating(false);
+    }
   };
 
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    setShowIntro(true);
-    setIsIntroDissolving(false);
-    setIntroStep(0);
     introSequenceRef.current += 1;
     setIsPlaying(false);
     setDuration(0);
@@ -591,33 +625,61 @@ export default function VideoPlayer({ user }) {
     hasRestoredProgressRef.current = false;
     hasStartedPlaybackRef.current = false;
     hasLoadedVideoRef.current = false;
-    savedProgressRef.current = 0;
+    setIsIntroDissolving(false);
+    setIntroStep(0);
     setIsFloating(false);
     setFloatingDismissed(false);
     floatingDismissedRef.current = false;
     setEndAutoplayActive(false);
     setEndAutoplayTarget(null);
     setEndAutoplaySeconds(END_AUTOPLAY_SECONDS);
-  }, [videoId, user?.id]);
+    setIsSynopsisExpanded(false);
 
-  useEffect(() => {
     let cancelled = false;
 
-    async function loadSavedProgress() {
-      const progress = await fetchWatchProgress(user?.id, videoId);
-      if (cancelled) return;
-      savedProgressRef.current = progress;
-      if (progress > 0) {
-        setCurrentTime(progress);
+    async function initPlaybackMode() {
+      const resumeFromUrl = parseResumeSecondsFromSearch(location.search);
+
+      if (resumeFromUrl > 0) {
+        savedProgressRef.current = resumeFromUrl;
+        setCurrentTime(resumeFromUrl);
+        setShowIntro(false);
+        return;
       }
+
+      if (shouldFetchResumeProgressFromSearch(location.search)) {
+        const progress = await fetchWatchProgress(user?.id, videoId);
+        if (cancelled) return;
+
+        if (progress > 0) {
+          savedProgressRef.current = progress;
+          setCurrentTime(progress);
+          setShowIntro(false);
+          return;
+        }
+      }
+
+      if (sessionStorage.getItem(AUTOPLAY_NEXT_KEY) === '1') {
+        const progress = await fetchWatchProgress(user?.id, videoId);
+        if (cancelled) return;
+
+        savedProgressRef.current = progress > 0 ? progress : 0;
+        setCurrentTime(savedProgressRef.current);
+        setShowIntro(false);
+        return;
+      }
+
+      savedProgressRef.current = 0;
+      setCurrentTime(0);
+      setShowIntro(true);
     }
 
-    loadSavedProgress();
+    initPlaybackMode();
 
     return () => {
       cancelled = true;
     };
-  }, [videoId, user?.id]);
+  }, [videoId, user?.id, location.search]);
 
   useEffect(() => {
     const userId = user?.id;
@@ -647,7 +709,7 @@ export default function VideoPlayer({ user }) {
         if (!creatorId) {
           setSubscriberCount(0);
           setIsSubscribed(false);
-          setSessionVote(readSessionVote(videoId));
+          setUserReaction(readStoredUserReaction(videoId));
           setUpdateShorts([]);
           return;
         }
@@ -667,7 +729,7 @@ export default function VideoPlayer({ user }) {
 
         setSubscriberCount(subscriberCountResult);
         setIsSubscribed(followingResult);
-        setSessionVote(readSessionVote(videoId));
+        setUserReaction(readStoredUserReaction(videoId));
         setUpdateShorts(shortsRes.data || []);
       } catch {
         setSubscriberCount(0);
@@ -727,13 +789,6 @@ export default function VideoPlayer({ user }) {
   }, [video?.creator_id?.id, videoId]);
 
   useEffect(() => {
-    if (!loading && video?.id && sessionStorage.getItem(AUTOPLAY_NEXT_KEY) === '1') {
-      introSequenceRef.current += 1;
-      finishIntroOverlay();
-    }
-  }, [loading, video?.id, finishIntroOverlay]);
-
-  useEffect(() => {
     if (!showIntro || loading || !video?.id) return undefined;
 
     const sequenceId = introSequenceRef.current + 1;
@@ -744,7 +799,7 @@ export default function VideoPlayer({ user }) {
     playIntroSound().then((result) => {
       introSoundBlockedRef.current = Boolean(result.blocked);
       if (cancelled && result.ok) {
-        stopIntroSound({ fadeOutMs: 180 });
+        stopIntroSound({ immediate: true });
       }
     });
 
@@ -765,7 +820,7 @@ export default function VideoPlayer({ user }) {
 
     return () => {
       cancelled = true;
-      stopIntroSound({ fadeOutMs: 220 });
+      stopIntroSound({ immediate: true });
       window.clearTimeout(timer1);
       window.clearTimeout(timer2);
       window.clearTimeout(timer3);
@@ -779,12 +834,16 @@ export default function VideoPlayer({ user }) {
 
     hasStartedPlaybackRef.current = true;
 
-    const savedTime = savedProgressRef.current || readVideoProgress(user?.id, videoId);
+    const savedTime = savedProgressRef.current;
     if (savedTime > 0 && currentVideo.currentTime < 1) {
       currentVideo.currentTime = savedTime;
       setCurrentTime(savedTime);
       setProgress((savedTime / currentVideo.duration) * 100 || 0);
       hasRestoredProgressRef.current = true;
+    } else {
+      currentVideo.currentTime = 0;
+      setCurrentTime(0);
+      setProgress(0);
     }
 
     currentVideo.volume = 0.8;
@@ -1344,27 +1403,25 @@ export default function VideoPlayer({ user }) {
                 <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
                   Caso em exibição
                 </p>
-                <h1 className="text-2xl lg:text-3xl font-semibold leading-snug tracking-tight text-white">
+                <h1 className="font-mono text-2xl font-semibold uppercase tracking-wider leading-snug text-white lg:text-3xl">
                   {video.title}
                 </h1>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-mono text-zinc-500 uppercase tracking-wider min-w-0">
-                    <span>
-                      {new Date(video.created_at).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </span>
-                    {categories?.length > 0 && (
-                      <>
-                        <span className="text-zinc-700">|</span>
-                        <span>{categories.join(' · ')}</span>
-                      </>
-                    )}
-                  </div>
+                <div className="flex flex-wrap items-center gap-3 text-[11px] font-mono uppercase tracking-wider text-zinc-500 min-w-0">
+                  <span>
+                    {new Date(video.created_at).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </span>
+                  {categories?.length > 0 && (
+                    <>
+                      <span className="text-zinc-700">|</span>
+                      <span>{categories.join(' · ')}</span>
+                    </>
+                  )}
                   {showCommunitySuggestionBadge && (
-                    <span className="inline-flex flex-shrink-0 items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 ml-auto">
+                    <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-amber-400">
                       💡 Sugestão da Comunidade Dark Stream
                     </span>
                   )}
@@ -1372,89 +1429,99 @@ export default function VideoPlayer({ user }) {
                 </div>
               </header>
 
-              <div className="flex flex-wrap items-center gap-3 gap-y-4 py-4 border-y border-dark-border">
-                <Link
-                  to={partnerProfilePath}
-                  className="flex items-center gap-4 flex-1 min-w-0 group"
-                >
-                  <img
-                    src={
-                      video.creator_id.creatorAvatar
-                      || `https://ui-avatars.com/api/?name=${video.creator_id.username.charAt(0)}&background=1a1a1a&color=fff`
-                    }
-                    alt={video.creator_id.username}
-                    className="w-12 h-12 object-cover border border-dark-border group-hover:border-brand-primary transition-colors"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium text-white group-hover:text-brand-primary transition-colors block truncate">
-                      {video.creator_id.username}
-                    </span>
-                    <p className="text-[11px] font-mono text-zinc-500 mt-0.5 uppercase tracking-wider">
-                      {formatFollowerLabel(subscriberCount)}
-                    </p>
-                    <p className="text-[10px] font-mono text-zinc-600 mt-1 uppercase tracking-widest group-hover:text-zinc-400 transition-colors">
-                      Ver canal do parceiro
-                    </p>
-                  </div>
-                </Link>
-                {user?.id !== video.creator_id.id && (
+              <div className="my-4 flex w-full flex-wrap items-center justify-between gap-4 border-y border-zinc-800/80 py-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-3">
+                  <Link
+                    to={partnerProfilePath}
+                    className="group flex min-w-0 items-center gap-3"
+                  >
+                    <img
+                      src={
+                        video.creator_id.creatorAvatar
+                        || `https://ui-avatars.com/api/?name=${video.creator_id.username.charAt(0)}&background=1a1a1a&color=fff`
+                      }
+                      alt={video.creator_id.username}
+                      className="h-12 w-12 flex-shrink-0 border border-dark-border object-cover transition-colors group-hover:border-brand-primary"
+                    />
+                    <div className="min-w-0">
+                      <span className="block truncate font-mono text-sm font-medium uppercase tracking-wider text-white transition-colors group-hover:text-brand-primary">
+                        {video.creator_id.username}
+                      </span>
+                      <p className="mt-0.5 font-mono text-[11px] uppercase tracking-wider text-zinc-500">
+                        {formatFollowerLabel(subscriberCount)}
+                      </p>
+                    </div>
+                  </Link>
+                  {user?.id !== video.creator_id.id && (
+                    <button
+                      type="button"
+                      onClick={handleFollowToggle}
+                      disabled={isProcessingFollow}
+                      className={`flex-shrink-0 whitespace-nowrap border px-3 py-2 font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-50 ${
+                        isSubscribed
+                          ? 'border-brand-primary/60 text-brand-primary hover:border-brand-primary'
+                          : 'border-dark-border text-white hover:bg-dark-border'
+                      }`}
+                    >
+                      {isProcessingFollow ? '…' : isSubscribed ? 'Seguindo' : 'Seguir'}
+                    </button>
+                  )}
+                  <Link
+                    to={partnerProfilePath}
+                    className="flex-shrink-0 whitespace-nowrap border border-dark-border px-3 py-2 font-mono text-xs uppercase tracking-wider text-zinc-300 transition-colors hover:border-brand-primary hover:text-brand-primary"
+                  >
+                    Ver canal
+                  </Link>
+                </div>
+
+                <div className="flex flex-shrink-0 items-center gap-3">
                   <button
                     type="button"
-                    onClick={handleFollowToggle}
-                    disabled={isProcessingFollow}
-                    className={`flex-shrink-0 border px-3 py-2 text-xs uppercase tracking-wider transition-colors disabled:opacity-50 ${
-                      isSubscribed
-                        ? 'border-brand-primary/60 text-brand-primary hover:border-brand-primary'
-                        : 'border-dark-border text-white hover:bg-dark-border'
-                    }`}
-                  >
-                    {isProcessingFollow ? '…' : isSubscribed ? 'Seguindo' : 'Seguir'}
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
-                  Seu feedback
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
                     onClick={() => handleFeedbackVote(RECOMMEND_VOTE)}
-                    disabled={isProcessingRating || Boolean(sessionVote)}
-                    className={`text-[11px] font-mono uppercase tracking-widest px-3 py-3 border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      sessionVote === RECOMMEND_VOTE
-                        ? 'border-dark-border bg-dark-panel text-zinc-100'
-                        : 'border-dark-border text-zinc-300 hover:border-zinc-500 hover:text-white'
-                    }`}
+                    disabled={isProcessingRating}
+                    className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 font-mono text-xs uppercase tracking-widest transition-all disabled:cursor-wait ${
+                      userReaction === FEEDBACK_LIKE
+                        ? 'border-amber-500 bg-amber-500/10 text-amber-400'
+                        : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-amber-500/50 hover:text-amber-400'
+                    } ${isProcessingRating ? 'opacity-60' : ''}`}
                   >
-                    👍 RECOMENDAR
+                    👍 Gostei
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleFeedbackVote(NOT_RECOMMEND_VOTE)}
-                    disabled={isProcessingRating || Boolean(sessionVote)}
-                    className={`text-[11px] font-mono uppercase tracking-widest px-3 py-3 border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      sessionVote === NOT_RECOMMEND_VOTE
-                        ? 'border-dark-border bg-dark-panel text-zinc-300'
-                        : 'border-dark-border text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
-                    }`}
+                    disabled={isProcessingRating}
+                    className={`inline-flex items-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 font-mono text-xs uppercase tracking-widest transition-all disabled:cursor-wait ${
+                      userReaction === FEEDBACK_DISLIKE
+                        ? 'border-zinc-600 bg-zinc-800 text-zinc-200'
+                        : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200'
+                    } ${isProcessingRating ? 'opacity-60' : ''}`}
                   >
-                    👎 OCULTAR CASO
+                    👎 Não gostei
                   </button>
                 </div>
-                {sessionVote && (
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-600">
-                    Feedback registrado nesta sessão.
-                  </p>
-                )}
               </div>
 
               <div className="space-y-2">
                 <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
                   Sinopse
                 </p>
-                <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                <p
+                  className={`text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap ${
+                    isSynopsisExpanded ? '' : 'line-clamp-3'
+                  }`}
+                >
                   {video.description || 'Nenhuma descrição fornecida.'}
                 </p>
+                {Boolean(video.description?.trim()) && (
+                  <button
+                    type="button"
+                    onClick={() => setIsSynopsisExpanded((prev) => !prev)}
+                    className="mt-2 font-mono text-xs uppercase tracking-wider text-amber-400 hover:underline"
+                  >
+                    {isSynopsisExpanded ? 'Recolher' : 'Ler sinopse completa...'}
+                  </button>
+                )}
               </div>
 
               <CaseFilesPanel videoId={videoId} />

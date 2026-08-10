@@ -7,6 +7,7 @@ import {
 } from '../utils/investigatorRank';
 
 const ACCENT = '#eab308';
+const THEORY_MAX_CHARS = 2000;
 
 function formatTheoryDate(timestamp) {
   return new Date(timestamp).toLocaleString('pt-BR', {
@@ -245,20 +246,20 @@ export default function TheoryForum({ videoId, user }) {
             </div>
             <textarea
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={(e) => setContent(e.target.value.slice(0, THEORY_MAX_CHARS))}
               placeholder="> Digite sua teoria sobre o caso..."
               rows={4}
-              maxLength={2000}
-              className="w-full bg-black border border-dark-border text-zinc-200 placeholder-zinc-700 font-mono text-sm p-3 focus:outline-none focus:border-[#eab308] resize-y min-h-[100px]"
+              maxLength={THEORY_MAX_CHARS}
+              className="min-h-[100px] w-full resize-y border border-dark-border bg-black p-3 font-mono text-sm tracking-wide text-zinc-200 placeholder-zinc-700 focus:border-[#eab308] focus:outline-none"
             />
             <div className="flex items-center justify-between gap-3">
-              <p className="text-[9px] font-mono text-zinc-600 uppercase tracking-wider">
-                {content.length}/2000 caracteres
+              <p className="font-mono text-[9px] uppercase tracking-wider text-zinc-600">
+                {content.length}/{THEORY_MAX_CHARS} CARACTERES
               </p>
               <button
                 type="submit"
                 disabled={submitting || !content.trim()}
-                className="rounded-none font-mono uppercase tracking-wider text-[11px] px-5 py-2.5 text-black transition-opacity disabled:opacity-40"
+                className="rounded-none px-5 py-2.5 font-mono text-xs uppercase tracking-widest text-black transition-opacity disabled:opacity-40"
                 style={{ backgroundColor: ACCENT }}
               >
                 {submitting ? 'Registrando...' : 'Enviar Teoria'}

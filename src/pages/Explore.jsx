@@ -143,12 +143,14 @@ export default function Explore({ user: userProp }) {
     setTimeout(() => { navigate(path); }, 500);
   };
 
+  const myList = watchlist;
+
   const hasContent = useMemo(
     () => continueWatching.length > 0
-      || watchlist.length > 0
+      || (myList?.length ?? 0) > 0
       || recommendedVideos.length > 0
       || categories.some((category) => groupedVideos[category]?.length > 0),
-    [continueWatching.length, watchlist.length, recommendedVideos.length, categories, groupedVideos]
+    [continueWatching.length, myList?.length, recommendedVideos.length, categories, groupedVideos]
   );
 
   return (
@@ -179,11 +181,11 @@ export default function Explore({ user: userProp }) {
             ))
           ) : (
             <>
-              {userId && watchlist.length > 0 && (
+              {userId && (myList?.length ?? 0) > 0 && (
                 <SiteContainer className="my-8">
                   <CategoryRow
                     title="Sua Lista"
-                    videos={watchlist}
+                    videos={myList}
                     onNavigate={handleNavigation}
                     linkable={false}
                   />

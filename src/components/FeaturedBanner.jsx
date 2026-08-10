@@ -251,7 +251,7 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
         </div>
       )}
 
-      <div className="relative z-10 flex min-h-[450px] flex-col justify-end py-16 sm:py-24 md:min-h-[550px]">
+      <div className="relative z-10 flex min-h-[450px] flex-col justify-end pt-28 pb-12 md:min-h-[550px] md:pt-36">
         <SiteContainer>
           <div className="max-w-2xl">
             {categories[0] && (
@@ -260,7 +260,7 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
               </p>
             )}
 
-            <h1 className={`${titleSizeClass} font-extrabold uppercase tracking-wide leading-snug text-white max-w-2xl mb-2`}>
+            <h1 className={`${titleSizeClass} font-mono font-extrabold uppercase tracking-wider leading-snug text-white max-w-2xl mb-2`}>
               {currentVideo.title}
             </h1>
 
@@ -304,7 +304,7 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
                     stopHeroClick(event);
                     setIsExpanded((prev) => !prev);
                   }}
-                  className="text-xs text-amber-400 hover:underline my-2 block font-semibold"
+                  className="my-2 block font-mono text-xs uppercase tracking-wider text-amber-400 hover:underline"
                 >
                   {isExpanded ? 'Ver menos' : 'Ver mais...'}
                 </button>
