@@ -216,6 +216,12 @@ export default function VideoPlayer({ user }) {
     videoDataRef.current = video;
   }, [video]);
 
+  useEffect(() => {
+    if (video) {
+      console.log('Dados do Vídeo no Player:', video);
+    }
+  }, [video]);
+
   const handleTimeUpdate = useCallback((e) => {
     const el = e.currentTarget;
     setCurrentTime(el.currentTime);
@@ -919,6 +925,10 @@ export default function VideoPlayer({ user }) {
   }
 
   const categories = formatCategories(video.category);
+  const showCommunitySuggestionBadge = Boolean(
+    video?.is_community_suggestion
+    || video?.tags?.includes('sugestao-comunidade'),
+  );
 
   const renderVideoSurface = (floating) => (
     <div className={floating ? 'relative w-full h-full min-h-[8rem] overflow-hidden' : 'relative h-full w-full max-w-full overflow-hidden'}>
@@ -1238,19 +1248,26 @@ export default function VideoPlayer({ user }) {
                 <h1 className="text-2xl lg:text-3xl font-semibold leading-snug tracking-tight text-white">
                   {video.title}
                 </h1>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-mono text-zinc-500 uppercase tracking-wider">
-                  <span>
-                    {new Date(video.created_at).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </span>
-                  {categories?.length > 0 && (
-                    <>
-                      <span className="text-zinc-700">|</span>
-                      <span>{categories.join(' · ')}</span>
-                    </>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] font-mono text-zinc-500 uppercase tracking-wider min-w-0">
+                    <span>
+                      {new Date(video.created_at).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </span>
+                    {categories?.length > 0 && (
+                      <>
+                        <span className="text-zinc-700">|</span>
+                        <span>{categories.join(' · ')}</span>
+                      </>
+                    )}
+                  </div>
+                  {showCommunitySuggestionBadge && (
+                    <span className="inline-flex flex-shrink-0 items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 ml-auto">
+                      💡 Sugestão da Comunidade Dark Stream
+                    </span>
                   )}
                 </div>
                 </div>
@@ -1311,7 +1328,7 @@ export default function VideoPlayer({ user }) {
                         : 'border-dark-border text-zinc-300 hover:border-zinc-500 hover:text-white'
                     }`}
                   >
-                    Recomendar mais
+                    👍 RECOMENDAR
                   </button>
                   <button
                     onClick={() => handleFeedbackVote(NOT_RECOMMEND_VOTE)}
@@ -1322,7 +1339,7 @@ export default function VideoPlayer({ user }) {
                         : 'border-dark-border text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
                     }`}
                   >
-                    Não recomendar
+                    👎 OCULTAR CASO
                   </button>
                 </div>
                 {sessionVote && (

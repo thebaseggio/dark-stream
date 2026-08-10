@@ -41,7 +41,7 @@ export const PROFILE_FIELDS_CORE =
 
 /** Select explícito — garante que "creatorAvatar" (camelCase) volte do PostgREST */
 export const PROFILE_FIELDS_SELECT =
-  `${PROFILE_FIELDS_CORE}, subscription_plan, subscription_status, payment_method_last4, payment_method_brand, stripe_customer_id, subscription_period_end`;
+  `${PROFILE_FIELDS_CORE}, subscription_plan, subscription_status, payment_method_last4, payment_method_brand, stripe_customer_id, subscription_period_end, is_partner, payout_pix_key, payout_bank_details`;
 
 export function isMissingProfileColumnError(error) {
   if (!error) return false;

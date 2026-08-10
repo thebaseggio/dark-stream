@@ -5,11 +5,19 @@ import SiteContainer from '../components/SiteContainer';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import { useAuth } from '../contexts/AuthProvider';
 import { PROFILE_FIELDS_SELECT, resolveAvatarUrl } from '../utils/profileMedia';
+import { isOfficialPartner } from '../utils/partnerAccess';
 import { supabase } from '../supabase';
 
-const TABS = [
+const INVESTIGATOR_TABS = [
   { id: 'overview', label: 'Visão Geral' },
   { id: 'subscription', label: 'Assinatura' },
+  { id: 'security', label: 'Segurança' },
+  { id: 'devices', label: 'Aparelhos' },
+];
+
+const PARTNER_TABS = [
+  { id: 'overview', label: 'Visão Geral' },
+  { id: 'payout', label: 'Repasse / Pix' },
   { id: 'security', label: 'Segurança' },
   { id: 'devices', label: 'Aparelhos' },
 ];
@@ -188,7 +196,15 @@ export default function AccountSettings() {
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [planError, setPlanError] = useState(null);
+  const [payoutPixKey, setPayoutPixKey] = useState('');
+  const [payoutBankDetails, setPayoutBankDetails] = useState('');
+  const [isSavingPayout, setIsSavingPayout] = useState(false);
+  const [payoutError, setPayoutError] = useState(null);
+  const [payoutSaved, setPayoutSaved] = useState(false);
   const subscriptionSuccess = searchParams.get('subscribed') === '1';
+
+  const isPartner = isOfficialPartner(profile);
+  const accountTabs = isPartner ? PARTNER_TABS : INVESTIGATOR_TABS;
 
   useEffect(() => {
     if (!subscriptionSuccess) return undefined;
@@ -219,6 +235,8 @@ export default function AccountSettings() {
       setSelectedPlanId(activePlanId);
       setSubscriptionStatus(activeStatus);
       setPaymentMethod(savedPayment);
+      setPayoutPixKey(profile?.payout_pix_key || '');
+      setPayoutBankDetails(profile?.payout_bank_details || '');
       setAccountLoading(false);
     };
 
@@ -228,6 +246,12 @@ export default function AccountSettings() {
       isMounted = false;
     };
   }, [loading, profileLoading, user?.id, profile]);
+
+  useEffect(() => {
+    if (isPartner && activeTab === 'subscription') {
+      setActiveTab('overview');
+    }
+  }, [isPartner, activeTab]);
 
   const currentPlan = useMemo(() => {
     if (!selectedPlanId) {
@@ -298,6 +322,152 @@ export default function AccountSettings() {
       isPix: false,
     });
   };
+
+  const handleSavePayout = async (event) => {
+    event.preventDefault();
+    if (!user?.id || isSavingPayout) return;
+
+    setIsSavingPayout(true);
+    setPayoutError(null);
+    setPayoutSaved(false);
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        payout_pix_key: payoutPixKey.trim() || null,
+        payout_bank_details: payoutBankDetails.trim() || null,
+      })
+      .eq('id', user.id)
+      .select(PROFILE_FIELDS_SELECT)
+      .single();
+
+    if (error) {
+      console.error('Erro ao salvar dados de repasse:', error);
+      setPayoutError('Não foi possível salvar os dados de repasse.');
+      setIsSavingPayout(false);
+      return;
+    }
+
+    setPayoutPixKey(data.payout_pix_key || '');
+    setPayoutBankDetails(data.payout_bank_details || '');
+    await refreshProfile();
+    setPayoutSaved(true);
+    setIsSavingPayout(false);
+  };
+
+  const renderPartnerOverview = () => {
+    const hasPayoutData = Boolean(payoutPixKey.trim() || payoutBankDetails.trim());
+
+    return (
+      <div className="space-y-6">
+        <SectionCard accent>
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <p className="text-[10px] font-mono uppercase tracking-[0.35em] text-brand-primary">
+                Parceiro verificado
+              </p>
+              <h2 className="text-xl font-mono uppercase tracking-wider text-white md:text-2xl">
+                Conta de Parceiro
+              </h2>
+              <span className="inline-flex items-center border border-emerald-500/40 bg-emerald-950/30 px-2.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest text-emerald-400">
+                Ativo • Monetização Habilitada
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 border-t border-zinc-800 pt-6 sm:grid-cols-2">
+              <div>
+                <p className="mb-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                  Chave Pix
+                </p>
+                <p className="text-sm font-mono text-zinc-200 break-all">
+                  {payoutPixKey.trim() || 'Não cadastrada'}
+                </p>
+              </div>
+              <div>
+                <p className="mb-1 text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                  Dados bancários
+                </p>
+                <p className="text-sm font-mono text-zinc-200 whitespace-pre-wrap">
+                  {payoutBankDetails.trim() || 'Não cadastrados'}
+                </p>
+              </div>
+            </div>
+
+            {!hasPayoutData && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('payout')}
+                className="text-[11px] font-mono uppercase tracking-wider text-brand-primary transition-colors hover:underline"
+              >
+                Cadastrar dados para repasse mensal →
+              </button>
+            )}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Atalhos Rápidos" subtitle="Central da conta">
+          <div className="space-y-2">
+            <QuickLink to="/partner/dashboard">Painel do Parceiro</QuickLink>
+            <QuickLink onClick={() => setActiveTab('payout')}>Dados de Repasse / Pix</QuickLink>
+            <QuickLink onClick={() => setActiveTab('security')}>Segurança e Senha</QuickLink>
+          </div>
+        </SectionCard>
+      </div>
+    );
+  };
+
+  const renderPayout = () => (
+    <div className="space-y-6">
+      <SectionCard title="Dados de Repasse" subtitle="Monetização">
+        <p className="text-sm leading-relaxed text-zinc-400">
+          Informe a chave Pix ou dados bancários para receber o repasse mensal dos seus casos.
+        </p>
+
+        <form onSubmit={handleSavePayout} className="mt-6 space-y-5">
+          <div>
+            <label htmlFor="payout-pix" className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+              Chave Pix
+            </label>
+            <input
+              id="payout-pix"
+              type="text"
+              value={payoutPixKey}
+              onChange={(e) => setPayoutPixKey(e.target.value)}
+              placeholder="E-mail, CPF, telefone ou chave aleatória"
+              className="mt-2 w-full rounded-lg border border-zinc-800 bg-zinc-900/80 px-4 py-3 font-mono text-sm text-white focus:border-brand-primary focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="payout-bank" className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
+              Dados bancários (opcional)
+            </label>
+            <textarea
+              id="payout-bank"
+              rows="3"
+              value={payoutBankDetails}
+              onChange={(e) => setPayoutBankDetails(e.target.value)}
+              placeholder="Banco, agência, conta, titular…"
+              className="mt-2 w-full resize-none rounded-lg border border-zinc-800 bg-zinc-900/80 px-4 py-3 text-sm text-white focus:border-brand-primary focus:outline-none"
+            />
+          </div>
+
+          {payoutError && <p className="text-sm text-red-400">{payoutError}</p>}
+          {payoutSaved && (
+            <p className="text-sm text-emerald-400">Dados de repasse salvos com sucesso.</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSavingPayout}
+            className="rounded-lg bg-brand-primary px-6 py-3 font-mono text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {isSavingPayout ? 'Salvando…' : 'Salvar dados de repasse'}
+          </button>
+        </form>
+      </SectionCard>
+    </div>
+  );
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -474,8 +644,9 @@ export default function AccountSettings() {
   );
 
   const tabContent = {
-    overview: renderOverview,
+    overview: isPartner ? renderPartnerOverview : renderOverview,
     subscription: renderSubscription,
+    payout: renderPayout,
     security: renderSecurity,
     devices: renderDevices,
   };
@@ -512,7 +683,9 @@ export default function AccountSettings() {
                 Minha Conta
               </h1>
               <p className="max-w-2xl text-sm text-zinc-400">
-                Gerencie assinatura, pagamento, segurança e aparelhos conectados.
+                {isPartner
+                  ? 'Gerencie repasse, segurança e aparelhos conectados da sua conta de parceiro.'
+                  : 'Gerencie assinatura, pagamento, segurança e aparelhos conectados.'}
               </p>
             </div>
             {profile?.username && (
@@ -527,9 +700,15 @@ export default function AccountSettings() {
                   <div className="h-10 w-10 rounded-md border border-zinc-800 bg-zinc-900" />
                 )}
                 <div>
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-                    Investigador
-                  </p>
+                  {isPartner ? (
+                    <span className="inline-flex items-center rounded-full border border-brand-primary/40 bg-brand-primary/10 px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-widest text-brand-primary shadow-[0_0_10px_rgba(241,196,15,0.2)]">
+                      Parceiro Oficial
+                    </span>
+                  ) : (
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                      Investigador
+                    </p>
+                  )}
                   <p className="text-sm font-mono text-brand-primary">{profile.username}</p>
                 </div>
               </div>
@@ -537,7 +716,7 @@ export default function AccountSettings() {
           </div>
         </header>
 
-        {subscriptionSuccess && (
+        {!isPartner && subscriptionSuccess && (
           <div className="mb-8 border border-emerald-500/40 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-300">
             Assinatura confirmada. Seu plano será atualizado em instantes após a confirmação do pagamento.
           </div>
@@ -548,7 +727,7 @@ export default function AccountSettings() {
             className="space-y-1 md:col-span-1"
             aria-label="Configurações da conta"
           >
-            {TABS.map((tab) => {
+            {accountTabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
                 <button

@@ -5,7 +5,7 @@ import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
 import SkeletonCard from './SkeletonCard';
 import CategoryRow from '../components/CategoryRow';
-import FeaturedBanner, { pickFeaturedVideo } from '../components/FeaturedBanner';
+import FeaturedBanner, { pickFeaturedVideos } from '../components/FeaturedBanner';
 import SiteContainer from '../components/SiteContainer';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import { useNavigate } from 'react-router-dom';
@@ -32,7 +32,7 @@ export default function Explore({ user: userProp }) {
 
   const [groupedVideos, setGroupedVideos] = useState({});
   const [categories, setCategories] = useState([]);
-  const [featuredVideo, setFeaturedVideo] = useState(null);
+  const [featuredVideos, setFeaturedVideos] = useState([]);
   const [recommendedVideos, setRecommendedVideos] = useState([]);
   const [continueWatching, setContinueWatching] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
@@ -126,7 +126,7 @@ export default function Explore({ user: userProp }) {
         });
       });
 
-      setFeaturedVideo(pickFeaturedVideo(visibleVideos.length ? visibleVideos : regularVideos));
+      setFeaturedVideos(pickFeaturedVideos(visibleVideos.length ? visibleVideos : regularVideos, 5));
       setRecommendedVideos(recommended);
       setCategories(categoryOrder);
       setGroupedVideos(groups);
@@ -159,8 +159,8 @@ export default function Explore({ user: userProp }) {
       />
 
       <div className={`w-full transition-opacity duration-500 ${isNavigating ? 'opacity-0' : 'opacity-100'}`}>
-        {!loading && featuredVideo && (
-          <FeaturedBanner featuredVideo={featuredVideo} onNavigate={handleNavigation} user={user} />
+        {!loading && featuredVideos.length > 0 && (
+          <FeaturedBanner featuredVideos={featuredVideos} onNavigate={handleNavigation} user={user} />
         )}
 
         <div className="pb-12">

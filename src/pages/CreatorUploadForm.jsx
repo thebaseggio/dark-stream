@@ -19,6 +19,7 @@ import {
   syncCaseFilesForVideo,
   validateCaseFilesInput,
 } from '../utils/caseFilesAdmin.js';
+import { insertVideoRow, updateVideoRow } from '../utils/videoSave.js';
 
 const allCategories = [
   'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados',
@@ -85,6 +86,7 @@ function normalizeVideoFields(formData, creatorId) {
     parent_video_id: formData.is_short && formData.parent_video_id
       ? formData.parent_video_id
       : null,
+    is_community_suggestion: Boolean(formData.is_community_suggestion) && !formData.is_short,
   };
 }
 
@@ -119,7 +121,7 @@ function ShortToggle({ checked, disabled, onChange }) {
   );
 }
 
-export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdit }) {
+export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdit, initialValues }) {
   const { startUpload, uploadState } = useUpload();
   const { showNotification } = useNotification();
   const isUploadBusy = uploadBusyStatuses.includes(uploadState.status);
@@ -133,6 +135,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
     is_short: false,
     short_type: null,
     parent_video_id: null,
+    is_community_suggestion: false,
   });
   const [videoFile, setVideoFile] = useState(null);
   const [thumbnailFile, setThumbnailFile] = useState(null);
@@ -169,11 +172,22 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
         is_short: videoToEdit.is_short || false,
         short_type: videoToEdit.short_type || null,
         parent_video_id: videoToEdit.parent_video_id || null,
+        is_community_suggestion: Boolean(videoToEdit.is_community_suggestion),
       });
-    } else {
-      setCaseFiles([]);
+    } else if (initialValues) {
+      setFormData((prev) => ({
+        ...prev,
+        title: initialValues.title || '',
+        description: '',
+        category: initialValues.category ? [initialValues.category] : [],
+        tags: '',
+        is_short: false,
+        short_type: null,
+        parent_video_id: null,
+        is_community_suggestion: Boolean(initialValues.is_community_suggestion),
+      }));
     }
-  }, [videoToEdit]);
+  }, [videoToEdit, initialValues]);
 
   useEffect(() => {
     let cancelled = false;
@@ -236,11 +250,16 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
       is_short: isShort,
       short_type: isShort ? prev.short_type || 'update' : null,
       parent_video_id: isShort ? prev.parent_video_id : null,
+      is_community_suggestion: isShort ? false : prev.is_community_suggestion,
     }));
 
     if (isShort) {
       setCaseFiles([]);
     }
+  };
+
+  const handleCommunitySuggestionToggle = (checked) => {
+    setFormData((prev) => ({ ...prev, is_community_suggestion: checked }));
   };
 
   const handleAddCaseFile = () => {
@@ -354,11 +373,12 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
           return;
         }
 
-        const { error } = await supabase
-          .from('videos')
-          .update(dataToUpdate)
-          .eq('id', videoToEdit.id)
-          .eq('creator_id', user.id);
+        const { error } = await updateVideoRow(
+          supabase,
+          dataToUpdate,
+          videoToEdit.id,
+          user.id,
+        );
         if (error) throw error;
 
         if (!formData.is_short) {
@@ -387,11 +407,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
 
       if (!videoFile && videoUrl) {
         const { action, case_files, ...videoRow } = metadataToSave;
-        const { data: insertedVideo, error } = await supabase
-          .from('videos')
-          .insert([videoRow])
-          .select('id')
-          .single();
+        const { data: insertedVideo, error } = await insertVideoRow(supabase, videoRow);
         if (error) throw error;
 
         if (insertedVideo?.id && caseFilesPayload.length) {
@@ -563,6 +579,24 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
           </div>
         )}
       </div>
+
+      {!formData.is_short && (
+        <div className="rounded-lg border border-brand-primary/20 bg-brand-primary/5 p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-white">Caso sugerido pela comunidade</p>
+              <p className="text-[11px] text-zinc-500 mt-1">
+                Exibe a tag &quot;Sugestão da Comunidade Dark Stream&quot; na página do caso.
+              </p>
+            </div>
+            <ShortToggle
+              checked={formData.is_community_suggestion}
+              disabled={isDisabled}
+              onChange={handleCommunitySuggestionToggle}
+            />
+          </div>
+        </div>
+      )}
 
       {!formData.is_short && (
         <div className="rounded-lg border border-zinc-800 bg-[#121212] p-5 space-y-4">

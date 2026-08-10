@@ -6,6 +6,7 @@ import AnimatedPage from '../AnimatedPage';
 import SiteContainer from '../components/SiteContainer';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import CreatorUploadForm from './CreatorUploadForm';
+import PartnerCommunityBoard from '../components/PartnerCommunityBoard';
 import {
   fetchPartnerDashboardData,
   getVideoPublishStatus,
@@ -13,11 +14,17 @@ import {
   isDashboardPrivileged,
   REVENUE_PER_HOUR_BRL,
 } from '../utils/partnerDashboardMetrics';
+import { buildVideoPrefillFromSuggestion } from '../utils/caseSuggestions';
 
 const PERIOD_OPTIONS = [
   { value: 7, label: '7d' },
   { value: 30, label: '30d' },
   { value: 90, label: '90d' },
+];
+
+const DASHBOARD_TABS = [
+  { id: 'dashboard', label: 'Painel' },
+  { id: 'community', label: 'Mural da Comunidade' },
 ];
 
 function formatCurrency(value) {
@@ -26,15 +33,6 @@ function formatCurrency(value) {
     currency: 'BRL',
     minimumFractionDigits: 2,
   }).format(value || 0);
-}
-
-function formatDate(dateValue) {
-  if (!dateValue) return '—';
-  return new Date(dateValue).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 function MetricCard({ label, value, hint, change, loading }) {
@@ -113,6 +111,7 @@ function ViewsTrendChart({ data, loading }) {
 }
 
 export default function PartnerDashboard({ user, profile, onSuccess }) {
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [periodDays, setPeriodDays] = useState(30);
   const [metrics, setMetrics] = useState(null);
   const [videos, setVideos] = useState([]);
@@ -120,6 +119,7 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
   const [loading, setLoading] = useState(true);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [videoToEdit, setVideoToEdit] = useState(null);
+  const [uploadPrefill, setUploadPrefill] = useState(null);
   const [videoToDelete, setVideoToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -151,17 +151,28 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
 
   const openUploadModal = () => {
     setVideoToEdit(null);
+    setUploadPrefill(null);
+    setIsUploadOpen(true);
+  };
+
+  const handleUseSuggestion = (suggestion) => {
+    setVideoToEdit(null);
+    setUploadPrefill(buildVideoPrefillFromSuggestion(suggestion));
     setIsUploadOpen(true);
   };
 
   const openEditModal = (video) => {
+    setUploadPrefill(null);
     setVideoToEdit(video);
     setIsUploadOpen(true);
   };
 
   const closeUploadModal = () => {
     setIsUploadOpen(false);
-    setTimeout(() => setVideoToEdit(null), 300);
+    setTimeout(() => {
+      setVideoToEdit(null);
+      setUploadPrefill(null);
+    }, 300);
   };
 
   const handleUploadSuccess = () => {
@@ -259,6 +270,27 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
               </div>
             </header>
 
+            <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-900/80 p-1">
+              {DASHBOARD_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`rounded-md px-4 py-2 text-xs font-mono uppercase tracking-wider transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-brand-primary text-black'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'community' ? (
+              <PartnerCommunityBoard onUseSuggestion={handleUseSuggestion} />
+            ) : (
+              <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
                 label="Visualizações Totais"
@@ -334,9 +366,7 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
                     <thead>
                       <tr className="border-b border-zinc-800 text-[10px] font-mono uppercase tracking-widest text-zinc-500">
                         <th className="px-5 py-4 sm:px-6 font-normal">Caso</th>
-                        <th className="px-4 py-4 font-normal hidden md:table-cell">Envio</th>
-                        <th className="px-4 py-4 font-normal hidden sm:table-cell">Views</th>
-                        <th className="px-4 py-4 font-normal hidden lg:table-cell">Minha Lista</th>
+                        <th className="px-4 py-4 font-normal">Visualizações</th>
                         <th className="px-4 py-4 font-normal">Status</th>
                         <th className="px-5 py-4 sm:px-6 font-normal text-right">Ações</th>
                       </tr>
@@ -366,26 +396,14 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
                                   )}
                                 </div>
                                 <div className="min-w-0">
-                                  <Link
-                                    to={`/video/${video.id}`}
-                                    className="line-clamp-2 text-sm text-white hover:text-brand-primary transition-colors"
-                                  >
+                                  <p className="line-clamp-2 text-sm text-white">
                                     {video.title}
-                                  </Link>
-                                  <p className="mt-1 text-[10px] font-mono text-zinc-600 md:hidden">
-                                    {formatDate(video.created_at)}
                                   </p>
                                 </div>
                               </div>
                             </td>
-                            <td className="hidden px-4 py-4 text-sm text-zinc-400 md:table-cell">
-                              {formatDate(video.created_at)}
-                            </td>
-                            <td className="hidden px-4 py-4 text-sm tabular-nums text-zinc-300 sm:table-cell">
+                            <td className="px-4 py-4 text-sm tabular-nums text-zinc-300">
                               {(Number(video.views) || 0).toLocaleString('pt-BR')}
-                            </td>
-                            <td className="hidden px-4 py-4 text-sm tabular-nums text-zinc-300 lg:table-cell">
-                              {(video.watchlistCount ?? 0).toLocaleString('pt-BR')}
                             </td>
                             <td className="px-4 py-4">
                               <StatusBadge status={status} />
@@ -422,6 +440,8 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
                 </div>
               )}
             </section>
+              </>
+            )}
           </div>
         </SiteContainer>
       </AnimatedPage>
@@ -457,6 +477,7 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
                     profile={profile}
                     onSuccess={handleUploadSuccess}
                     videoToEdit={videoToEdit}
+                    initialValues={uploadPrefill}
                   />
                 </div>
               </Dialog.Panel>

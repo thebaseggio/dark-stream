@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
 import SiteContainer from './SiteContainer';
@@ -6,6 +6,8 @@ import WatchlistButton from './WatchlistButton';
 
 const MARCOS_CAMPOS_CREATOR_ID = 'd0781217-8eb0-4d8d-b32b-ce785dbb6227';
 const TRAILER_DELAY_MS = 3000;
+const ROTATION_INTERVAL_MS = 8000;
+const MAX_FEATURED_SLIDES = 5;
 
 const VolumeHighIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor">
@@ -19,23 +21,80 @@ const VolumeMuteIcon = (props) => (
   </svg>
 );
 
-export function pickFeaturedVideo(videos) {
-  if (!videos?.length) return null;
+function sortByViewsDesc(videos) {
+  return [...videos].sort(
+    (a, b) => (Number(b.views) || 0) - (Number(a.views) || 0),
+  );
+}
 
-  const marcosVideo = videos.find((video) => {
+export function pickFeaturedVideo(videos) {
+  const featured = pickFeaturedVideos(videos, 1);
+  return featured[0] || null;
+}
+
+export function pickFeaturedVideos(videos, limit = MAX_FEATURED_SLIDES) {
+  if (!videos?.length) return [];
+
+  const sorted = sortByViewsDesc(videos);
+  const marcosVideo = sorted.find((video) => {
     const creatorId = video.creator_id?.id || video.creator_id;
     return String(creatorId) === MARCOS_CAMPOS_CREATOR_ID;
   });
 
-  return marcosVideo || videos[0];
+  const picked = [];
+  if (marcosVideo) picked.push(marcosVideo);
+
+  sorted.forEach((video) => {
+    if (picked.length >= limit) return;
+    if (!picked.some((item) => item.id === video.id)) {
+      picked.push(video);
+    }
+  });
+
+  return picked.slice(0, limit);
 }
 
-export default function FeaturedBanner({ featuredVideo, onNavigate, user }) {
+function stopHeroClick(event) {
+  event.stopPropagation();
+}
+
+export default function FeaturedBanner({ featuredVideos, featuredVideo, onNavigate, user }) {
   const navigate = useNavigate();
   const videoRef = useRef(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isRotationPaused, setIsRotationPaused] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const slides = useMemo(() => {
+    if (featuredVideos?.length) return featuredVideos.slice(0, MAX_FEATURED_SLIDES);
+    if (featuredVideo) return [featuredVideo];
+    return [];
+  }, [featuredVideos, featuredVideo]);
+
+  const slideIdsKey = slides.map((slide) => slide.id).join(',');
+
+  const currentVideo = slides[activeIndex] || null;
+
+  const navigateToVideo = useCallback((videoId) => {
+    if (!videoId) return;
+    const path = `/video/${videoId}`;
+    if (onNavigate) onNavigate(path);
+    else navigate(path);
+  }, [navigate, onNavigate]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+    setIsExpanded(false);
+    setShowTrailer(false);
+  }, [slideIdsKey]);
+
+  useEffect(() => {
+    setIsExpanded(false);
+    setShowTrailer(false);
+  }, [currentVideo?.id]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -50,14 +109,24 @@ export default function FeaturedBanner({ featuredVideo, onNavigate, user }) {
   }, []);
 
   useEffect(() => {
-    if (!featuredVideo?.videoUrl || hasScrolled) return undefined;
+    if (slides.length <= 1 || isRotationPaused) return undefined;
+
+    const timer = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % slides.length);
+    }, ROTATION_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [slides.length, isRotationPaused, slideIdsKey]);
+
+  useEffect(() => {
+    if (!currentVideo?.videoUrl || hasScrolled) return undefined;
 
     const timer = setTimeout(() => {
       if (!hasScrolled) setShowTrailer(true);
     }, TRAILER_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [featuredVideo?.videoUrl, hasScrolled]);
+  }, [currentVideo?.videoUrl, currentVideo?.id, hasScrolled]);
 
   useEffect(() => {
     const trailer = videoRef.current;
@@ -75,81 +144,133 @@ export default function FeaturedBanner({ featuredVideo, onNavigate, user }) {
     }
 
     return undefined;
-  }, [showTrailer, isMuted]);
+  }, [showTrailer, isMuted, currentVideo?.id]);
 
-  if (!featuredVideo) return null;
+  if (!currentVideo) return null;
 
-  const creator = featuredVideo.creator_id;
+  const creator = currentVideo.creator_id;
   const creatorProfilePath = getPartnerProfilePath(creator);
-  const thumbnail = featuredVideo.thumbnail || featuredVideo.thumbnail_url;
-  const categories = Array.isArray(featuredVideo.category)
-    ? featuredVideo.category
-    : featuredVideo.category
-      ? [featuredVideo.category]
+  const thumbnail = currentVideo.thumbnail || currentVideo.thumbnail_url;
+  const heroDescription = (currentVideo.description || currentVideo.synopsis || '').trim();
+  const titleLength = currentVideo.title?.length || 0;
+  const titleSizeClass = titleLength > 50
+    ? 'text-xl md:text-2xl lg:text-3xl'
+    : 'text-2xl md:text-3xl lg:text-4xl';
+  const categories = Array.isArray(currentVideo.category)
+    ? currentVideo.category
+    : currentVideo.category
+      ? [currentVideo.category]
       : [];
 
-  const handleWatch = () => {
-    const path = `/video/${featuredVideo.id}`;
-    if (onNavigate) onNavigate(path);
-    else navigate(path);
+  const handleBannerClick = () => {
+    navigateToVideo(currentVideo.id);
   };
 
-  const toggleMute = () => {
+  const handleWatch = (event) => {
+    stopHeroClick(event);
+    navigateToVideo(currentVideo.id);
+  };
+
+  const toggleMute = (event) => {
+    stopHeroClick(event);
     setIsMuted((prev) => !prev);
     if (videoRef.current) videoRef.current.muted = !isMuted;
   };
 
   return (
-    <div className="FeaturedBanner relative w-full min-h-[450px] overflow-hidden bg-zinc-950 md:min-h-[550px]">
-      <div className="absolute inset-0">
-        {thumbnail && (
-          <img
-            src={thumbnail}
-            alt=""
-            className={`h-full w-full object-cover object-right transition-opacity duration-1000 md:object-center ${
-              showTrailer ? 'opacity-0' : 'opacity-100'
-            }`}
-          />
-        )}
+    <div
+      className="FeaturedBanner group relative w-full min-h-[450px] cursor-pointer overflow-hidden bg-zinc-950 md:min-h-[550px]"
+      onClick={handleBannerClick}
+      onMouseEnter={() => setIsRotationPaused(true)}
+      onMouseLeave={() => setIsRotationPaused(false)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleBannerClick();
+        }
+      }}
+      role="link"
+      tabIndex={0}
+      aria-label={`Abrir caso: ${currentVideo.title}`}
+    >
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="h-full w-full transition-transform duration-700 group-hover:scale-105">
+          {thumbnail && (
+            <img
+              src={thumbnail}
+              alt=""
+              className={`h-full w-full object-cover object-right transition-opacity duration-1000 md:object-center ${
+                showTrailer ? 'opacity-0' : 'opacity-100'
+              }`}
+            />
+          )}
 
-        {featuredVideo.videoUrl && (
-          <video
-            ref={videoRef}
-            src={featuredVideo.videoUrl}
-            className={`absolute inset-0 h-full w-full object-cover object-right transition-opacity duration-1000 md:object-center ${
-              showTrailer ? 'opacity-100' : 'opacity-0'
-            }`}
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            aria-hidden="true"
-          />
-        )}
+          {currentVideo.videoUrl && (
+            <video
+              ref={videoRef}
+              src={currentVideo.videoUrl}
+              className={`absolute inset-0 h-full w-full object-cover object-right transition-opacity duration-1000 md:object-center ${
+                showTrailer ? 'opacity-100' : 'opacity-0'
+              }`}
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-hidden="true"
+            />
+          )}
+        </div>
 
         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black via-black/70 to-transparent md:h-40" />
       </div>
 
+      {slides.length > 1 && (
+        <div
+          className="absolute bottom-6 right-4 z-20 flex items-center gap-1.5 sm:right-8"
+          onClick={stopHeroClick}
+          onKeyDown={stopHeroClick}
+          role="tablist"
+          aria-label="Slides do destaque"
+        >
+          {slides.map((slide, index) => (
+            <button
+              key={slide.id}
+              type="button"
+              role="tab"
+              aria-selected={index === activeIndex}
+              aria-label={`Destaque ${index + 1}: ${slide.title}`}
+              onClick={() => setActiveIndex(index)}
+              className={`h-0.5 rounded-full transition-all duration-300 ${
+                index === activeIndex
+                  ? 'w-8 bg-brand-primary'
+                  : 'w-5 bg-white/30 hover:bg-white/50'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+
       <div className="relative z-10 flex min-h-[450px] flex-col justify-end py-16 sm:py-24 md:min-h-[550px]">
         <SiteContainer>
-          <div className="max-w-2xl space-y-4">
+          <div className="max-w-2xl">
             {categories[0] && (
-              <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-brand-primary">
+              <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-brand-primary mb-2">
                 {categories[0]}
               </p>
             )}
 
-            <h1 className="font-anton text-3xl leading-tight text-white sm:text-5xl lg:text-6xl">
-              {featuredVideo.title}
+            <h1 className={`${titleSizeClass} font-extrabold uppercase tracking-wide leading-snug text-white max-w-2xl mb-2`}>
+              {currentVideo.title}
             </h1>
 
             {creator?.username && (
-              <p className="text-xs font-mono uppercase tracking-wider text-zinc-400">
+              <p className="text-xs font-mono uppercase tracking-wider text-zinc-400 mb-2">
                 Por{' '}
                 {creatorProfilePath ? (
                   <Link
                     to={creatorProfilePath}
+                    onClick={stopHeroClick}
                     className="underline-offset-2 transition-colors hover:text-brand-primary hover:underline"
                   >
                     {creator.username}
@@ -160,13 +281,42 @@ export default function FeaturedBanner({ featuredVideo, onNavigate, user }) {
               </p>
             )}
 
-            {featuredVideo.description && (
-              <p className="hidden text-sm leading-relaxed text-zinc-400 line-clamp-3 sm:block">
-                {featuredVideo.description}
-              </p>
+            {heroDescription && (
+              <>
+                <p
+                  className={`max-w-xl text-xs md:text-sm text-zinc-300 ${isExpanded ? '' : 'line-clamp-2'}`}
+                  style={
+                    isExpanded
+                      ? undefined
+                      : {
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }
+                  }
+                >
+                  {heroDescription}
+                </p>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    stopHeroClick(event);
+                    setIsExpanded((prev) => !prev);
+                  }}
+                  className="text-xs text-amber-400 hover:underline my-2 block font-semibold"
+                >
+                  {isExpanded ? 'Ver menos' : 'Ver mais...'}
+                </button>
+              </>
             )}
 
-            <div className="flex flex-wrap items-center gap-3 pt-2">
+            <div
+              className="mt-4 flex flex-wrap items-center gap-3"
+              onClick={stopHeroClick}
+              onKeyDown={stopHeroClick}
+              role="presentation"
+            >
               <button
                 type="button"
                 onClick={handleWatch}
@@ -177,12 +327,12 @@ export default function FeaturedBanner({ featuredVideo, onNavigate, user }) {
 
               <WatchlistButton
                 userId={user?.id}
-                videoId={featuredVideo.id}
+                videoId={currentVideo.id}
                 variant="hero"
                 loginReturnPath="/casos"
               />
 
-              {showTrailer && featuredVideo.videoUrl && (
+              {showTrailer && currentVideo.videoUrl && (
                 <button
                   type="button"
                   onClick={toggleMute}

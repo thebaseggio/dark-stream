@@ -25,6 +25,7 @@ import PoliticaDePrivacidade from './pages/PoliticaDePrivacidade';
 import SejaUmParceiro from './pages/SejaUmParceiro';
 import AccountSettings from './pages/AccountSettings';
 import PlansPage from './pages/PlansPage';
+import SuggestionsPage from './pages/SuggestionsPage';
 
 
 const AuthLoadingScreen = ({ message = 'Carregando credenciais...' }) => (
@@ -90,6 +91,7 @@ export default function App() {
                     <Route path="/seja-um-parceiro" element={<SejaUmParceiro />} />
 
                     <Route path="/plans" element={<PlansPage />} />
+                    <Route path="/sugestoes" element={<SuggestionsPage />} />
                     <Route path="/subscribe" element={<Navigate to="/plans" replace />} />
 
                     <Route path="/investigador" element={

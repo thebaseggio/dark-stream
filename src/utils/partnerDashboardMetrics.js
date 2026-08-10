@@ -3,20 +3,21 @@ import { buildPeriodStartIso } from './opsInsights';
 /** Repasse estimado por hora assistida (RPM simplificado). */
 export const REVENUE_PER_HOUR_BRL = 0.05;
 
-const VIDEO_LIST_SELECT = [
+/** Colunas confirmadas no schema / usadas em PartnerProfile e Explore. */
+const VIDEO_CORE_SELECT = [
   'id',
   'title',
   'thumbnail',
-  'created_at',
   'views',
+  'created_at',
   'videoUrl',
   'duration',
-  'runtime',
-  'duration_seconds',
   'is_short',
   'short_type',
+  'parent_video_id',
   'category',
   'creator_id',
+  'is_community_suggestion',
 ].join(', ');
 
 export function canAccessPartnerDashboard(profile) {
@@ -27,8 +28,12 @@ export function isDashboardPrivileged(profile) {
   return profile?.role === 'admin' || profile?.role === 'tester';
 }
 
+export function isPartnerCreator(profile) {
+  return profile?.role === 'partner' || isDashboardPrivileged(profile);
+}
+
 export function getVideoPublishStatus(video) {
-  if (video?.videoUrl) return 'published';
+  if (video?.videoUrl || video?.video_url) return 'published';
   return 'processing';
 }
 
@@ -125,43 +130,218 @@ function groupViewsByDay(viewsRows = [], periodDays) {
   return buckets;
 }
 
-async function fetchPartnerVideoRows(supabase, userId, profile) {
-  let query = supabase
-    .from('videos')
-    .select(VIDEO_LIST_SELECT)
-    .or('is_short.eq.false,is_short.is.null')
-    .is('parent_video_id', null)
-    .order('created_at', { ascending: false });
+function getVideoSortTimestamp(video) {
+  const raw = video?.created_at || video?.published_at || video?.date || video?.updated_at;
+  const time = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(time) ? time : 0;
+}
 
-  if (!isDashboardPrivileged(profile)) {
-    query = query.eq('creator_id', userId);
-  }
+function sortVideosNewestFirst(videos = []) {
+  return [...videos].sort((a, b) => getVideoSortTimestamp(b) - getVideoSortTimestamp(a));
+}
 
-  const { data, error } = await query;
+function dedupeVideosById(videos = []) {
+  const map = new Map();
+  videos.forEach((video) => {
+    if (video?.id) map.set(video.id, video);
+  });
+  return sortVideosNewestFirst([...map.values()]);
+}
 
-  if (error) {
-    console.error('Erro ao buscar vídeos do parceiro:', error);
-    return [];
-  }
+function isCatalogCaseVideo(video) {
+  if (!video) return false;
+  if (video.is_short === true) return false;
+  if (video.parent_video_id) return false;
+  return true;
+}
 
-  const videos = data || [];
+function filterCatalogVideos(videos = [], strict = true) {
+  const filtered = strict ? videos.filter(isCatalogCaseVideo) : videos.filter(Boolean);
+  return dedupeVideosById(filtered);
+}
 
-  if (!videos.length && !isDashboardPrivileged(profile) && userId) {
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from('videos')
-      .select(VIDEO_LIST_SELECT)
-      .eq('creator_id', userId)
-      .order('created_at', { ascending: false });
+async function runVideoQuery(buildQuery, context = 'vídeos do parceiro') {
+  try {
+    const { data, error } = await buildQuery();
 
-    if (fallbackError) {
-      console.error('Erro no fallback de vídeos do parceiro:', fallbackError);
+    if (error) {
+      console.error(`Erro na query de ${context}:`, error);
       return [];
     }
 
-    return fallbackData || [];
+    return sortVideosNewestFirst(data || []);
+  } catch (error) {
+    console.error(`Erro na query de ${context}:`, error);
+    return [];
+  }
+}
+
+async function fetchVideosWithSelect(supabase, selectClause, applyFilters, context) {
+  const primary = await runVideoQuery(
+    () => {
+      let query = supabase.from('videos').select(selectClause);
+      query = applyFilters(query);
+      return query;
+    },
+    `${context} (select específico)`,
+  );
+
+  if (primary.length) return primary;
+
+  return runVideoQuery(
+    () => {
+      let query = supabase.from('videos').select('*');
+      query = applyFilters(query);
+      return query.limit(500);
+    },
+    `${context} (fallback *)`,
+  );
+}
+
+async function fetchVideosByCreatorIds(supabase, creatorIds, strictCatalog = true) {
+  const ids = [...new Set(creatorIds.filter(Boolean))];
+  if (!ids.length) return [];
+
+  const rows = await fetchVideosWithSelect(
+    supabase,
+    VIDEO_CORE_SELECT,
+    (query) => query.in('creator_id', ids),
+    'vídeos por creator_id',
+  );
+
+  return filterCatalogVideos(rows, strictCatalog);
+}
+
+async function fetchProfileIdsByUsername(supabase, username) {
+  if (!username) return [];
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, role')
+    .ilike('username', username);
+
+  if (error) {
+    console.error('Erro ao resolver perfis por username:', error);
+    return [];
   }
 
-  return videos;
+  return (data || []).map((row) => row.id);
+}
+
+async function fetchVideosByCreatorId(supabase, userId, strictCatalog = true) {
+  if (!userId) return [];
+
+  const rows = await fetchVideosWithSelect(
+    supabase,
+    VIDEO_CORE_SELECT,
+    (query) => query.eq('creator_id', userId),
+    'vídeos do criador logado',
+  );
+
+  return filterCatalogVideos(rows, strictCatalog);
+}
+
+async function fetchVideosByAlternateOwnerKeys(supabase, userId, profile) {
+  const username = profile?.username?.trim();
+  const attempts = [];
+
+  if (userId) {
+    attempts.push(
+      { label: 'vídeos por partner_id', apply: (query) => query.eq('partner_id', userId) },
+      { label: 'vídeos por author_id', apply: (query) => query.eq('author_id', userId) },
+    );
+  }
+
+  if (username) {
+    attempts.push(
+      { label: 'vídeos por author_name', apply: (query) => query.ilike('author_name', username) },
+      { label: 'vídeos por partner_name', apply: (query) => query.ilike('partner_name', username) },
+      { label: 'vídeos por author_name exato', apply: (query) => query.eq('author_name', username) },
+      { label: 'vídeos por partner_name exato', apply: (query) => query.eq('partner_name', username) },
+    );
+  }
+
+  const merged = [];
+
+  for (const attempt of attempts) {
+    const rows = await fetchVideosWithSelect(
+      supabase,
+      VIDEO_CORE_SELECT,
+      attempt.apply,
+      attempt.label,
+    );
+
+    if (rows.length) merged.push(...rows);
+  }
+
+  return filterCatalogVideos(merged, false);
+}
+
+async function fetchPrivilegedPartnerVideos(supabase, userId, profile) {
+  const alternate = await fetchVideosByAlternateOwnerKeys(supabase, userId, profile);
+  if (alternate.length) return alternate;
+
+  const byCreator = await fetchVideosByCreatorId(supabase, userId, false);
+  if (byCreator.length) return byCreator;
+
+  if (profile?.username) {
+    const profileIds = await fetchProfileIdsByUsername(supabase, profile.username);
+    const ownerIds = [...new Set([userId, ...profileIds].filter(Boolean))];
+    const byProfiles = await fetchVideosByCreatorIds(supabase, ownerIds, false);
+    if (byProfiles.length) return byProfiles;
+  }
+
+  const allRows = await fetchVideosWithSelect(
+    supabase,
+    VIDEO_CORE_SELECT,
+    (query) => query.limit(500),
+    'todos os vídeos (admin)',
+  );
+
+  const strictCatalog = filterCatalogVideos(allRows, true);
+  return strictCatalog.length ? strictCatalog : filterCatalogVideos(allRows, false);
+}
+
+async function fetchPartnerVideoRows(supabase, userId, profile) {
+  if (isDashboardPrivileged(profile)) {
+    return fetchPrivilegedPartnerVideos(supabase, userId, profile);
+  }
+
+  const strategies = [
+    () => fetchVideosByCreatorId(supabase, userId, true),
+    () => fetchVideosByCreatorId(supabase, userId, false),
+  ];
+
+  if (profile?.username) {
+    strategies.push(async () => {
+      const profileIds = await fetchProfileIdsByUsername(supabase, profile.username);
+      const ownerIds = [...new Set([userId, ...profileIds].filter(Boolean))];
+      return fetchVideosByCreatorIds(supabase, ownerIds, true);
+    });
+
+    strategies.push(async () => {
+      const profileIds = await fetchProfileIdsByUsername(supabase, profile.username);
+      const ownerIds = [...new Set([userId, ...profileIds].filter(Boolean))];
+      return fetchVideosByCreatorIds(supabase, ownerIds, false);
+    });
+  }
+
+  strategies.push(() => fetchVideosByAlternateOwnerKeys(supabase, userId, profile));
+
+  for (const strategy of strategies) {
+    const videos = await strategy();
+    if (videos.length) {
+      console.info('[PartnerDashboard] Vídeos carregados:', videos.length);
+      return videos;
+    }
+  }
+
+  console.warn('[PartnerDashboard] Nenhum vídeo encontrado para o parceiro logado.', {
+    userId,
+    username: profile?.username,
+  });
+
+  return [];
 }
 
 async function fetchWatchHistoryForVideos(supabase, videoIds, periodStart) {

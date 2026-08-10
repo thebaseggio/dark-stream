@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { supabase } from '../supabase.js';
 import { useNotification } from './NotificationProvider.jsx';
 import { syncCaseFilesForVideo } from '../utils/caseFilesAdmin.js';
+import { insertVideoRow, updateVideoRow } from '../utils/videoSave.js';
 import Worker from '../worker.js?worker';
 
 const UploadContext = createContext();
@@ -65,11 +66,12 @@ export const UploadProvider = ({ children }) => {
           throw new Error('Identificador do vídeo não encontrado para atualização.');
         }
 
-        const { error } = await supabase
-          .from('videos')
-          .update(finalMetadata)
-          .eq('id', videoId)
-          .eq('creator_id', creatorId);
+        const { error } = await updateVideoRow(
+          supabase,
+          finalMetadata,
+          videoId,
+          creatorId,
+        );
 
         databaseError = error;
         successMessage = 'Vídeo atualizado com sucesso!';
@@ -78,11 +80,7 @@ export const UploadProvider = ({ children }) => {
           await syncCaseFilesForVideo(supabase, videoId, caseFilesPayload);
         }
       } else {
-        const { data: insertedVideo, error } = await supabase
-          .from('videos')
-          .insert([finalMetadata])
-          .select('id')
-          .single();
+        const { data: insertedVideo, error } = await insertVideoRow(supabase, finalMetadata);
 
         databaseError = error;
         successMessage = 'Vídeo publicado com sucesso no seu painel!';

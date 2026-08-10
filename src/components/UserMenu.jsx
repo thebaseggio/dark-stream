@@ -125,9 +125,11 @@ export default function UserMenu({ profile, onLogout }) {
             role="menu"
             className="w-48 bg-zinc-950 border border-zinc-800 rounded-md shadow-2xl py-1 animate-fade-in"
           >
-          <MenuLink to="/investigador" onSelect={closeMenu}>
-            Meu Crachá
-          </MenuLink>
+          {!isDashboardUser && (
+            <MenuLink to="/investigador" onSelect={closeMenu}>
+              Meu Crachá
+            </MenuLink>
+          )}
 
           {isDashboardUser && (
             <MenuLink to="/partner/dashboard" onSelect={closeMenu}>

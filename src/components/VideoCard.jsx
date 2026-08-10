@@ -100,11 +100,11 @@ export default function VideoCard({
   if (orientation === 'horizontal') {
     return (
       <div className="flex gap-4 cursor-pointer group" onClick={handleCardClick}>
-        <div className="w-40 flex-shrink-0 border border-dark-border overflow-hidden">
+        <div className="relative w-full aspect-[16/9] overflow-hidden rounded-lg bg-zinc-900 flex-shrink-0 sm:w-40">
           <img
             src={thumbnail}
             alt={video.title}
-            className="w-full aspect-video object-cover transition-opacity duration-300 group-hover:opacity-80"
+            className="w-full h-full object-cover object-center transition-opacity duration-300 group-hover:opacity-80"
           />
         </div>
         <div className="flex flex-col justify-center min-w-0">
@@ -167,12 +167,13 @@ export default function VideoCard({
       className={`relative ${widthClass} min-w-0 max-w-full cursor-pointer group/card`}
       onClick={handleCardClick}
     >
-      <div className="relative overflow-hidden rounded-lg border border-dark-border bg-dark-panel">
-        <img
-          src={thumbnail}
-          alt={video.title}
-          className="aspect-video w-full object-cover object-center transition-transform duration-300 group-hover/card:scale-105"
-        />
+      <div className="relative overflow-hidden rounded-lg border border-dark-border">
+        <div className="relative w-full aspect-[16/9] overflow-hidden rounded-lg bg-zinc-900">
+          <img
+            src={thumbnail}
+            alt={video.title}
+            className="w-full h-full object-cover object-center transition-transform duration-300 group-hover/card:scale-105"
+          />
 
         {displayProgress && watchProgress < 95 && (
           <div className="absolute inset-x-0 bottom-0 z-10 h-1 bg-zinc-900/90">
@@ -214,6 +215,7 @@ export default function VideoCard({
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
 
