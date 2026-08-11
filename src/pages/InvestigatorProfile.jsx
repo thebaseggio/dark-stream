@@ -15,13 +15,13 @@ function SolvedCaseCard({ item }) {
   return (
     <Link
       to={`/video/${video.id}`}
-      className="group relative border border-dark-border bg-dark-panel overflow-hidden hover:border-zinc-600 transition-colors"
+      className="group relative flex flex-col overflow-hidden transition-colors"
     >
-      <div className="relative aspect-video overflow-hidden">
+      <div className="relative w-full h-40 overflow-hidden rounded-t-lg bg-zinc-950">
         <img
           src={thumbnail}
           alt={video.title}
-          className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-90 transition-opacity group-hover:opacity-100"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
         <div className="absolute top-2 right-2 rotate-[-12deg] border-2 border-green-700/80 bg-green-950/70 px-2 py-1">
@@ -30,11 +30,11 @@ function SolvedCaseCard({ item }) {
           </p>
         </div>
       </div>
-      <div className="p-3 space-y-1">
-        <h3 className="text-[11px] font-mono uppercase tracking-wider text-zinc-300 line-clamp-2 group-hover:text-brand-primary transition-colors">
+      <div className="flex flex-col justify-between rounded-b-lg border border-t-0 border-zinc-800 bg-zinc-900/80 p-3">
+        <h3 className="line-clamp-2 text-[11px] font-mono uppercase tracking-wider text-zinc-300 transition-colors group-hover:text-brand-primary">
           {video.title}
         </h3>
-        <p className="text-[9px] font-mono text-zinc-600 uppercase tracking-wider">
+        <p className="mt-1 text-[9px] font-mono uppercase tracking-wider text-zinc-600">
           {item.sources.includes('recomendado') ? 'Recomendado' : 'Assistido'}
           {item.sources.length > 1 ? ' · Recomendado' : ''}
         </p>
@@ -222,7 +222,7 @@ export default function InvestigatorProfile({ user, profile }) {
                 </div>
 
                 {solvedCases.length > 0 ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-start">
                     {solvedCases.map((item) => (
                       <SolvedCaseCard key={item.video.id} item={item} />
                     ))}

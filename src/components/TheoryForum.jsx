@@ -9,6 +9,10 @@ import {
 const ACCENT = '#eab308';
 const THEORY_MAX_CHARS = 2000;
 
+function sanitizeTheoryText(text) {
+  return text.trim().replace(/\n{3,}/g, '\n\n');
+}
+
 function formatTheoryDate(timestamp) {
   return new Date(timestamp).toLocaleString('pt-BR', {
     day: '2-digit',
@@ -85,7 +89,7 @@ function TheoryCard({ theory, author, rank, isOwn, onDelete, isDeleting }) {
           </button>
         )}
       </div>
-      <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap font-mono">
+      <p className="max-h-60 overflow-y-auto whitespace-pre-wrap break-words text-sm leading-relaxed font-mono text-zinc-300">
         {theory.content}
       </p>
     </article>
@@ -172,7 +176,14 @@ export default function TheoryForum({ videoId, user }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!user?.id || !content.trim() || submitting) return;
+    if (!user?.id || submitting) return;
+
+    const cleanedText = sanitizeTheoryText(content);
+
+    if (cleanedText.length === 0) {
+      setError('A teoria não pode ser vazia.');
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -180,7 +191,7 @@ export default function TheoryForum({ videoId, user }) {
     const { error: insertError } = await supabase.from('case_theories').insert({
       video_id: String(videoId),
       user_id: user.id,
-      content: content.trim(),
+      content: cleanedText,
     });
 
     if (insertError) {
