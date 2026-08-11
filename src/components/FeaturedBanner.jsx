@@ -222,7 +222,7 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
         </div>
 
         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black via-black/70 to-transparent md:h-40" />
+        <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black via-black/70 to-transparent md:h-44" />
       </div>
 
       {slides.length > 1 && (
@@ -251,7 +251,7 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
         </div>
       )}
 
-      <div className="relative z-10 flex min-h-[450px] flex-col justify-end pt-28 pb-12 md:min-h-[550px] md:pt-36">
+      <div className="relative z-10 flex min-h-[450px] flex-col justify-end pt-28 pb-16 md:min-h-[550px] md:pt-36">
         <SiteContainer>
           <div className="max-w-2xl">
             {categories[0] && (

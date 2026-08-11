@@ -154,18 +154,28 @@ export default function Explore({ user: userProp }) {
   );
 
   return (
-    <AnimatedPage className="w-full">
+    <AnimatedPage className="w-full min-h-screen">
       <SeoHead
         title="Explorar Casos | Dark Stream"
         description={DEFAULT_SITE_DESCRIPTION}
       />
 
-      <div className={`w-full transition-opacity duration-500 ${isNavigating ? 'opacity-0' : 'opacity-100'}`}>
-        {!loading && featuredVideos.length > 0 && (
-          <FeaturedBanner featuredVideos={featuredVideos} onNavigate={handleNavigation} user={user} />
-        )}
+      <div className="relative isolate min-h-screen">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{
+            background:
+              'radial-gradient(ellipse 70% 45% at 50% 40%, rgba(15, 4, 6, 0.08) 0%, transparent 68%)',
+          }}
+        />
 
-        <div className="pb-12">
+        <div className={`w-full transition-opacity duration-500 ${isNavigating ? 'opacity-0' : 'opacity-100'}`}>
+          {!loading && featuredVideos.length > 0 && (
+            <FeaturedBanner featuredVideos={featuredVideos} onNavigate={handleNavigation} user={user} />
+          )}
+
+          <div className={`pb-12 ${loading || featuredVideos.length === 0 ? 'pt-16 md:pt-20' : ''}`}>
           {loading ? (
             Array.from({ length: 5 }).map((_, i) => (
               <SiteContainer key={i} className="my-8 space-y-4">
@@ -234,6 +244,7 @@ export default function Explore({ user: userProp }) {
               )}
             </>
           )}
+        </div>
         </div>
       </div>
     </AnimatedPage>

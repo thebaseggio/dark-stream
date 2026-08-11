@@ -14,6 +14,10 @@ function isVideoPlayerRoute(pathname) {
   return /^\/(video|caso)\/[^/]+$/.test(pathname);
 }
 
+function isHomeCatalogRoute(pathname) {
+  return pathname === '/casos' || pathname === '/explorar';
+}
+
 function Header({ user, profile, immersive, chromeVisible }) {
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = useState(false);
@@ -23,9 +27,14 @@ function Header({ user, profile, immersive, chromeVisible }) {
       setIsScrolled(window.scrollY > 20);
     };
 
-    handleScroll();
+    setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    document.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -35,13 +44,13 @@ function Header({ user, profile, immersive, chromeVisible }) {
     navigate('/');
   };
 
-  const headerSurfaceClass = isScrolled
-    ? 'bg-black/90 backdrop-blur-md border-b border-zinc-800/80 shadow-2xl'
-    : 'border-b border-transparent bg-gradient-to-b from-black/90 via-black/40 to-transparent';
-
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${headerSurfaceClass}`}
+      className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${
+        isScrolled
+          ? 'border-b border-zinc-800/80 bg-black/80 shadow-2xl backdrop-blur-md'
+          : 'border-transparent bg-gradient-to-b from-black/80 via-black/20 to-transparent backdrop-blur-none'
+      }`}
     >
       <SiteContainer>
         <div className="flex h-14 w-full items-center justify-between gap-2 md:h-16">
@@ -89,6 +98,7 @@ function Header({ user, profile, immersive, chromeVisible }) {
 export default function MainLayout({ user, profile }) {
   const location = useLocation();
   const immersive = isVideoPlayerRoute(location.pathname);
+  const isHomeCatalog = isHomeCatalogRoute(location.pathname);
   const [chromeVisible, setChromeVisible] = useState(true);
   const chromeTimerRef = useRef(null);
 
@@ -118,10 +128,20 @@ export default function MainLayout({ user, profile }) {
   }, [immersive, reportChromeActivity]);
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden min-h-screen bg-black text-white flex flex-col font-sans">
+    <div
+      className={`flex min-h-screen w-full max-w-full flex-col overflow-x-hidden font-sans text-white ${
+        isHomeCatalog
+          ? 'bg-gradient-to-b from-black via-[#0f0406] to-black'
+          : 'bg-black'
+      }`}
+    >
       <SeoHead title={DEFAULT_SITE_TITLE} description={DEFAULT_SITE_DESCRIPTION} />
       <Header user={user} profile={profile} immersive={immersive} chromeVisible={chromeVisible} />
-      <main className="w-full max-w-full min-w-0 flex-1 pt-16 md:pt-20">
+      <main
+        className={`min-w-0 w-full max-w-full flex-1 ${
+          isHomeCatalog ? '' : 'pt-16 md:pt-20'
+        }`}
+      >
         {immersive ? (
           <Outlet context={{ chromeVisible, reportChromeActivity }} />
         ) : (
