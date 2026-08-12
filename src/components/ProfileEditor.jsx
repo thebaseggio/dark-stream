@@ -85,7 +85,16 @@ function ImageUploadCard({
   );
 }
 
-export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveComplete, onSuccess, mode = 'visitor' }) {
+export default function ProfileEditor({
+  user,
+  profile,
+  onUploadSuccess,
+  onSaveComplete,
+  onSuccess,
+  mode = 'visitor',
+  saveSuccessMessage = 'Alterações salvas com sucesso!',
+  usernameLabel,
+}) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -103,6 +112,8 @@ export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveCo
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [instagramUrl, setInstagramUrl] = useState('');
   const [xUrl, setXUrl] = useState('');
+  const [avatarUrlInput, setAvatarUrlInput] = useState('');
+  const [bannerUrlInput, setBannerUrlInput] = useState('');
 
   useEffect(() => {
     if (profile) {
@@ -117,9 +128,29 @@ export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveCo
       setBio(profile.bio || '');
       setYoutubeUrl(profile.youtube_url || '');
       setInstagramUrl(profile.instagram_url || '');
-      setXUrl(profile.x_url || '');
+      setXUrl(profile.x_url || profile.twitter_url || '');
+      setAvatarUrlInput(avatar || '');
+      setBannerUrlInput(banner || '');
     }
   }, [profile]);
+
+  const applyAvatarUrlInput = (value) => {
+    setAvatarUrlInput(value);
+    if (isValidRenderableUrl(value)) {
+      setAvatarPreview(value);
+      setSavedAvatarUrl(value);
+      setAvatarFile(null);
+    }
+  };
+
+  const applyBannerUrlInput = (value) => {
+    setBannerUrlInput(value);
+    if (isValidRenderableUrl(value)) {
+      setBannerPreview(value);
+      setSavedBannerUrl(value);
+      setBannerFile(null);
+    }
+  };
 
   const handleAvatarChange = (event) => {
     if (event.target.files?.[0]) {
@@ -192,13 +223,20 @@ export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveCo
       x_url: xUrl || null,
     };
 
-    if (savedAvatarUrl && isValidRenderableUrl(savedAvatarUrl)) {
+    if (isValidRenderableUrl(avatarUrlInput)) {
+      payload.avatar_url = avatarUrlInput.trim();
+      payload.creatorAvatar = avatarUrlInput.trim();
+    } else if (savedAvatarUrl && isValidRenderableUrl(savedAvatarUrl)) {
       payload.avatar_url = savedAvatarUrl;
       payload.creatorAvatar = savedAvatarUrl;
     }
 
-    if (mode === 'partner' && savedBannerUrl && isValidRenderableUrl(savedBannerUrl)) {
-      payload.banner_url = savedBannerUrl;
+    if (mode === 'partner') {
+      if (isValidRenderableUrl(bannerUrlInput)) {
+        payload.banner_url = bannerUrlInput.trim();
+      } else if (savedBannerUrl && isValidRenderableUrl(savedBannerUrl)) {
+        payload.banner_url = savedBannerUrl;
+      }
     }
 
     return payload;
@@ -234,7 +272,7 @@ export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveCo
       setSavedAvatarUrl(resolveAvatarUrl(updatedProfile) || savedAvatarUrl);
       setSavedBannerUrl(resolveBannerUrl(updatedProfile) || savedBannerUrl);
 
-      onSuccess('success', 'Alterações salvas com sucesso!');
+      onSuccess('success', saveSuccessMessage);
       if (onSaveComplete) await onSaveComplete(updatedProfile);
       else if (onUploadSuccess) await onUploadSuccess(updatedProfile);
     } catch (error) {
@@ -248,10 +286,12 @@ export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveCo
   const avatarFallback = `https://ui-avatars.com/api/?name=${username.charAt(0) || 'U'}&background=121212&color=eab308&bold=true`;
   const bannerFallback = 'https://placehold.co/1200x400/0a0a0a/404040?text=Banner+do+Canal';
 
+  const resolvedUsernameLabel = usernameLabel || (mode === 'partner' ? 'Nome do Canal / Parceiro' : 'Nome de Usuário');
+
   const formFields = (
     <>
       <div>
-        <label htmlFor="username" className={labelClass}>Nome de Usuário</label>
+        <label htmlFor="username" className={labelClass}>{resolvedUsernameLabel}</label>
         <input
           type="text"
           id="username"
@@ -262,7 +302,9 @@ export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveCo
       </div>
 
       <div>
-        <label htmlFor="bio" className={labelClass}>Descrição (Bio)</label>
+        <label htmlFor="bio" className={labelClass}>
+          {mode === 'partner' ? 'Bio / Descrição do Canal' : 'Descrição (Bio)'}
+        </label>
         <textarea
           id="bio"
           value={bio}
@@ -331,7 +373,7 @@ export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveCo
               preview={avatarPreview}
               fallbackPreview={avatarFallback}
               alt="Avatar"
-              aspectClass="w-36 h-36 mx-auto md:mx-0"
+              aspectClass="w-36 h-36 mx-auto md:mx-0 rounded-full"
               inputId="avatar-upload"
               onChange={handleAvatarChange}
               onUpload={() => handleUploadImage(avatarFile, 'avatars', 'Foto de perfil atualizada!')}
@@ -339,9 +381,20 @@ export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveCo
               hasFile={!!avatarFile}
               uploadLabel="Enviar foto"
             />
+            <div>
+              <label htmlFor="avatar-url" className={labelClass}>Ou URL da foto de perfil</label>
+              <input
+                type="url"
+                id="avatar-url"
+                value={avatarUrlInput}
+                onChange={(e) => applyAvatarUrlInput(e.target.value)}
+                placeholder="https://..."
+                className={inputClass}
+              />
+            </div>
 
             <ImageUploadCard
-              title="Imagem de Capa"
+              title="Banner de Capa"
               description="Banner exibido no topo do seu canal — proporção panorâmica."
               preview={bannerPreview}
               fallbackPreview={bannerFallback}
@@ -354,6 +407,17 @@ export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveCo
               hasFile={!!bannerFile}
               uploadLabel="Enviar capa"
             />
+            <div>
+              <label htmlFor="banner-url" className={labelClass}>Ou URL do banner de capa</label>
+              <input
+                type="url"
+                id="banner-url"
+                value={bannerUrlInput}
+                onChange={(e) => applyBannerUrlInput(e.target.value)}
+                placeholder="https://..."
+                className={inputClass}
+              />
+            </div>
           </div>
 
           <div className="md:col-span-7">

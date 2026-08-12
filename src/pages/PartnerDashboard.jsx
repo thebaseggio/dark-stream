@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, Fragment } from 'react';
 import { Link } from 'react-router-dom';
+import { UserCog } from 'lucide-react';
 import { Dialog, Transition } from '@headlessui/react';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
@@ -245,8 +246,8 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
                 </p>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="inline-flex rounded-lg border border-zinc-800 bg-zinc-900/80 p-1">
+              <div className="flex w-full flex-col gap-4 lg:w-auto lg:items-end">
+                <div className="inline-flex w-fit rounded-lg border border-zinc-800 bg-zinc-900/80 p-1">
                   {PERIOD_OPTIONS.map((option) => (
                     <button
                       key={option.value}
@@ -263,13 +264,23 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={openUploadModal}
-                  className="touch-target rounded-lg bg-brand-primary px-5 py-3 font-mono text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-90"
-                >
-                  + Novo Caso
-                </button>
+                <div className="relative z-10 flex w-full flex-shrink-0 flex-wrap items-center gap-2 sm:w-auto">
+                  <Link
+                    to="/account?tab=channel-profile"
+                    className="inline-flex h-10 shrink-0 items-center gap-2 border border-zinc-700 bg-zinc-900 px-4 font-mono text-xs font-bold uppercase tracking-wider text-zinc-200 transition-all hover:border-amber-500/60 hover:bg-zinc-800 hover:text-white rounded-none"
+                  >
+                    <UserCog className="h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
+                    Perfil do Canal
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={openUploadModal}
+                    className="inline-flex h-10 shrink-0 items-center rounded-none bg-brand-primary px-5 font-mono text-xs font-bold uppercase tracking-wider text-black transition-opacity hover:opacity-90"
+                  >
+                    + Novo Caso
+                  </button>
+                </div>
               </div>
             </header>
 

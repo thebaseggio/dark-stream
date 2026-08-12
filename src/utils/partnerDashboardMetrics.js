@@ -1,4 +1,5 @@
 import { buildPeriodStartIso } from './opsInsights';
+import { canAccessPartnerDashboard, isPartnerAccount } from './partnerAccess';
 
 /** Repasse estimado por hora assistida (RPM simplificado). */
 export const REVENUE_PER_HOUR_BRL = 0.05;
@@ -20,9 +21,7 @@ const VIDEO_CORE_SELECT = [
   'is_community_suggestion',
 ].join(', ');
 
-export function canAccessPartnerDashboard(profile) {
-  return ['partner', 'admin', 'tester'].includes(profile?.role);
-}
+export { canAccessPartnerDashboard, isPartnerAccount };
 
 export function isDashboardPrivileged(profile) {
   return profile?.role === 'admin' || profile?.role === 'tester';

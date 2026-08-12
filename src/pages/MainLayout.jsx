@@ -9,7 +9,6 @@ import SeoHead, { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../compon
 import { clearVideoProgressSession } from '../utils/videoPlayback';
 import { clearViewRegisteredSession } from '../utils/videoViews';
 import UserMenu from '../components/UserMenu';
-import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 
 function isVideoPlayerRoute(pathname) {
   return /^\/(video|caso)\/[^/]+$/.test(pathname);
@@ -97,10 +96,8 @@ function Header({ user, profile, immersive, chromeVisible }) {
 
 export default function MainLayout({ user, profile }) {
   const location = useLocation();
-  const { isMiniPlayerVisible } = useAudioPlayer();
   const onVideoPage = isVideoPlayerRoute(location.pathname);
-  const showMiniPlayerPadding = isMiniPlayerVisible && !onVideoPage;
-  const immersive = isVideoPlayerRoute(location.pathname);
+  const immersive = onVideoPage;
   const isHomeCatalog = isHomeCatalogRoute(location.pathname);
   const [chromeVisible, setChromeVisible] = useState(true);
   const chromeTimerRef = useRef(null);
@@ -143,7 +140,7 @@ export default function MainLayout({ user, profile }) {
       <main
         className={`min-w-0 w-full max-w-full flex-1 ${
           isHomeCatalog ? '' : 'pt-16 md:pt-20'
-        } ${showMiniPlayerPadding ? 'pb-20' : ''}`}
+        }`}
       >
         {immersive ? (
           <Outlet context={{ chromeVisible, reportChromeActivity }} />

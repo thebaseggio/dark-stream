@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
 import SiteContainer from './SiteContainer';
@@ -79,7 +79,9 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
   const [hasScrolled, setHasScrolled] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
   const [rotationResetKey, setRotationResetKey] = useState(0);
+  const textRef = useRef(null);
 
   const slides = useMemo(() => {
     if (featuredVideos?.length) return featuredVideos.slice(0, MAX_FEATURED_SLIDES);
@@ -90,6 +92,41 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
   const slideIdsKey = slides.map((slide) => slide.id).join(',');
 
   const currentVideo = slides[activeIndex] || null;
+
+  const heroDescription = useMemo(() => {
+    if (!currentVideo) return '';
+    return (currentVideo.description || currentVideo.synopsis || '').trim();
+  }, [currentVideo]);
+
+  useEffect(() => {
+    setHasOverflow(false);
+  }, [currentVideo?.id, heroDescription]);
+
+  useLayoutEffect(() => {
+    const checkOverflow = () => {
+      const el = textRef.current;
+      if (!el || !heroDescription || isExpanded) return;
+
+      setHasOverflow(el.scrollHeight > el.clientHeight + 1);
+    };
+
+    checkOverflow();
+
+    const rafId = window.requestAnimationFrame(checkOverflow);
+    window.addEventListener('resize', checkOverflow);
+
+    let resizeObserver;
+    if (typeof ResizeObserver !== 'undefined' && textRef.current) {
+      resizeObserver = new ResizeObserver(checkOverflow);
+      resizeObserver.observe(textRef.current);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', checkOverflow);
+      resizeObserver?.disconnect();
+    };
+  }, [heroDescription, isExpanded, currentVideo?.id]);
 
   const navigateToVideo = useCallback((videoId) => {
     if (!videoId) return;
@@ -107,6 +144,7 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
   useEffect(() => {
     setIsExpanded(false);
     setShowTrailer(false);
+    setHasOverflow(false);
   }, [currentVideo?.id]);
 
   useEffect(() => {
@@ -168,7 +206,6 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
   const creator = currentVideo.creator_id;
   const creatorProfilePath = getPartnerProfilePath(creator);
   const thumbnail = currentVideo.thumbnail || currentVideo.thumbnail_url;
-  const heroDescription = (currentVideo.description || currentVideo.synopsis || '').trim();
   const titleLength = currentVideo.title?.length || 0;
   const titleSizeClass = titleLength > 50
     ? 'text-xl md:text-2xl lg:text-3xl'
@@ -339,30 +376,25 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
             {heroDescription && (
               <>
                 <p
-                  className={`max-w-xl text-xs md:text-sm text-zinc-300 ${isExpanded ? '' : 'line-clamp-2'}`}
-                  style={
-                    isExpanded
-                      ? undefined
-                      : {
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }
-                  }
+                  ref={textRef}
+                  className={`max-w-xl text-sm text-zinc-300 md:text-base ${
+                    !isExpanded ? 'line-clamp-3' : ''
+                  }`}
                 >
                   {heroDescription}
                 </p>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    stopHeroClick(event);
-                    setIsExpanded((prev) => !prev);
-                  }}
-                  className="my-2 block font-mono text-xs uppercase tracking-wider text-amber-400 hover:underline"
-                >
-                  {isExpanded ? 'Ver menos' : 'Ver mais...'}
-                </button>
+                {(hasOverflow || isExpanded) && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      stopHeroClick(event);
+                      setIsExpanded((prev) => !prev);
+                    }}
+                    className="mt-2 block cursor-pointer font-mono text-xs font-bold uppercase tracking-wider text-amber-500 transition-colors hover:text-amber-400"
+                  >
+                    {isExpanded ? 'Ver menos' : 'Ver mais...'}
+                  </button>
+                )}
               </>
             )}
 

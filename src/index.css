@@ -294,7 +294,3 @@ html, body, #root {
   max-width: 100% !important;
   overflow: hidden !important;
 }
-
-body.has-mini-audio-player {
-  padding-bottom: 5rem;
-}

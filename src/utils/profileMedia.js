@@ -37,7 +37,7 @@ function looksLikeCompleteMediaTarget(value) {
 
 /** Select core — compatível com bancos sem colunas de assinatura */
 export const PROFILE_FIELDS_CORE =
-  'id, username, bio, role, avatar_url, banner_url, youtube_url, instagram_url, x_url, "creatorAvatar"';
+  'id, username, bio, role, is_partner, avatar_url, banner_url, youtube_url, instagram_url, x_url, "creatorAvatar"';
 
 /** Select explícito — garante que "creatorAvatar" (camelCase) volte do PostgREST */
 export const PROFILE_FIELDS_SELECT =
@@ -52,6 +52,7 @@ export function isMissingProfileColumnError(error) {
     || message.includes('does not exist')
     || message.includes('subscription_plan')
     || message.includes('subscription_status')
+    || message.includes('is_partner')
   );
 }
 

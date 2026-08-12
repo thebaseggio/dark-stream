@@ -17,8 +17,6 @@ import SignupPage from './pages/SignupPage';
 import NotificationModal from './components/NotificationModal.jsx';
 import VisitorProfilePage from './pages/VisitorProfilePage';
 import { UploadProvider } from './contexts/UploadProvider.jsx'; 
-import { AudioPlayerProvider } from './contexts/AudioPlayerContext.jsx';
-import MiniAudioPlayer from './components/MiniAudioPlayer.jsx';
 import SearchResults from './pages/SearchResults';
 import CategoryPage from './pages/CategoryPage';
 import OurMission from './pages/institutional/OurMission';
@@ -65,7 +63,6 @@ export default function App() {
  return (
     <NotificationProvider showNotification={showNotification}>
         <UploadProvider>
-            <AudioPlayerProvider>
             <div className="w-full max-w-full overflow-x-hidden min-h-screen bg-black text-white">
             <Router>
             <>
@@ -149,11 +146,9 @@ export default function App() {
                 type={notification.type}
                 message={notification.message}
             />
-            <MiniAudioPlayer />
         </>
         </Router>
             </div>
-            </AudioPlayerProvider>
   </UploadProvider>
 </NotificationProvider>
   );

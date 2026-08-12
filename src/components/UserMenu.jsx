@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { UserCog } from 'lucide-react';
 import { isValidRenderableUrl, resolveAvatarUrl } from '../utils/profileMedia';
+import { isPartnerAccount, shouldShowChannelProfileNav } from '../utils/partnerAccess';
 
 const InvestigatorIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -58,7 +60,7 @@ function MenuLink({ to, onSelect, children, className = '' }) {
     <Link
       to={to}
       onClick={onSelect}
-      className={`block px-4 py-2 text-[11px] font-mono uppercase tracking-wider text-zinc-300 hover:bg-zinc-900 hover:text-white transition-colors ${className}`}
+      className={`flex items-center gap-2 px-4 py-2 font-mono text-xs uppercase tracking-wider text-zinc-300 transition-all hover:bg-zinc-900/80 hover:text-amber-500 ${className}`}
     >
       {children}
     </Link>
@@ -68,7 +70,10 @@ function MenuLink({ to, onSelect, children, className = '' }) {
 export default function UserMenu({ profile, onLogout }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
-  const isDashboardUser = ['partner', 'admin', 'tester'].includes(profile?.role);
+  const role = String(profile?.role || '').trim().toLowerCase();
+  const isDashboardUser = ['partner', 'admin', 'tester'].includes(role);
+  const isPartnerAccountUser = isPartnerAccount(profile);
+  const showChannelProfileLink = isPartnerAccountUser || isDashboardUser;
 
   const closeMenu = () => setOpen(false);
 
@@ -134,6 +139,13 @@ export default function UserMenu({ profile, onLogout }) {
           {isDashboardUser && (
             <MenuLink to="/partner/dashboard" onSelect={closeMenu}>
               Painel do Parceiro
+            </MenuLink>
+          )}
+
+          {showChannelProfileLink && (
+            <MenuLink to="/account?tab=channel-profile" onSelect={closeMenu}>
+              <UserCog className="h-4 w-4 text-amber-500" aria-hidden="true" />
+              Perfil do Canal
             </MenuLink>
           )}
 

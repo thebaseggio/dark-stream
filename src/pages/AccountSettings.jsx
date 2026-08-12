@@ -5,8 +5,13 @@ import SiteContainer from '../components/SiteContainer';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import { useAuth } from '../contexts/AuthProvider';
 import { PROFILE_FIELDS_SELECT, resolveAvatarUrl } from '../utils/profileMedia';
-import { isOfficialPartner } from '../utils/partnerAccess';
+import {
+  isPartnerAccount,
+  shouldShowChannelProfileNav,
+} from '../utils/partnerAccess';
 import { supabase } from '../supabase';
+import { useNotification } from '../contexts/NotificationProvider';
+import ProfileEditor from '../components/ProfileEditor';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const INVESTIGATOR_TABS = [
@@ -18,10 +23,30 @@ const INVESTIGATOR_TABS = [
 
 const PARTNER_TABS = [
   { id: 'overview', label: 'Visão Geral' },
+  { id: 'channel-profile', label: 'Perfil do Canal' },
   { id: 'payout', label: 'Repasse / Pix' },
   { id: 'security', label: 'Segurança' },
   { id: 'devices', label: 'Aparelhos' },
 ];
+
+const VALID_TAB_IDS = {
+  investigator: INVESTIGATOR_TABS.map((tab) => tab.id),
+  partner: PARTNER_TABS.map((tab) => tab.id),
+};
+
+function resolveInitialTab(searchParams) {
+  const tabParam = searchParams.get('tab');
+  if (tabParam) return tabParam;
+  return 'overview';
+}
+
+function isAllowedAccountTab(tabId, partnerNav, allowChannelProfile = false) {
+  if (tabId === 'channel-profile' && allowChannelProfile) return true;
+  const allowed = partnerNav ? VALID_TAB_IDS.partner : VALID_TAB_IDS.investigator;
+  return allowed.includes(tabId);
+}
+
+const CHANNEL_PROFILE_TAB = { id: 'channel-profile', label: 'Perfil do Canal' };
 
 const INVESTIGATOR_PLANS = [
   {
@@ -189,8 +214,12 @@ function TabPlaceholder({ title, description }) {
 
 export default function AccountSettings() {
   const { user, profile, loading, profileLoading, refreshProfile } = useAuth();
+  const { showNotification } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState('overview');
+  const tabFromUrl = searchParams.get('tab');
+  const isPartner = isPartnerAccount(profile);
+  const showChannelProfileNav = shouldShowChannelProfileNav(profile, tabFromUrl);
+  const [activeTab, setActiveTab] = useState(() => resolveInitialTab(searchParams));
   const [accountLoading, setAccountLoading] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
@@ -202,10 +231,24 @@ export default function AccountSettings() {
   const [isSavingPayout, setIsSavingPayout] = useState(false);
   const [payoutError, setPayoutError] = useState(null);
   const [payoutSaved, setPayoutSaved] = useState(false);
+  const [channelProfileSaved, setChannelProfileSaved] = useState(false);
   const subscriptionSuccess = searchParams.get('subscribed') === '1';
 
-  const isPartner = isOfficialPartner(profile);
-  const accountTabs = isPartner ? PARTNER_TABS : INVESTIGATOR_TABS;
+  const accountTabs = useMemo(() => {
+    const baseTabs = isPartner ? [...PARTNER_TABS] : [...INVESTIGATOR_TABS];
+
+    if (showChannelProfileNav && !baseTabs.some((tab) => tab.id === 'channel-profile')) {
+      const overviewIndex = baseTabs.findIndex((tab) => tab.id === 'overview');
+      const insertAt = overviewIndex >= 0 ? overviewIndex + 1 : 0;
+      return [
+        ...baseTabs.slice(0, insertAt),
+        CHANNEL_PROFILE_TAB,
+        ...baseTabs.slice(insertAt),
+      ];
+    }
+
+    return baseTabs;
+  }, [isPartner, showChannelProfileNav]);
 
   useEffect(() => {
     if (!subscriptionSuccess) return undefined;
@@ -253,6 +296,51 @@ export default function AccountSettings() {
       setActiveTab('overview');
     }
   }, [isPartner, activeTab]);
+
+  useEffect(() => {
+    if (loading || profileLoading) return;
+
+    const tabParam = searchParams.get('tab');
+    if (!tabParam) return;
+
+    const allowChannelProfile = shouldShowChannelProfileNav(profile, tabParam);
+
+    if (tabParam === 'channel-profile' && allowChannelProfile) {
+      setActiveTab('channel-profile');
+      return;
+    }
+
+    if (isAllowedAccountTab(tabParam, isPartner, allowChannelProfile)) {
+      setActiveTab(tabParam);
+      return;
+    }
+
+    setActiveTab('overview');
+    setSearchParams({}, { replace: true });
+  }, [loading, profileLoading, isPartner, profile, searchParams, setSearchParams]);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setChannelProfileSaved(false);
+    if (tabId === 'overview') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ tab: tabId }, { replace: true });
+    }
+  };
+
+  const handleChannelProfileSuccess = (type, message) => {
+    if (type === 'success') {
+      setChannelProfileSaved(true);
+      window.setTimeout(() => setChannelProfileSaved(false), 6000);
+      return;
+    }
+    showNotification?.(type, message);
+  };
+
+  const handleChannelProfileSaved = async () => {
+    await refreshProfile();
+  };
 
   const currentPlan = useMemo(() => {
     if (!selectedPlanId) {
@@ -397,7 +485,7 @@ export default function AccountSettings() {
             {!hasPayoutData && (
               <button
                 type="button"
-                onClick={() => setActiveTab('payout')}
+                onClick={() => handleTabChange('payout')}
                 className="text-[11px] font-mono uppercase tracking-wider text-brand-primary transition-colors hover:underline"
               >
                 Cadastrar dados para repasse mensal →
@@ -409,13 +497,46 @@ export default function AccountSettings() {
         <SectionCard title="Atalhos Rápidos" subtitle="Central da conta">
           <div className="space-y-2">
             <QuickLink to="/partner/dashboard">Painel do Parceiro</QuickLink>
-            <QuickLink onClick={() => setActiveTab('payout')}>Dados de Repasse / Pix</QuickLink>
-            <QuickLink onClick={() => setActiveTab('security')}>Segurança e Senha</QuickLink>
+            <QuickLink onClick={() => handleTabChange('channel-profile')}>Perfil do Canal</QuickLink>
+            <QuickLink onClick={() => handleTabChange('payout')}>Dados de Repasse / Pix</QuickLink>
+            <QuickLink onClick={() => handleTabChange('security')}>Segurança e Senha</QuickLink>
           </div>
         </SectionCard>
       </div>
     );
   };
+
+  const renderChannelProfile = () => (
+    <div className="space-y-6">
+      {channelProfileSaved && (
+        <div className="border border-brand-primary/50 bg-brand-primary/10 px-4 py-3 text-sm text-brand-primary">
+          Perfil do Parceiro atualizado com sucesso!
+        </div>
+      )}
+
+      <SectionCard title="Perfil do Canal" subtitle="Identidade pública">
+        <p className="text-sm leading-relaxed text-zinc-400">
+          Atualize avatar, banner, bio e redes sociais exibidos na página pública do seu canal.
+        </p>
+
+        {user?.id && profile ? (
+          <div className="mt-6">
+            <ProfileEditor
+              user={user}
+              profile={profile}
+              mode="partner"
+              saveSuccessMessage="Perfil do Parceiro atualizado com sucesso!"
+              onSuccess={handleChannelProfileSuccess}
+              onSaveComplete={handleChannelProfileSaved}
+              onUploadSuccess={handleChannelProfileSaved}
+            />
+          </div>
+        ) : (
+          <p className="mt-6 text-sm text-zinc-500">Carregando perfil do canal…</p>
+        )}
+      </SectionCard>
+    </div>
+  );
 
   const renderPayout = () => (
     <div className="space-y-6">
@@ -524,8 +645,8 @@ export default function AccountSettings() {
       <SectionCard title="Atalhos Rápidos" subtitle="Central da conta">
         <div className="space-y-2">
           <QuickLink to="/plans">Alterar plano</QuickLink>
-          <QuickLink onClick={() => setActiveTab('subscription')}>Gerenciar forma de pagamento</QuickLink>
-          <QuickLink onClick={() => setActiveTab('devices')}>Gerenciar aparelhos</QuickLink>
+          <QuickLink onClick={() => handleTabChange('subscription')}>Gerenciar forma de pagamento</QuickLink>
+          <QuickLink onClick={() => handleTabChange('devices')}>Gerenciar aparelhos</QuickLink>
         </div>
       </SectionCard>
     </div>
@@ -646,6 +767,7 @@ export default function AccountSettings() {
 
   const tabContent = {
     overview: isPartner ? renderPartnerOverview : renderOverview,
+    'channel-profile': renderChannelProfile,
     subscription: renderSubscription,
     payout: renderPayout,
     security: renderSecurity,
@@ -683,7 +805,7 @@ export default function AccountSettings() {
               </h1>
               <p className="max-w-2xl text-sm text-zinc-400">
                 {isPartner
-                  ? 'Gerencie repasse, segurança e aparelhos conectados da sua conta de parceiro.'
+                  ? 'Gerencie perfil do canal, repasse, segurança e aparelhos conectados da sua conta de parceiro.'
                   : 'Gerencie assinatura, pagamento, segurança e aparelhos conectados.'}
               </p>
             </div>
@@ -715,6 +837,12 @@ export default function AccountSettings() {
           </div>
         </header>
 
+        {isPartner && channelProfileSaved && activeTab !== 'channel-profile' && (
+          <div className="mb-8 border border-brand-primary/50 bg-brand-primary/10 px-4 py-3 text-sm text-brand-primary">
+            Perfil do Parceiro atualizado com sucesso!
+          </div>
+        )}
+
         {!isPartner && subscriptionSuccess && (
           <div className="mb-8 border border-emerald-500/40 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-300">
             Assinatura confirmada. Seu plano será atualizado em instantes após a confirmação do pagamento.
@@ -732,7 +860,7 @@ export default function AccountSettings() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`w-full border px-4 py-3 text-left text-[11px] font-mono uppercase tracking-wider transition-colors ${
                     isActive
                       ? 'border-brand-primary/50 bg-brand-primary/10 text-brand-primary'

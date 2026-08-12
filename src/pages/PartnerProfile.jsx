@@ -554,67 +554,59 @@ export default function PartnerProfile({ currentUser }) {
 
         <SiteContainer className="pb-16 pt-4">
           <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-dark-border">
+            <div className="flex flex-col gap-4 border-b border-dark-border sm:flex-row sm:items-end sm:justify-between">
               <div className="flex touch-pan-y gap-1 overflow-x-auto scrollbar-hide">
                 <button
                   type="button"
                   onClick={() => setActiveVideoTab('main')}
-                  className={`flex-shrink-0 px-4 py-3 text-[11px] font-mono uppercase tracking-widest border-b-2 transition-colors ${
+                  className={`flex-shrink-0 border-b-2 px-4 py-3 font-mono text-[11px] uppercase tracking-widest transition-colors ${
                     activeVideoTab === 'main'
                       ? 'border-brand-primary text-white'
                       : 'border-transparent text-zinc-500 hover:text-zinc-300'
                   }`}
                 >
-                  Casos Principais
-                  <span className="ml-2 text-zinc-600">{mainCases.length}</span>
+                  Casos Publicados
+                  <span className="ml-2 font-mono text-xs text-amber-500">{mainCases.length}</span>
                 </button>
                 {hasShortTab && (
                   <button
                     type="button"
                     onClick={() => setActiveVideoTab('shorts')}
-                    className={`flex-shrink-0 px-4 py-3 text-[11px] font-mono uppercase tracking-widest border-b-2 transition-colors ${
+                    className={`flex-shrink-0 border-b-2 px-4 py-3 font-mono text-[11px] uppercase tracking-widest transition-colors ${
                       activeVideoTab === 'shorts'
                         ? 'border-brand-primary text-white'
                         : 'border-transparent text-zinc-500 hover:text-zinc-300'
                     }`}
                   >
                     Atualizações &amp; Shorts
-                    <span className="ml-2 text-zinc-600">{shortUpdates.length}</span>
+                    <span className="ml-2 font-mono text-xs text-amber-500">{shortUpdates.length}</span>
                   </button>
                 )}
               </div>
 
-              <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 pb-3 sm:pb-0">
-                {activeVideoTab === 'main'
-                  ? 'Investigações longas publicadas'
-                  : 'Desdobramentos e flashes do canal'}
-              </p>
-            </div>
-
-            {activeVideos.length > 0 && (
-              <div className="flex justify-end">
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">
-                    Ordenar por
+              {activeVideos.length > 0 && (
+                <div className="flex items-center pb-3 sm:pb-0">
+                  <span className="mr-2 font-mono text-[10px] uppercase tracking-wider text-amber-500/80">
+                    Ordenar por:
                   </span>
                   <select
                     value={sortBy}
                     onChange={(event) => setSortBy(event.target.value)}
                     aria-label="Ordenar vídeos"
-                    className="h-10 rounded-lg border border-zinc-700/80 bg-black/40 px-3 text-xs font-mono uppercase tracking-wider text-zinc-200 backdrop-blur-sm transition-colors focus:border-amber-500/60 focus:outline-none"
+                    className="cursor-pointer rounded-none border border-zinc-700/80 bg-zinc-900 px-3 py-1.5 font-mono text-xs font-bold uppercase text-zinc-200 transition-colors hover:border-amber-500/80 focus:border-amber-500/80 focus:outline-none"
                   >
                     {SORT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
+                      <option key={option.value} value={option.value} className="bg-zinc-900">
                         {option.label}
                       </option>
                     ))}
                   </select>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {activeVideos.length > 0 ? (
-              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {sortedActiveVideos.map((video) => (
                   <VideoCard
                     key={video.id}

@@ -1,10 +1,8 @@
 // src/pages/VideoPlayer.jsx
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link, useOutletContext, useLocation } from 'react-router-dom';
-import { Video, Headphones } from 'lucide-react';
 import { supabase } from '../supabase';
-import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import AnimatedPage from '../AnimatedPage';
 import RestrictedAccessScreen from '../components/RestrictedAccessScreen';
 import PlayerAmbientGlow from '../components/PlayerAmbientGlow';
@@ -155,20 +153,6 @@ function getVideoMediaUrl(video) {
   return video.videoUrl || video.video_url || video.url || '';
 }
 
-function buildAudioTrackFromVideo(video, videoId) {
-  const mediaUrl = getVideoMediaUrl(video);
-  if (!mediaUrl || !videoId) return null;
-
-  return {
-    id: videoId,
-    title: video.title,
-    thumbnail: video.thumbnail,
-    videoUrl: mediaUrl,
-    partnerName: video.creator_id?.username || 'Parceiro',
-    partnerId: video.creator_id?.id,
-  };
-}
-
 function getShortTypeLabel(shortType) {
   if (shortType === 'intro') return 'Prévia';
   if (shortType === 'flash') return 'Flash';
@@ -222,13 +206,6 @@ export default function VideoPlayer({ user }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { chromeVisible = true, reportChromeActivity } = useOutletContext() || {};
-  const {
-    enterAudioMode,
-    exitAudioMode,
-    isActiveForVideo,
-    currentTime: contextAudioTime,
-    isPlaying: contextAudioPlaying,
-  } = useAudioPlayer();
 
   const [video, setVideo] = useState(null);
   const [updateShorts, setUpdateShorts] = useState([]);
@@ -257,11 +234,9 @@ export default function VideoPlayer({ user }) {
   const [endAutoplaySeconds, setEndAutoplaySeconds] = useState(END_AUTOPLAY_SECONDS);
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
+  const [hasSynopsisOverflow, setHasSynopsisOverflow] = useState(false);
   const [playerOverlay, setPlayerOverlay] = useState(null);
   const [timelineHover, setTimelineHover] = useState(null);
-  const [isAudioOnlyView, setIsAudioOnlyView] = useState(false);
-
-  const audioModeActive = isAudioOnlyView;
 
   const inactivityTimerRef = useRef(null);
   const videoRef = useRef(null);
@@ -272,15 +247,53 @@ export default function VideoPlayer({ user }) {
   const playerWasFullscreenRef = useRef(false);
   const floatingDismissedRef = useRef(false);
   const lastPlaybackSaveRef = useRef(0);
+  const lastKnownPlaybackRef = useRef(0);
+  const lastKnownDurationRef = useRef(0);
+  const isPlayingRef = useRef(false);
   const videoDataRef = useRef(null);
   const hasRestoredProgressRef = useRef(false);
   const hasStartedPlaybackRef = useRef(false);
+  const mediaReadyForAutoplayRef = useRef(false);
   const hasLoadedVideoRef = useRef(false);
   const savedProgressRef = useRef(0);
   const introSoundBlockedRef = useRef(false);
   const introSequenceRef = useRef(0);
-  const isAudioOnlyViewRef = useRef(false);
-  const hasSyncedContextAudioRef = useRef(false);
+  const synopsisRef = useRef(null);
+
+  const synopsisText = useMemo(() => {
+    const raw = video?.description || video?.synopsis || '';
+    return typeof raw === 'string' ? raw.trim() : '';
+  }, [video?.description, video?.synopsis, video?.id]);
+
+  useEffect(() => {
+    setHasSynopsisOverflow(false);
+  }, [video?.id, synopsisText]);
+
+  useLayoutEffect(() => {
+    const checkSynopsisOverflow = () => {
+      const el = synopsisRef.current;
+      if (!el || !synopsisText || isSynopsisExpanded) return;
+
+      setHasSynopsisOverflow(el.scrollHeight > el.clientHeight + 1);
+    };
+
+    checkSynopsisOverflow();
+
+    const rafId = window.requestAnimationFrame(checkSynopsisOverflow);
+    window.addEventListener('resize', checkSynopsisOverflow);
+
+    let resizeObserver;
+    if (typeof ResizeObserver !== 'undefined' && synopsisRef.current) {
+      resizeObserver = new ResizeObserver(checkSynopsisOverflow);
+      resizeObserver.observe(synopsisRef.current);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', checkSynopsisOverflow);
+      resizeObserver?.disconnect();
+    };
+  }, [synopsisText, isSynopsisExpanded, video?.id]);
 
   const isIntroBlockingUi = showIntro || isIntroDissolving;
 
@@ -327,31 +340,56 @@ export default function VideoPlayer({ user }) {
     }
   }, [video]);
 
+  const syncPlayingFromMediaElement = useCallback(() => {
+    const el = videoRef.current;
+    if (!el || el.paused) return;
+
+    isPlayingRef.current = true;
+    setIsPlaying(true);
+  }, []);
+
   const handleTimeUpdate = useCallback((e) => {
     const el = e.currentTarget;
+    lastKnownPlaybackRef.current = el.currentTime;
+    if (Number.isFinite(el.duration)) {
+      lastKnownDurationRef.current = el.duration;
+    }
     setCurrentTime(el.currentTime);
     setProgress((el.currentTime / el.duration) * 100 || 0);
+    syncPlayingFromMediaElement();
 
     const now = Date.now();
     if (videoId && now - lastPlaybackSaveRef.current > 10000) {
       lastPlaybackSaveRef.current = now;
       persistWatchProgress(user?.id, videoId, el.currentTime, el.duration);
     }
-  }, [videoId, user?.id]);
+  }, [videoId, user?.id, syncPlayingFromMediaElement]);
 
   const flushWatchProgress = useCallback(() => {
+    if (!videoId) return;
+
     const el = videoRef.current;
-    if (!el || !videoId) return;
-    persistWatchProgress(user?.id, videoId, el.currentTime, el.duration);
+    const lastTime = Number.isFinite(el?.currentTime)
+      ? el.currentTime
+      : lastKnownPlaybackRef.current;
+    const mediaDuration = Number.isFinite(el?.duration)
+      ? el.duration
+      : lastKnownDurationRef.current;
+
+    if (!Number.isFinite(lastTime) || lastTime <= 0) return;
+
+    persistWatchProgress(user?.id, videoId, lastTime, mediaDuration);
     lastPlaybackSaveRef.current = Date.now();
   }, [videoId, user?.id]);
 
   // Espelham o estado nativo do <video>; nunca disparam .play()/.pause() imperativos.
   const handlePlay = useCallback(() => {
+    isPlayingRef.current = true;
     setIsPlaying(true);
   }, []);
 
   const handlePause = useCallback((e) => {
+    isPlayingRef.current = false;
     setIsPlaying(false);
     const el = e?.currentTarget || videoRef.current;
     if (el && videoId) {
@@ -375,9 +413,61 @@ export default function VideoPlayer({ user }) {
   const handleDurationChange = useCallback((e) => {
     const el = e.currentTarget;
     if (Number.isFinite(el.duration)) {
+      lastKnownDurationRef.current = el.duration;
       setDuration(el.duration);
     }
   }, []);
+
+  const attemptInitialAutoplay = useCallback(() => {
+    const el = videoRef.current;
+    if (!el || hasStartedPlaybackRef.current || loading || !video) return;
+
+    if (showIntro && !isIntroDissolving) {
+      mediaReadyForAutoplayRef.current = true;
+      return;
+    }
+
+    const startPlayback = () => {
+      const mediaEl = videoRef.current;
+      if (!mediaEl || hasStartedPlaybackRef.current) return;
+
+      hasStartedPlaybackRef.current = true;
+      mediaReadyForAutoplayRef.current = false;
+
+      const savedTime = savedProgressRef.current;
+
+      if (savedTime > 0 && mediaEl.currentTime < 1 && !hasRestoredProgressRef.current) {
+        mediaEl.currentTime = savedTime;
+        lastKnownPlaybackRef.current = savedTime;
+        setCurrentTime(savedTime);
+        setProgress((savedTime / mediaEl.duration) * 100 || 0);
+        hasRestoredProgressRef.current = true;
+      } else if (savedTime <= 0 && !hasRestoredProgressRef.current) {
+        mediaEl.currentTime = 0;
+        setCurrentTime(0);
+        setProgress(0);
+      }
+
+      mediaEl.volume = volume;
+      mediaEl.muted = isMuted;
+
+      mediaEl.play().catch((err) => {
+        console.log('Autoplay do vídeo bloqueado pelo browser:', err);
+        setIsPlaying(false);
+      });
+    };
+
+    if (el.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      startPlayback();
+    } else {
+      el.addEventListener('loadedmetadata', startPlayback, { once: true });
+    }
+  }, [loading, video, showIntro, isIntroDissolving, volume, isMuted]);
+
+  const handleVideoMetadataLoaded = useCallback((e) => {
+    handleDurationChange(e);
+    attemptInitialAutoplay();
+  }, [handleDurationChange, attemptInitialAutoplay]);
 
   const handleLoadedData = useCallback((e) => {
     if (hasRestoredProgressRef.current) return;
@@ -386,6 +476,7 @@ export default function VideoPlayer({ user }) {
     const savedTime = savedProgressRef.current;
     if (savedTime > 0 && el.currentTime < 1) {
       el.currentTime = savedTime;
+      lastKnownPlaybackRef.current = savedTime;
       setCurrentTime(savedTime);
       setProgress((savedTime / el.duration) * 100 || 0);
       hasRestoredProgressRef.current = true;
@@ -395,7 +486,7 @@ export default function VideoPlayer({ user }) {
     if (savedTime <= 0) {
       el.currentTime = 0;
     }
-  }, [videoId, user?.id]);
+  }, []);
 
   const togglePlayPause = useCallback(() => {
     const currentVideo = videoRef.current;
@@ -407,27 +498,10 @@ export default function VideoPlayer({ user }) {
     }
   }, []);
 
-  const handlePlaybackModeChange = useCallback((mode) => {
-    if (!video || !videoId) return;
-
-    if (mode === 'audio') {
-      setIsAudioOnlyView(true);
-      setShowIntro(false);
-      setIsIntroDissolving(false);
-      setIsFloating(false);
-      setFloatingDismissed(false);
-      floatingDismissedRef.current = false;
-
-      const el = videoRef.current;
-      if (el?.paused && isPlaying) {
-        el.play().catch(() => setIsPlaying(false));
-      }
-      return;
-    }
-
-    setIsAudioOnlyView(false);
-    exitAudioMode();
-  }, [video, videoId, isPlaying, exitAudioMode]);
+  const handleBackToCatalog = useCallback(() => {
+    flushWatchProgress();
+    navigate('/casos');
+  }, [flushWatchProgress, navigate]);
 
   const showActionOverlay = useCallback((overlay) => {
     const overlayId = Date.now();
@@ -474,6 +548,7 @@ export default function VideoPlayer({ user }) {
     if (!currentVideo) return;
     const newTime = parseFloat(e.target.value);
     currentVideo.currentTime = newTime;
+    lastKnownPlaybackRef.current = newTime;
     setCurrentTime(newTime);
     setProgress((newTime / currentVideo.duration) * 100 || 0);
   }, []);
@@ -489,6 +564,7 @@ export default function VideoPlayer({ user }) {
     const maxTime = Number.isFinite(currentVideo.duration) ? currentVideo.duration : 0;
     const nextTime = Math.max(0, Math.min(maxTime, currentVideo.currentTime + delta));
     currentVideo.currentTime = nextTime;
+    lastKnownPlaybackRef.current = nextTime;
     setCurrentTime(nextTime);
     setProgress((nextTime / currentVideo.duration) * 100 || 0);
     showActionOverlay({
@@ -510,7 +586,12 @@ export default function VideoPlayer({ user }) {
       currentVideo.muted = false;
       setIsMuted(false);
     }
-  }, []);
+    showActionOverlay({
+      placement: 'center',
+      icon: nextVolume === 0 ? 'mute' : 'unmute',
+      text: nextVolume === 0 ? 'Mudo' : null,
+    });
+  }, [showActionOverlay]);
 
   const toggleTheaterMode = useCallback(() => {
     setIsTheaterMode((current) => !current);
@@ -669,14 +750,19 @@ export default function VideoPlayer({ user }) {
     window.scrollTo(0, 0);
 
     introSequenceRef.current += 1;
+
     setIsPlaying(false);
     setDuration(0);
     setVolume(0.8);
     setIsMuted(false);
     setAreControlsVisible(true);
     lastPlaybackSaveRef.current = 0;
+    lastKnownPlaybackRef.current = 0;
+    lastKnownDurationRef.current = 0;
+    isPlayingRef.current = false;
     hasRestoredProgressRef.current = false;
     hasStartedPlaybackRef.current = false;
+    mediaReadyForAutoplayRef.current = false;
     hasLoadedVideoRef.current = false;
     setIsIntroDissolving(false);
     setIntroStep(0);
@@ -687,6 +773,7 @@ export default function VideoPlayer({ user }) {
     setEndAutoplayTarget(null);
     setEndAutoplaySeconds(END_AUTOPLAY_SECONDS);
     setIsSynopsisExpanded(false);
+    setHasSynopsisOverflow(false);
 
     let cancelled = false;
 
@@ -881,116 +968,20 @@ export default function VideoPlayer({ user }) {
   }, [showIntro, loading, finishIntroOverlay, video?.id]);
 
   useEffect(() => {
-    isAudioOnlyViewRef.current = isAudioOnlyView;
-  }, [isAudioOnlyView]);
+    if (showIntro && !isIntroDissolving) return undefined;
 
-  useEffect(() => {
-    setIsAudioOnlyView(false);
-    hasSyncedContextAudioRef.current = false;
-  }, [videoId]);
-
-  useEffect(() => {
-    if (!video || !videoId || !isActiveForVideo(videoId) || hasSyncedContextAudioRef.current) {
-      return undefined;
-    }
-
-    hasSyncedContextAudioRef.current = true;
-    const resumeTime = contextAudioTime;
-    const shouldPlay = contextAudioPlaying;
-
-    exitAudioMode();
-    setIsAudioOnlyView(true);
-    setShowIntro(false);
-    setIsIntroDissolving(false);
-
-    const el = videoRef.current;
-    if (el) {
-      if (resumeTime > 0) {
-        el.currentTime = resumeTime;
-        setCurrentTime(resumeTime);
-        setProgress(el.duration ? (resumeTime / el.duration) * 100 : 0);
-      }
-      if (shouldPlay) {
-        el.play().catch(() => setIsPlaying(false));
-      }
-    }
+    attemptInitialAutoplay();
 
     return undefined;
-  }, [
-    video,
-    videoId,
-    isActiveForVideo,
-    contextAudioTime,
-    contextAudioPlaying,
-    exitAudioMode,
-  ]);
+  }, [showIntro, isIntroDissolving, attemptInitialAutoplay]);
 
   useEffect(() => {
-    if (!isAudioOnlyView) return undefined;
+    if (!video || loading) return undefined;
 
-    setShowIntro(false);
-    setIsIntroDissolving(false);
-    setIsFloating(false);
-    setFloatingDismissed(false);
-    floatingDismissedRef.current = false;
+    attemptInitialAutoplay();
 
     return undefined;
-  }, [isAudioOnlyView]);
-
-  useEffect(() => {
-    return () => {
-      if (!isAudioOnlyViewRef.current) return;
-
-      const currentVideo = videoRef.current;
-      const track = buildAudioTrackFromVideo(videoDataRef.current, videoId);
-      if (!track) return;
-
-      enterAudioMode(
-        track,
-        currentVideo?.currentTime ?? 0,
-        currentVideo ? !currentVideo.paused : false,
-        {
-          volume: currentVideo?.volume ?? 0.8,
-          muted: currentVideo?.muted ?? false,
-        },
-      );
-    };
-  }, [videoId, enterAudioMode]);
-
-  useEffect(() => {
-    const currentVideo = videoRef.current;
-    if (!currentVideo || hasStartedPlaybackRef.current) return;
-    if (showIntro && !isIntroDissolving) return;
-
-    hasStartedPlaybackRef.current = true;
-
-    const savedTime = savedProgressRef.current;
-    if (savedTime > 0 && currentVideo.currentTime < 1) {
-      currentVideo.currentTime = savedTime;
-      setCurrentTime(savedTime);
-      setProgress((savedTime / currentVideo.duration) * 100 || 0);
-      hasRestoredProgressRef.current = true;
-    } else {
-      currentVideo.currentTime = 0;
-      setCurrentTime(0);
-      setProgress(0);
-    }
-
-    currentVideo.volume = 0.8;
-    currentVideo.muted = false;
-    setVolume(0.8);
-    setIsMuted(false);
-
-    const shouldAutoplayNext = sessionStorage.getItem(AUTOPLAY_NEXT_KEY) === '1';
-    if (shouldAutoplayNext) {
-      sessionStorage.removeItem(AUTOPLAY_NEXT_KEY);
-    }
-
-    const playPromise = currentVideo.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => setIsPlaying(false));
-    }
-  }, [showIntro, isIntroDissolving, videoId, user?.id]);
+  }, [video, loading, videoId, attemptInitialAutoplay]);
 
   useEffect(() => {
     floatingDismissedRef.current = floatingDismissed;
@@ -1006,7 +997,7 @@ export default function VideoPlayer({ user }) {
   }, [isFloating]);
 
   useEffect(() => {
-    if (isIntroBlockingUi || isAudioOnlyView) return undefined;
+    if (isIntroBlockingUi) return undefined;
 
     const handleScroll = () => {
       const playerEl = playerRef.current;
@@ -1037,7 +1028,7 @@ export default function VideoPlayer({ user }) {
       window.removeEventListener('scroll', handleScroll);
       document.removeEventListener('scroll', handleScroll);
     };
-  }, [isIntroBlockingUi, isAudioOnlyView]);
+  }, [isIntroBlockingUi]);
 
   useEffect(() => {
     if (!endAutoplayActive || !endAutoplayTarget?.id) return undefined;
@@ -1063,10 +1054,6 @@ export default function VideoPlayer({ user }) {
 
     document.addEventListener('visibilitychange', persistProgressOnHide);
     return () => document.removeEventListener('visibilitychange', persistProgressOnHide);
-  }, [flushWatchProgress]);
-
-  useEffect(() => () => {
-    flushWatchProgress();
   }, [flushWatchProgress]);
 
   useEffect(() => {
@@ -1136,6 +1123,32 @@ export default function VideoPlayer({ user }) {
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, [isIntroBlockingUi, showActionOverlay]);
+
+  useEffect(() => {
+    const activeVideoId = videoId;
+    const activeUserId = user?.id;
+
+    return () => {
+      const currentVideo = videoRef.current;
+      const lastTime = Number.isFinite(currentVideo?.currentTime)
+        ? currentVideo.currentTime
+        : lastKnownPlaybackRef.current;
+      const mediaDuration = Number.isFinite(currentVideo?.duration)
+        ? currentVideo.duration
+        : lastKnownDurationRef.current;
+
+      if (lastTime > 0 && activeVideoId) {
+        persistWatchProgress(activeUserId, activeVideoId, lastTime, mediaDuration);
+        lastPlaybackSaveRef.current = Date.now();
+      }
+
+      if (currentVideo) {
+        currentVideo.pause();
+        currentVideo.removeAttribute('src');
+        currentVideo.load();
+      }
+    };
+  }, [videoId, user?.id]);
 
   if (!user) {
     return (
@@ -1244,34 +1257,15 @@ export default function VideoPlayer({ user }) {
         onPause={handlePause}
         onEnded={handleVideoEnded}
         onDurationChange={handleDurationChange}
-        onLoadedMetadata={handleDurationChange}
+        onLoadedMetadata={handleVideoMetadataLoaded}
         onLoadedData={handleLoadedData}
         className={
           floating
-            ? `relative z-0 block w-full h-full min-h-[8rem] object-cover bg-black${audioModeActive ? ' opacity-0 pointer-events-none' : ''}`
-            : `absolute inset-0 z-0 w-full h-full object-contain bg-black${audioModeActive ? ' opacity-0 pointer-events-none' : ''}`
+            ? 'relative z-0 block w-full h-full min-h-[8rem] object-cover bg-black'
+            : 'absolute inset-0 z-0 w-full h-full object-contain bg-black'
         }
         src={getVideoMediaUrl(video)}
       />
-
-      {audioModeActive && !floating && (
-        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center overflow-hidden bg-black">
-          <img
-            src={video.thumbnail}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover opacity-25"
-          />
-          <div className="relative z-10 flex flex-col items-center gap-3 px-6 text-center">
-            <Headphones className="h-10 w-10 text-amber-500" aria-hidden="true" />
-            <p className="font-mono text-xs uppercase tracking-[0.25em] text-amber-500">
-              Dossiê em Áudio
-            </p>
-            <p className="max-w-sm text-sm text-zinc-400">
-              O caso continua no player flutuante. Navegue livremente pela plataforma.
-            </p>
-          </div>
-        </div>
-      )}
 
       <PlayerActionOverlay overlay={playerOverlay} />
 
@@ -1282,7 +1276,7 @@ export default function VideoPlayer({ user }) {
           }`}
         >
           <button
-            onClick={() => navigate('/casos')}
+            onClick={handleBackToCatalog}
             className="flex items-center gap-2 text-white/80 hover:text-brand-primary border border-dark-border px-3 py-2 transition-colors"
             title="Voltar ao catálogo"
           >
@@ -1367,38 +1361,6 @@ export default function VideoPlayer({ user }) {
               </span>
             </div>
             <div className="flex flex-shrink-0 items-center gap-2">
-              <div
-                className="flex items-center overflow-hidden rounded-none border border-zinc-700"
-                role="group"
-                aria-label="Modo de reprodução"
-              >
-                <button
-                  type="button"
-                  onClick={() => handlePlaybackModeChange('video')}
-                  className={`flex items-center gap-1 px-2 py-1 text-[9px] font-mono uppercase tracking-wider transition-colors ${
-                    !audioModeActive
-                      ? 'bg-amber-500 text-black'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                  aria-pressed={!audioModeActive}
-                >
-                  <Video className="h-3 w-3" aria-hidden="true" />
-                  <span className="hidden sm:inline">Vídeo</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePlaybackModeChange('audio')}
-                  className={`flex items-center gap-1 px-2 py-1 text-[9px] font-mono uppercase tracking-wider transition-colors ${
-                    audioModeActive
-                      ? 'bg-amber-500 text-black'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                  aria-pressed={audioModeActive}
-                >
-                  <Headphones className="h-3 w-3" aria-hidden="true" />
-                  <span className="hidden sm:inline">Áudio</span>
-                </button>
-              </div>
               {!floating && (
                 <>
                 <button
@@ -1551,13 +1513,13 @@ export default function VideoPlayer({ user }) {
                   : 'h-[450px] md:h-[600px] lg:h-[min(56.25vw,85vh)]'
               }`}
             >
-              {isFloating && !audioModeActive && (
+              {isFloating && (
                 <div className="absolute inset-0 bg-black/90" aria-hidden="true" />
               )}
               <div
                 ref={playerSurfaceRef}
                 className={
-                  isFloating && !audioModeActive
+                  isFloating
                     ? 'fixed bottom-6 right-6 z-[99999] aspect-video w-80 max-w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl animate-slide-up pointer-events-auto md:w-96'
                     : `absolute inset-0 bg-black/90 overflow-hidden group ${
                         !areControlsVisible && isPlaying ? 'cursor-none' : ''
@@ -1569,7 +1531,7 @@ export default function VideoPlayer({ user }) {
                 }}
                 onTouchStart={handleActivity}
               >
-                {renderVideoSurface(isFloating && !audioModeActive)}
+                {renderVideoSurface(isFloating)}
               </div>
             </div>
           </section>
@@ -1694,19 +1656,20 @@ export default function VideoPlayer({ user }) {
                   Sinopse
                 </p>
                 <p
+                  ref={synopsisRef}
                   className={`text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap ${
-                    isSynopsisExpanded ? '' : 'line-clamp-3'
+                    !isSynopsisExpanded ? 'line-clamp-2' : ''
                   }`}
                 >
-                  {video.description || 'Nenhuma descrição fornecida.'}
+                  {synopsisText || 'Nenhuma descrição fornecida.'}
                 </p>
-                {Boolean(video.description?.trim()) && (
+                {(hasSynopsisOverflow || isSynopsisExpanded) && synopsisText && (
                   <button
                     type="button"
                     onClick={() => setIsSynopsisExpanded((prev) => !prev)}
-                    className="mt-2 font-mono text-xs uppercase tracking-wider text-amber-400 hover:underline"
+                    className="mt-2 block cursor-pointer font-mono text-xs font-bold uppercase tracking-wider text-amber-500 transition-colors hover:text-amber-400"
                   >
-                    {isSynopsisExpanded ? 'Recolher' : 'Ler sinopse completa...'}
+                    {isSynopsisExpanded ? 'Recolher sinopse' : 'Ler sinopse completa...'}
                   </button>
                 )}
               </div>
