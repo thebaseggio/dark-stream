@@ -4,10 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
-import SkeletonCard from './SkeletonCard';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import SiteContainer from '../components/SiteContainer';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 // Reutilizamos o VideoCard do Explore.jsx (idealmente, ele viveria em src/components/)
 function VideoCard({ video }) {
@@ -90,8 +90,8 @@ export default function CategoryPage() {
                     Categoria: <span className="text-[#f1c40f]">{decodeURIComponent(categoryName)}</span>
                 </h2>
                 {loading ? (
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+                    <div className="py-16 flex justify-center">
+                        <LoadingSpinner size="md" label="Carregando categoria..." />
                     </div>
                 ) : (
                     videos.length > 0 ? (

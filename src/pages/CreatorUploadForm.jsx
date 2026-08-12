@@ -20,6 +20,7 @@ import {
   validateCaseFilesInput,
 } from '../utils/caseFilesAdmin.js';
 import { insertVideoRow, updateVideoRow } from '../utils/videoSave.js';
+import { sanitizeText } from '../utils/sanitizeText';
 
 const allCategories = [
   'Nacionais', 'Internacionais', 'Não solucionados', 'Solucionados',
@@ -75,9 +76,12 @@ function getFileExtension(file) {
 }
 
 function normalizeVideoFields(formData, creatorId) {
+  const cleanTitle = sanitizeText(formData.title);
+  const cleanDescription = sanitizeText(formData.description);
+
   return {
-    title: formData.title.trim(),
-    description: formData.description.trim(),
+    title: cleanTitle,
+    description: cleanDescription,
     category: formData.category,
     tags: formData.tags.split(',').map((tag) => tag.trim()).filter(Boolean),
     creator_id: creatorId,
@@ -295,7 +299,7 @@ export default function CreatorUploadForm({ user, profile, onSuccess, videoToEdi
     try {
       if (!user) throw new Error('Você precisa estar logado para publicar ou editar vídeos.');
       if (profile?.role !== 'partner') throw new Error('Apenas parceiros podem publicar ou editar vídeos.');
-      if (!formData.title.trim()) throw new Error('O título do caso é obrigatório.');
+      if (!sanitizeText(formData.title)) throw new Error('O título do caso é obrigatório.');
 
       if (formData.is_short && !formData.parent_video_id) {
         throw new Error('Selecione o caso principal vinculado para este Short.');

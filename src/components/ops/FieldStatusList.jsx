@@ -1,12 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { OpsPanel } from './OpsPanel';
+import LoadingSpinner from '../LoadingSpinner';
 
 export default function FieldStatusList({ cases = [], loading }) {
   return (
     <OpsPanel title="Performance por Vídeo">
       {loading ? (
-        <p className="text-sm text-neutral-400 py-8 text-center">Carregando desempenho...</p>
+        <div className="py-8 flex justify-center">
+          <LoadingSpinner size="sm" label="Carregando desempenho..." />
+        </div>
       ) : cases.length === 0 ? (
         <p className="text-sm text-neutral-400 py-8 text-center">
           Nenhum vídeo com dados no período.

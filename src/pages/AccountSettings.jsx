@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthProvider';
 import { PROFILE_FIELDS_SELECT, resolveAvatarUrl } from '../utils/profileMedia';
 import { isOfficialPartner } from '../utils/partnerAccess';
 import { supabase } from '../supabase';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const INVESTIGATOR_TABS = [
   { id: 'overview', label: 'Visão Geral' },
@@ -656,9 +657,7 @@ export default function AccountSettings() {
       <AnimatedPage>
         <SiteContainer className="py-12">
           <div className="flex min-h-[50vh] items-center justify-center">
-            <p className="animate-pulse text-[11px] font-mono uppercase tracking-widest text-zinc-500">
-              Carregando credenciais...
-            </p>
+            <LoadingSpinner size="md" label="Carregando credenciais..." />
           </div>
         </SiteContainer>
       </AnimatedPage>

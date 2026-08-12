@@ -1,4 +1,9 @@
 import { supabase } from '../supabase';
+import {
+  sanitizeSuggestionDescription,
+  sanitizeSuggestionTitle,
+  sanitizeUsername,
+} from './sanitizeText';
 
 export const SUGGESTION_CATEGORIES = ['Nacional', 'Internacional', 'Sobrenatural'];
 
@@ -71,13 +76,21 @@ export async function fetchUserSuggestionVotes(userId) {
 export async function createCaseSuggestion(userId, userName, payload) {
   if (!userId) return { data: null, error: new Error('Usuário não autenticado.') };
 
+  const title = sanitizeSuggestionTitle(payload.title);
+  const description = sanitizeSuggestionDescription(payload.description);
+  const safeUserName = sanitizeUsername(userName);
+
+  if (!title) {
+    return { data: null, error: new Error('Título inválido.') };
+  }
+
   const { data, error } = await supabase
     .from('case_suggestions')
     .insert({
       user_id: userId,
-      user_name: userName,
-      title: payload.title.trim(),
-      description: payload.description.trim(),
+      user_name: safeUserName || 'Assinante',
+      title,
+      description,
       category: payload.category,
     })
     .select('id, user_id, user_name, title, description, category, upvotes_count, created_at')

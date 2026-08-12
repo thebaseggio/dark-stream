@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthProvider';
 import { buildVideoPathWithResume } from '../utils/videoPlayback';
@@ -13,6 +13,33 @@ const VerifiedIcon = (props) => (
 
 function getThumbnail(video) {
   return video.thumbnail || video.thumbnail_url;
+}
+
+function VideoThumbnail({ src, alt, className, title }) {
+  const [failed, setFailed] = useState(false);
+  const showFallback = !src || failed;
+
+  if (showFallback) {
+    return (
+      <div
+        className={`${className} flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#0f0406] via-[#1a0808] to-black p-3 text-center`}
+      >
+        <img src="/LogoT.png" alt="Dark Stream" className="h-8 w-auto opacity-80" />
+        <span className="line-clamp-2 px-3 text-center font-mono text-xs font-bold uppercase tracking-wider text-zinc-200">
+          {title || 'Dark Stream'}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 function getCreatorName(video) {
@@ -138,10 +165,11 @@ export default function VideoCard({
     return (
       <div className="flex gap-4 cursor-pointer group" onClick={handleCardClick}>
         <div className="relative w-full aspect-[16/9] overflow-hidden rounded-lg bg-zinc-900 flex-shrink-0 sm:w-40">
-          <img
+          <VideoThumbnail
             src={thumbnail}
             alt={video.title}
-            className="w-full h-full object-cover object-center transition-opacity duration-300 group-hover:opacity-80"
+            title={video.title}
+            className="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-80"
           />
         </div>
         <div className="flex flex-col justify-center min-w-0">
@@ -167,11 +195,12 @@ export default function VideoCard({
         className="relative flex-shrink-0 w-44 cursor-pointer group/card transition-transform duration-300 ease-out hover:scale-105 hover:z-30"
         onClick={handleCardClick}
       >
-        <div className="relative border border-dark-border overflow-hidden">
-          <img
+        <div className="relative aspect-[9/16] overflow-hidden border border-dark-border">
+          <VideoThumbnail
             src={thumbnail}
             alt={video.title}
-            className="w-full aspect-[9/16] object-cover"
+            title={video.title}
+            className="h-full w-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80 group-hover/card:opacity-100 transition-opacity duration-300" />
           {video.short_type === 'update' && (
@@ -206,10 +235,11 @@ export default function VideoCard({
     >
       <div className="relative overflow-hidden rounded-lg border border-dark-border">
         <div className="relative w-full aspect-[16/9] overflow-hidden rounded-lg bg-zinc-900">
-          <img
+          <VideoThumbnail
             src={thumbnail}
             alt={video.title}
-            className="w-full h-full object-cover object-center transition-transform duration-300 group-hover/card:scale-105"
+            title={video.title}
+            className="h-full w-full object-cover object-center transition-transform duration-300 group-hover/card:scale-105"
           />
 
         {displayProgress && watchProgress < 95 && (

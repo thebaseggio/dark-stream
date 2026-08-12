@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
 import SiteContainer from '../components/SiteContainer';
@@ -12,6 +12,7 @@ import {
   resolveBannerUrl,
 } from '../utils/partnerProfile';
 import VideoCard from '../components/VideoCard';
+import LoadingSpinner from '../components/LoadingSpinner';
 import {
   checkPartnerFollowStatus,
   fetchPartnerFollowerCount,
@@ -19,11 +20,19 @@ import {
   togglePartnerFollow,
 } from '../utils/subscriptions';
 import usePartnerFollowerRealtime from '../hooks/usePartnerFollowerRealtime';
+import SupportPartnerModal from '../components/SupportPartnerModal';
 
 /** Usa banner_url do banco via resolveBannerUrl — retorna null se URL for inválida ou apontar para pasta. */
 function getPartnerBannerUrl(profile) {
   return resolveBannerUrl(profile);
 }
+
+const YoutubeIcon = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17" />
+    <path d="m10 15 5-3-5-3z" />
+  </svg>
+);
 
 const InstagramIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -37,12 +46,18 @@ const XIcon = (props) => (
   </svg>
 );
 
+function isValidSocialUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  return trimmed.length > 0 && trimmed !== '#';
+}
+
 function SocialIconLink({ href, label, children }) {
-  if (!href) return null;
+  if (!isValidSocialUrl(href)) return null;
 
   return (
     <a
-      href={href}
+      href={href.trim()}
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
@@ -54,6 +69,49 @@ function SocialIconLink({ href, label, children }) {
 }
 
 const PAGE_GRADIENT = 'bg-gradient-to-b from-[#000000] via-[#0b0505] to-[#140606]';
+
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'Mais Recentes' },
+  { value: 'views', label: 'Mais Vistos' },
+  { value: 'duration', label: 'Mais Longos' },
+];
+
+function getVideoViews(video) {
+  return Number(video?.views_count ?? video?.views ?? 0) || 0;
+}
+
+function getVideoDurationSeconds(video) {
+  const candidates = [video?.duration_seconds, video?.duration, video?.runtime];
+
+  for (const value of candidates) {
+    if (typeof value === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(value.trim())) {
+      const parts = value.trim().split(':').map(Number);
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (parts.length === 2) return parts[0] * 60 + parts[1];
+    }
+
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  }
+
+  return 0;
+}
+
+function sortPartnerVideos(videos, sortBy) {
+  const list = [...videos];
+
+  switch (sortBy) {
+    case 'views':
+      return list.sort((a, b) => getVideoViews(b) - getVideoViews(a));
+    case 'duration':
+      return list.sort((a, b) => getVideoDurationSeconds(b) - getVideoDurationSeconds(a));
+    case 'recent':
+    default:
+      return list.sort(
+        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime(),
+      );
+  }
+}
 
 function PartnerNotFound({ slug }) {
   return (
@@ -88,6 +146,7 @@ export default function PartnerProfile({ currentUser }) {
   const { id: legacySlug, username } = useParams();
   const slug = (username || legacySlug || '').trim();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [partnerProfile, setPartnerProfile] = useState(null);
   const [mainCases, setMainCases] = useState([]);
@@ -100,6 +159,9 @@ export default function PartnerProfile({ currentUser }) {
   const [isProcessingFollow, setIsProcessingFollow] = useState(false);
   const [bannerFailed, setBannerFailed] = useState(false);
   const [activeVideoTab, setActiveVideoTab] = useState('main');
+  const [sortBy, setSortBy] = useState('recent');
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [supportMessage, setSupportMessage] = useState(null);
 
   const handleFollowerCountUpdate = useCallback((count) => {
     setFollowerCount(count);
@@ -235,6 +297,33 @@ export default function PartnerProfile({ currentUser }) {
     };
   }, [slug, currentUser?.id]);
 
+  useEffect(() => {
+    const supportStatus = searchParams.get('support');
+    if (supportStatus === 'success') {
+      setSupportMessage('Apoio registrado com sucesso! O selo Detetive Apoiador já está ativo.');
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('support');
+      setSearchParams(nextParams, { replace: true });
+    } else if (supportStatus === 'canceled') {
+      setSupportMessage(null);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('support');
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  const handleOpenSupportModal = () => {
+    if (!currentUser) {
+      navigate('/login', {
+        state: {
+          from: getPartnerProfilePath(partnerProfile) || `/parceiros/${slug}`,
+        },
+      });
+      return;
+    }
+    setIsSupportModalOpen(true);
+  };
+
   const handleFollowToggle = async () => {
     if (!currentUser) {
       navigate('/login', {
@@ -274,14 +363,18 @@ export default function PartnerProfile({ currentUser }) {
     ? buildMetaDescription(partnerProfile.bio)
     : 'Canal de parceiro verificado na plataforma Dark Stream.';
 
+  const activeVideos = activeVideoTab === 'shorts' ? shortUpdates : mainCases;
+  const sortedActiveVideos = useMemo(
+    () => sortPartnerVideos(activeVideos, sortBy),
+    [activeVideos, sortBy],
+  );
+
   if (loading) {
     return (
       <AnimatedPage>
         <SeoHead title="Carregando… | Dark Stream" description={pageDescription} noIndex />
         <div className={`${PAGE_GRADIENT} min-h-[60vh] flex items-center justify-center`}>
-          <p className="text-[11px] font-mono uppercase tracking-widest text-neutral-500">
-            Carregando canal…
-          </p>
+          <LoadingSpinner size="md" label="Carregando canal…" />
         </div>
       </AnimatedPage>
     );
@@ -334,8 +427,9 @@ export default function PartnerProfile({ currentUser }) {
   const showBannerImage = Boolean(bannerUrl) && !bannerFailed;
 
   const showFollowButton = currentUser && currentUser.id !== partnerProfile.id;
+  const showSupportButton = currentUser && currentUser.id !== partnerProfile.id;
+  const partnerReturnPath = getPartnerProfilePath(partnerProfile) || `/parceiros/${slug}`;
   const hasShortTab = shortUpdates.length > 0;
-  const activeVideos = activeVideoTab === 'shorts' ? shortUpdates : mainCases;
 
   return (
     <AnimatedPage>
@@ -366,57 +460,95 @@ export default function PartnerProfile({ currentUser }) {
             <div className="absolute inset-0 bg-gradient-to-r from-black/45 via-transparent to-black/45" />
           </div>
 
-          <SiteContainer className="relative -mt-20 sm:-mt-24 md:-mt-28 pb-8">
-            <div className="flex flex-col lg:flex-row lg:items-end gap-6 lg:gap-8">
+          <SiteContainer className="relative -mt-14 sm:-mt-16 md:-mt-20 pb-8">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
               <img
                 src={avatarUrl}
                 alt={partnerProfile.username}
-                className="w-36 h-36 sm:w-44 sm:h-44 md:w-48 md:h-48 rounded-full object-cover border-4 border-black ring-2 ring-dark-border shadow-2xl shadow-black/80 flex-shrink-0"
+                className="w-24 h-24 md:w-32 md:h-32 rounded-full border-2 border-zinc-800 object-cover flex-shrink-0 shadow-xl shadow-black/60"
               />
 
-              <div className="flex-1 min-w-0 pb-1 space-y-3">
-                <div>
-                  <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-brand-primary/90 mb-2">
+              <div className="flex flex-1 min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-2">
+                  <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-brand-primary/90">
                     Canal do Parceiro
                   </p>
-                  <h1 className="font-anton text-4xl sm:text-5xl md:text-6xl text-white tracking-wide leading-none">
+                  <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
                     {partnerProfile.username}
                   </h1>
+
+                  <p className="text-xs text-amber-500 font-mono">
+                    {formatFollowerLabel(followerCount)}
+                  </p>
+
+                  {partnerProfile.bio && (
+                    <p className="max-w-2xl pt-2 text-sm text-zinc-300 leading-relaxed whitespace-pre-line">
+                      {partnerProfile.bio}
+                    </p>
+                  )}
+
+                  {(isValidSocialUrl(partnerProfile.youtube_url)
+                    || isValidSocialUrl(partnerProfile.instagram_url)
+                    || isValidSocialUrl(partnerProfile.x_url)
+                    || isValidSocialUrl(partnerProfile.twitter_url)) && (
+                    <div className="flex items-center gap-3 pt-2">
+                      {isValidSocialUrl(partnerProfile.youtube_url) && (
+                        <a
+                          href={partnerProfile.youtube_url.trim()}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label="YouTube"
+                          className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5 text-zinc-400 transition-all hover:border-red-500 hover:text-red-500"
+                        >
+                          <YoutubeIcon className="h-5 w-5" />
+                        </a>
+                      )}
+                      {isValidSocialUrl(partnerProfile.instagram_url) && (
+                        <SocialIconLink href={partnerProfile.instagram_url} label="Instagram">
+                          <InstagramIcon className="w-4 h-4" />
+                        </SocialIconLink>
+                      )}
+                      {(isValidSocialUrl(partnerProfile.x_url) || isValidSocialUrl(partnerProfile.twitter_url)) && (
+                        <SocialIconLink
+                          href={partnerProfile.x_url || partnerProfile.twitter_url}
+                          label="X"
+                        >
+                          <XIcon className="w-4 h-4" />
+                        </SocialIconLink>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-500">
-                  {formatFollowerLabel(followerCount)}
-                </p>
-
-                {partnerProfile.bio && (
-                  <p className="max-w-3xl text-sm sm:text-base text-zinc-300 leading-relaxed whitespace-pre-line">
-                    {partnerProfile.bio}
-                  </p>
-                )}
-
-                {(partnerProfile.instagram_url || partnerProfile.x_url) && (
-                  <div className="flex items-center gap-3 pt-1">
-                    <SocialIconLink href={partnerProfile.instagram_url} label="Instagram">
-                      <InstagramIcon className="w-4 h-4" />
-                    </SocialIconLink>
-                    <SocialIconLink href={partnerProfile.x_url} label="X">
-                      <XIcon className="w-4 h-4" />
-                    </SocialIconLink>
-                  </div>
-                )}
+                <div className="flex flex-col gap-2 self-start flex-shrink-0">
+                  {showSupportButton && (
+                    <button
+                      type="button"
+                      onClick={handleOpenSupportModal}
+                      className="rounded-none bg-amber-500 px-5 py-2.5 font-mono text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-amber-400"
+                    >
+                      Apoiar este Investigador
+                    </button>
+                  )}
+                  {showFollowButton && (
+                    <button
+                      type="button"
+                      onClick={handleFollowToggle}
+                      disabled={isProcessingFollow}
+                      className="border border-dark-border bg-black/40 backdrop-blur-sm text-white px-5 py-2.5 text-xs font-mono uppercase tracking-wider hover:border-brand-primary hover:text-brand-primary transition-colors disabled:opacity-50"
+                    >
+                      {isProcessingFollow ? '…' : isSubscribed ? 'Seguindo' : 'Seguir'}
+                    </button>
+                  )}
+                </div>
               </div>
-
-              {showFollowButton && (
-                <button
-                  type="button"
-                  onClick={handleFollowToggle}
-                  disabled={isProcessingFollow}
-                  className="self-start lg:self-end flex-shrink-0 border border-dark-border bg-black/40 backdrop-blur-sm text-white px-5 py-2.5 text-xs font-mono uppercase tracking-wider hover:border-brand-primary hover:text-brand-primary transition-colors disabled:opacity-50"
-                >
-                  {isProcessingFollow ? '…' : isSubscribed ? 'Seguindo' : 'Seguir'}
-                </button>
-              )}
             </div>
+
+            {supportMessage && (
+              <p className="mt-4 border border-amber-500/30 bg-amber-500/10 px-4 py-3 font-mono text-xs uppercase tracking-wider text-amber-500">
+                {supportMessage}
+              </p>
+            )}
           </SiteContainer>
         </section>
 
@@ -459,14 +591,36 @@ export default function PartnerProfile({ currentUser }) {
               </p>
             </div>
 
+            {activeVideos.length > 0 && (
+              <div className="flex justify-end">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">
+                    Ordenar por
+                  </span>
+                  <select
+                    value={sortBy}
+                    onChange={(event) => setSortBy(event.target.value)}
+                    aria-label="Ordenar vídeos"
+                    className="h-10 rounded-lg border border-zinc-700/80 bg-black/40 px-3 text-xs font-mono uppercase tracking-wider text-zinc-200 backdrop-blur-sm transition-colors focus:border-amber-500/60 focus:outline-none"
+                  >
+                    {SORT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
             {activeVideos.length > 0 ? (
-              <div className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {activeVideos.map((video) => (
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {sortedActiveVideos.map((video) => (
                   <VideoCard
                     key={video.id}
                     video={video}
                     fullWidth
-                    variant={activeVideoTab === 'shorts' ? 'short' : 'default'}
+                    variant="default"
                   />
                 ))}
               </div>
@@ -480,6 +634,18 @@ export default function PartnerProfile({ currentUser }) {
           </div>
         </SiteContainer>
       </div>
+
+      <SupportPartnerModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+        partner={partnerProfile}
+        currentUser={currentUser}
+        returnPath={partnerReturnPath}
+        onSuccess={() => {
+          setSupportMessage('Apoio registrado! O selo Detetive Apoiador já está ativo.');
+          setIsSupportModalOpen(false);
+        }}
+      />
     </AnimatedPage>
   );
 }

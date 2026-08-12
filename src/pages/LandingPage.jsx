@@ -1,23 +1,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { getPartnerProfilePath } from '../utils/partnerProfile';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import SiteContainer from '../components/SiteContainer';
+import Footer from '../components/Footer';
 
-const MARCOS_CAMPOS_PARTNER = {
-  username: 'Marcos Campos',
-  id: 'd0781217-8eb0-4d8d-b32b-ce785dbb6227',
-};
+const NOISE_TEXTURE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
-// As variantes de animação que já criamos
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.3,
-    },
+    transition: { staggerChildren: 0.2 },
   },
 };
 
@@ -26,82 +20,104 @@ const itemVariants = {
   visible: {
     y: 0,
     opacity: 1,
-    transition: {
-      duration: 0.7,
-    },
+    transition: { duration: 0.7 },
   },
 };
 
 export default function LandingPage() {
   return (
-    <div className="relative flex flex-col min-h-screen bg-black text-white overflow-hidden">
-      <SeoHead
-        title="Dark Stream"
-        description={DEFAULT_SITE_DESCRIPTION}
-      />
-      <div 
-        className="absolute inset-0 bg-cover bg-center animate-kenburns"
-        style={{ backgroundImage: "url('/landing-bg.jpg')" }}
-      ></div>
-      <div className="absolute inset-0 bg-black opacity-60"></div>
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-black text-white">
+      <SeoHead title="Dark Stream" description={DEFAULT_SITE_DESCRIPTION} />
 
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -left-32 -top-32 z-0 h-[600px] w-[600px] animate-siren rounded-full bg-red-600/35 blur-[100px]" />
+        <div className="absolute -bottom-32 -right-32 z-0 h-[600px] w-[600px] animate-siren-delayed rounded-full bg-blue-600/30 blur-[100px]" />
+        <div className="absolute left-1/2 top-1/2 z-0 h-[350px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber-500/20 blur-[90px]" />
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(ellipse 70% 50% at 50% 45%, rgba(40, 8, 12, 0.35) 0%, rgba(20, 4, 6, 0.12) 40%, transparent 70%)',
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{ backgroundImage: NOISE_TEXTURE, backgroundSize: '180px 180px' }}
+        />
+      </div>
 
-      {/* 3. O CONTEÚDO (CABEÇALHO E TEXTO PRINCIPAL) */}
-      {/* Todo o conteúdo visível fica aqui, com um z-index para garantir que esteja na frente do fundo */}
-      <div className="relative z-10 flex flex-col flex-grow overflow-x-hidden">
-      <SiteContainer as="header" className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center py-6">
-          <Link to="/" title="Voltar para a Home">
-              <img src="/LogoT.png" alt="Dark Stream Home" className="h-16 w-auto" />
+      <header className="fixed inset-x-0 top-0 z-30 border-b border-white/5 bg-black/30 backdrop-blur-md">
+        <SiteContainer className="flex items-center justify-between py-4">
+          <Link to="/" title="Dark Stream" className="transition-opacity hover:opacity-90">
+            <img src="/LogoT.png" alt="Dark Stream" className="h-12 w-auto md:h-14" />
           </Link>
 
-          <div className="flex items-center gap-2">
-              <Link to="/login">
-                  <button type="button" className="touch-target rounded-md px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-zinc-800">
-                      Entrar
-                  </button>
-              </Link>
-              <Link to="/inscrever-se">
-                  <button type="button" className="touch-target rounded-md bg-[#f1c40f] px-4 py-2 text-sm font-bold text-black transition-colors hover:bg-opacity-90">
-                      Inscrever-se
-                  </button>
-              </Link>
+          <div className="flex h-10 items-center gap-3">
+            <Link to="/login" className="flex h-10 items-stretch">
+              <button
+                type="button"
+                className="box-border flex h-10 cursor-pointer items-center justify-center rounded-none border border-zinc-700/80 bg-black/60 px-5 font-mono text-xs font-bold uppercase tracking-wider text-white transition-all hover:bg-zinc-800 md:text-sm"
+              >
+                Entrar
+              </button>
+            </Link>
+            <Link to="/inscrever-se" className="flex h-10 items-stretch">
+              <button
+                type="button"
+                className="box-border flex h-10 cursor-pointer items-center justify-center rounded-none border border-amber-500 bg-amber-500 px-5 font-mono text-xs font-bold uppercase tracking-wider text-black transition-all hover:bg-amber-400 md:text-sm"
+              >
+                Inscrever-se
+              </button>
+            </Link>
           </div>
-      </SiteContainer>
+        </SiteContainer>
+      </header>
 
-        <main className="flex-grow flex items-center justify-center text-center">
+      <main className="relative z-10 flex min-h-screen flex-col pt-28 md:pt-32">
+        <section className="flex flex-grow items-center justify-center px-4 pb-16 pt-8 text-center">
           <SiteContainer>
-          <motion.div
-            className="flex flex-col items-center"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-          <motion.h1 className="text-5xl md:text-7xl font-bold mb-4" variants={itemVariants}>
-            Histórias que precisam ser contadas.
-          </motion.h1>
+            <motion.div
+              className="relative z-10 mx-auto flex max-w-4xl flex-col items-center"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              <motion.p
+                className="mb-6 font-mono text-xs uppercase tracking-[0.3em] text-amber-500/80"
+                variants={itemVariants}
+              >
+                DARK STREAM · ARQUIVO DE CASOS
+              </motion.p>
 
-          {/* --- CRÉDITO ADICIONADO AQUI --- */}
-          <motion.p className="text-sm text-gray-400 -mt-2 mb-6" variants={itemVariants}>
-          <Link
-            to={getPartnerProfilePath(MARCOS_CAMPOS_PARTNER) || `/parceiro/${MARCOS_CAMPOS_PARTNER.id}`}
-            className="font-semibold text-white hover:text-[#f1c40f] hover:underline transition-colors"
-          >
-            Marcos Campos
-          </Link>
-          </motion.p>
+              <motion.h1
+                className="mx-auto max-w-4xl text-4xl font-extrabold leading-tight tracking-tight text-white md:text-6xl"
+                variants={itemVariants}
+              >
+                Onde a verdade não permanece nas sombras.
+              </motion.h1>
 
-          <motion.p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8" variants={itemVariants}>
-            A maior comunidade de criadores e fãs de True Crime do Brasil.
-          </motion.p>
-            
-            <motion.div variants={itemVariants}>
-              <Link to="/casos" className="touch-target inline-block rounded-lg bg-[#f1c40f] px-8 py-3 text-lg font-bold text-black transition-transform duration-200 hover:scale-105 hover:bg-opacity-90">
-                Investigue Agora
-              </Link>
-            </motion.div>
+              <motion.p
+                className="mx-auto mt-6 max-w-xl text-base font-normal leading-relaxed text-zinc-400 md:text-lg"
+                variants={itemVariants}
+              >
+                A primeira plataforma de streaming e investigação interativa dedicada ao True Crime.
+              </motion.p>
+
+              <motion.div className="mt-10" variants={itemVariants}>
+                <Link
+                  to="/casos"
+                  className="mx-auto flex h-12 w-fit cursor-pointer items-center justify-center rounded-none border border-amber-500 bg-amber-500 px-8 font-mono text-sm font-bold uppercase tracking-wider text-black shadow-[0_0_30px_rgba(234,179,8,0.25)] transition-all hover:bg-amber-400 md:text-base"
+                >
+                  INVESTIGUE AGORA
+                </Link>
+              </motion.div>
             </motion.div>
           </SiteContainer>
-        </main>
+        </section>
+      </main>
+
+      <div className="relative z-10">
+        <Footer />
       </div>
     </div>
   );

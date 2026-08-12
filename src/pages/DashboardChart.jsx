@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase'; // Importe o supabase
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 // Precisamos do ID do usuário para a consulta
 export default function DashboardChart({ userId, timePeriod }) {
@@ -34,7 +35,11 @@ export default function DashboardChart({ userId, timePeriod }) {
   }, [userId, timePeriod]); // Adicionado 'timePeriod' à lista de dependências
 
   if (isLoading) {
-    return <div className="bg-zinc-900 p-6 rounded-lg text-center">Carregando dados do gráfico...</div>;
+    return (
+      <div className="bg-zinc-900 p-6 rounded-lg flex justify-center">
+        <LoadingSpinner size="sm" label="Carregando dados do gráfico..." />
+      </div>
+    );
   }
 
 // src/pages/DashboardChart.jsx

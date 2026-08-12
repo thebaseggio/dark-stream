@@ -32,6 +32,20 @@
     min-height: 2.75rem;
     min-width: 2.75rem;
   }
+
+  .animate-siren {
+    animation: siren 4s ease-in-out infinite;
+  }
+
+  .animate-siren-delayed {
+    animation: siren 4s ease-in-out infinite;
+    animation-delay: 2s;
+  }
+}
+
+@keyframes siren {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.55; }
 }
 
 /*
@@ -279,4 +293,8 @@ html, body, #root {
 [class*="FeaturedBanner"], [class*="VideoPlayer"], [class*="Carousel"] {
   max-width: 100% !important;
   overflow: hidden !important;
+}
+
+body.has-mini-audio-player {
+  padding-bottom: 5rem;
 }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchCaseSuggestions } from '../utils/caseSuggestions';
 import SuggestionCategoryFilter, { filterSuggestionsByCategory } from './SuggestionCategoryFilter';
+import LoadingSpinner from './LoadingSpinner';
 
 function CategoryBadge({ category }) {
   return (
@@ -53,7 +54,9 @@ export default function PartnerCommunityBoard({ onUseSuggestion }) {
       </div>
 
       {loading ? (
-        <p className="px-6 py-12 text-center text-sm text-zinc-500">Carregando sugestões…</p>
+        <div className="px-6 py-12 flex justify-center">
+          <LoadingSpinner size="sm" label="Carregando sugestões…" />
+        </div>
       ) : suggestions.length === 0 ? (
         <p className="px-6 py-16 text-center text-sm text-zinc-500">
           Nenhuma sugestão na janela dos últimos 30 dias.

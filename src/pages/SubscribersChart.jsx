@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function SubscribersChart({ userId, timePeriod }) {
   const [chartData, setChartData] = useState([]);
@@ -31,7 +32,11 @@ export default function SubscribersChart({ userId, timePeriod }) {
   }, [userId, timePeriod]);
 
   if (isLoading) {
-    return <div className="bg-zinc-900 p-6 rounded-lg text-center text-zinc-400">Carregando gráfico de inscritos...</div>;
+    return (
+      <div className="bg-zinc-900 p-6 rounded-lg flex justify-center">
+        <LoadingSpinner size="sm" label="Carregando gráfico de inscritos..." />
+      </div>
+    );
   }
 
     return (

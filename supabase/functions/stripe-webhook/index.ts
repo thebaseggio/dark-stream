@@ -45,6 +45,35 @@ async function updateProfileSubscription(
   }
 }
 
+async function recordPartnerSupport(payload: {
+  userId: string;
+  partnerId: string;
+  amountCents: number;
+  stripeSessionId: string;
+}) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Supabase service role não configurado.');
+  }
+
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  const { error } = await admin.from('partner_supports').upsert(
+    {
+      user_id: payload.userId,
+      partner_id: payload.partnerId,
+      amount: payload.amountCents,
+      status: 'completed',
+      stripe_session_id: payload.stripeSessionId,
+    },
+    { onConflict: 'stripe_session_id' },
+  );
+
+  if (error) {
+    console.error('Erro ao registrar apoio ao parceiro:', error);
+    throw error;
+  }
+}
+
 function mapStripeStatus(status: string | null | undefined) {
   if (!status) return 'inactive';
   if (status === 'active' || status === 'trialing') return 'active';
@@ -85,6 +114,25 @@ serve(async (req) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        if (session.metadata?.type === 'partner_support') {
+          const userId = session.metadata.supabase_user_id
+            ?? session.client_reference_id
+            ?? null;
+          const partnerId = session.metadata.partner_id ?? null;
+          const amountCents = Number(session.metadata.amount_cents ?? 0);
+
+          if (userId && partnerId && amountCents > 0) {
+            await recordPartnerSupport({
+              userId,
+              partnerId,
+              amountCents,
+              stripeSessionId: session.id,
+            });
+          }
+          break;
+        }
+
         const userId = session.client_reference_id
           ?? session.metadata?.supabase_user_id
           ?? null;

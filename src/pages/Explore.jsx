@@ -3,10 +3,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
-import SkeletonCard from './SkeletonCard';
 import CategoryRow from '../components/CategoryRow';
 import FeaturedBanner, { pickFeaturedVideos } from '../components/FeaturedBanner';
 import SiteContainer from '../components/SiteContainer';
+import LoadingSpinner from '../components/LoadingSpinner';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthProvider';
@@ -177,18 +177,9 @@ export default function Explore({ user: userProp }) {
 
           <div className={`pb-12 ${loading || featuredVideos.length === 0 ? 'pt-16 md:pt-20' : ''}`}>
           {loading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <SiteContainer key={i} className="my-8 space-y-4">
-                <div className="h-8 w-48 max-w-[40%] animate-pulse rounded-sm bg-dark-panel" />
-                <div className="relative w-full overflow-hidden">
-                  <div className="flex w-full touch-pan-y gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                    {Array.from({ length: 4 }).map((_, j) => (
-                      <SkeletonCard key={j} />
-                    ))}
-                  </div>
-                </div>
-              </SiteContainer>
-            ))
+            <SiteContainer className="py-24 flex justify-center">
+              <LoadingSpinner size="lg" label="Carregando catálogo..." />
+            </SiteContainer>
           ) : (
             <>
               {userId && (myList?.length ?? 0) > 0 && (

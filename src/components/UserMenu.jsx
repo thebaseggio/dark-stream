@@ -18,7 +18,7 @@ function UserAvatar({ profile }) {
     setUseFallback(!hasValidAvatar);
   }, [hasValidAvatar, avatarUrl]);
 
-  const avatarClassName = 'block w-9 h-9 rounded-md object-cover border border-zinc-800';
+  const avatarClassName = 'block h-10 w-10 rounded-none object-cover border border-zinc-800';
 
   if (hasValidAvatar && !useFallback) {
     return (
@@ -104,7 +104,7 @@ export default function UserMenu({ profile, onLogout }) {
   return (
     <div
       ref={menuRef}
-      className="relative flex shrink-0 items-center self-center"
+      className="relative box-border flex h-10 shrink-0 items-stretch self-stretch"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
@@ -114,7 +114,7 @@ export default function UserMenu({ profile, onLogout }) {
         aria-haspopup="menu"
         aria-label="Menu do usuário"
         onClick={() => setOpen((current) => !current)}
-        className="flex items-center justify-center rounded-md leading-none focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/60 transition-opacity hover:opacity-90"
+        className="box-border flex h-10 min-h-0 max-h-10 items-center justify-center rounded-none p-0 leading-none focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 transition-opacity hover:opacity-90"
       >
         <UserAvatar profile={profile} />
       </button>

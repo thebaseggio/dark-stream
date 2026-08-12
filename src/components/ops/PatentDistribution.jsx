@@ -1,5 +1,6 @@
 import React from 'react';
 import { OpsPanel } from './OpsPanel';
+import LoadingSpinner from '../LoadingSpinner';
 
 const RANK_SEGMENTS = [
   { key: 'recruta', label: 'Espectadores Novos', color: 'bg-neutral-600' },
@@ -13,7 +14,9 @@ export default function PatentDistribution({ distribution = {}, loading }) {
   return (
     <OpsPanel title="Engajamento da Audiência">
       {loading ? (
-        <p className="text-sm text-neutral-400 py-8 text-center">Calculando engajamento...</p>
+        <div className="py-8 flex justify-center">
+          <LoadingSpinner size="sm" label="Calculando engajamento..." />
+        </div>
       ) : (
         <div className="space-y-6">
           <div className="flex h-2 w-full overflow-hidden bg-neutral-800">

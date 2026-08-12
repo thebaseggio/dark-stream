@@ -4,24 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
-
-function escapeIlike(term) {
-  return term.replace(/[%_\\]/g, '\\$&');
-}
-
-function mergeVideosById(...lists) {
-  const map = new Map();
-  lists.flat().forEach((video) => {
-    if (video?.id) map.set(video.id, video);
-  });
-  return Array.from(map.values());
-}
-
-function videoMatchesTags(video, term) {
-  if (!Array.isArray(video?.tags)) return false;
-  const lower = term.toLowerCase();
-  return video.tags.some((tag) => tag.toLowerCase().includes(lower));
-}
+import { getPartnerAvatarUrl, searchQuickResults } from '../utils/searchCatalog';
+import LoadingSpinner from './LoadingSpinner';
 
 const SearchIcon = (props) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -35,7 +19,7 @@ const SearchIcon = (props) => (
 
 export default function Searchbar({ immersive = false }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [results, setResults] = useState({ videos: [], creators: [] });
+  const [results, setResults] = useState({ videos: [], partners: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState(false);
@@ -49,50 +33,25 @@ export default function Searchbar({ immersive = false }) {
   const showPanel = isOpen && trimmedQuery.length > 2;
 
   const runSearch = useCallback(async (term) => {
-    const pattern = `%${escapeIlike(term)}%`;
-
     setIsLoading(true);
 
-    const [videosRes, tagPoolRes, creatorsRes] = await Promise.all([
-      supabase
-        .from('videos')
-        .select('id, title, thumbnail, tags, is_short')
-        .or(`title.ilike.${pattern},description.ilike.${pattern}`)
-        .order('created_at', { ascending: false })
-        .limit(12),
-      supabase
-        .from('videos')
-        .select('id, title, thumbnail, tags, is_short')
-        .not('tags', 'eq', '{}')
-        .order('created_at', { ascending: false })
-        .limit(80),
-      supabase
-        .from('profiles')
-        .select('id, username, creatorAvatar, role')
-        .ilike('username', pattern)
-        .order('username', { ascending: true })
-        .limit(8),
-    ]);
-
-    const titleDescMatches = (videosRes.data || []).filter((video) => video.is_short !== true);
-    const tagMatches = (tagPoolRes.data || []).filter(
-      (video) => video.is_short !== true && videoMatchesTags(video, term)
-    );
-
-    if (videosRes.error) console.error('Erro ao buscar casos:', videosRes.error);
-    if (tagPoolRes.error) console.error('Erro ao buscar tags:', tagPoolRes.error);
-    if (creatorsRes.error) console.error('Erro ao buscar parceiros:', creatorsRes.error);
-
-    setResults({
-      videos: mergeVideosById(titleDescMatches, tagMatches).slice(0, 8),
-      creators: creatorsRes.data || [],
-    });
-    setIsLoading(false);
+    try {
+      const data = await searchQuickResults(supabase, term);
+      setResults({
+        videos: Array.isArray(data?.videos) ? data.videos : [],
+        partners: Array.isArray(data?.partners) ? data.partners : [],
+      });
+    } catch (error) {
+      console.error('Erro ao buscar no Searchbar:', error);
+      setResults({ videos: [], partners: [] });
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     if (trimmedQuery.length <= 2) {
-      setResults({ videos: [], creators: [] });
+      setResults({ videos: [], partners: [] });
       setIsLoading(false);
       return undefined;
     }
@@ -146,36 +105,37 @@ export default function Searchbar({ immersive = false }) {
     setIsOpen(false);
     setMobileExpanded(false);
     setSearchQuery('');
-    setResults({ videos: [], creators: [] });
+    setResults({ videos: [], partners: [] });
   };
 
-  const hasResults = results.videos.length > 0 || results.creators.length > 0;
-  const inputClassName = immersive
-    ? 'w-full rounded-none bg-dark-panel/60 border border-dark-border text-zinc-200 placeholder-zinc-600 py-2 pl-4 pr-10 focus:outline-none focus:border-brand-primary transition-colors text-sm'
-    : 'w-full rounded-none bg-dark-panel border border-dark-border text-white placeholder-zinc-500 py-2 pl-4 pr-10 focus:outline-none focus:border-brand-primary transition-colors text-sm';
+  const videoResults = Array.isArray(results?.videos) ? results.videos : [];
+  const partnerResults = Array.isArray(results?.partners) ? results.partners : [];
+  const hasResults = videoResults.length > 0 || partnerResults.length > 0;
+  const inputClassName =
+    'box-border h-10 max-h-10 min-h-0 w-full rounded-none border border-zinc-800 bg-black/80 px-3 py-0 pr-10 font-mono text-xs leading-none text-zinc-200 outline-none transition-colors placeholder:font-mono placeholder:text-zinc-600 focus:border-amber-500 md:text-sm';
 
   const renderResultsPanel = (className = '') => (
     showPanel && (
       <div
-        className={`absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-none border border-dark-border bg-dark-panel shadow-2xl shadow-black/50 ${className}`}
+        className={`absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-none border border-zinc-800 bg-black/95 shadow-2xl shadow-black/50 ${className}`}
       >
         {isLoading ? (
-          <p className="px-4 py-3 text-[11px] font-mono uppercase tracking-wider text-zinc-500">
-            Buscando...
-          </p>
+          <div className="px-4 py-4">
+            <LoadingSpinner size="sm" label="Buscando..." inline />
+          </div>
         ) : !hasResults ? (
           <p className="px-4 py-3 text-[11px] font-mono uppercase tracking-wider text-zinc-500">
             Nenhum resultado encontrado.
           </p>
         ) : (
           <div className="py-2">
-            {results.videos.length > 0 && (
+            {videoResults.length > 0 && (
               <section>
                 <p className="border-b border-dark-border px-4 py-2 text-[10px] font-mono uppercase tracking-widest text-zinc-500">
                   Casos
                 </p>
                 <ul>
-                  {results.videos.map((video) => (
+                  {videoResults.map((video) => (
                     <li key={video.id}>
                       <Link
                         to={`/video/${video.id}`}
@@ -201,13 +161,13 @@ export default function Searchbar({ immersive = false }) {
               </section>
             )}
 
-            {results.creators.length > 0 && (
-              <section className={results.videos.length > 0 ? 'border-t border-dark-border' : ''}>
+            {partnerResults.length > 0 && (
+              <section className={videoResults.length > 0 ? 'border-t border-dark-border' : ''}>
                 <p className="border-b border-dark-border px-4 py-2 text-[10px] font-mono uppercase tracking-widest text-zinc-500">
                   Parceiros
                 </p>
                 <ul>
-                  {results.creators.map((creator) => (
+                  {partnerResults.map((creator) => (
                     <li key={creator.id}>
                       <Link
                         to={getPartnerProfilePath(creator) || `/parceiro/${creator.id}`}
@@ -215,10 +175,7 @@ export default function Searchbar({ immersive = false }) {
                         className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-dark-border/40"
                       >
                         <img
-                          src={
-                            creator.creatorAvatar
-                            || `https://ui-avatars.com/api/?name=${creator.username?.charAt(0)}&background=111111&color=fff`
-                          }
+                          src={getPartnerAvatarUrl(creator)}
                           alt=""
                           className="h-8 w-8 flex-shrink-0 border border-dark-border object-cover"
                         />
@@ -238,7 +195,7 @@ export default function Searchbar({ immersive = false }) {
   );
 
   const renderSearchForm = (inputRef) => (
-    <form onSubmit={handleSubmit} className="relative min-w-0">
+    <form onSubmit={handleSubmit} className="relative box-border h-10 min-w-0 flex-1">
       <input
         ref={inputRef}
         type="text"
@@ -254,17 +211,17 @@ export default function Searchbar({ immersive = false }) {
       />
       <button
         type="submit"
-        className="absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 transition-colors hover:text-brand-primary"
+        className="absolute inset-y-0 right-0 flex h-10 items-center pr-3 text-zinc-500 transition-colors hover:text-amber-500"
         aria-label="Buscar"
       >
-        <SearchIcon className="h-5 w-5" />
+        <SearchIcon className="h-4 w-4" />
       </button>
     </form>
   );
 
   return (
     <>
-      <div ref={containerRef} className="relative hidden min-w-0 md:block md:w-56 lg:w-64">
+      <div ref={containerRef} className="relative box-border hidden h-10 min-w-0 md:flex md:w-56 md:items-stretch lg:w-64">
         {renderSearchForm(null)}
         {renderResultsPanel()}
       </div>
@@ -272,7 +229,7 @@ export default function Searchbar({ immersive = false }) {
       <button
         type="button"
         onClick={() => setMobileExpanded(true)}
-        className="touch-target flex items-center justify-center rounded-none border border-dark-border p-2 text-zinc-400 transition-colors hover:border-zinc-500 hover:text-brand-primary md:hidden"
+        className="box-border flex h-10 w-10 min-h-0 max-h-10 cursor-pointer items-center justify-center rounded-none border border-zinc-800 bg-black/80 py-0 text-zinc-400 transition-colors hover:border-zinc-600 hover:text-amber-500 md:hidden"
         aria-label="Abrir busca"
       >
         <SearchIcon className="h-5 w-5" />
@@ -290,15 +247,15 @@ export default function Searchbar({ immersive = false }) {
             ref={mobilePanelRef}
             className="fixed inset-x-0 top-0 z-[60] border-b border-dark-border bg-black/95 px-4 py-3 md:hidden"
           >
-            <div className="flex items-start gap-2">
-              <div className="relative min-w-0 flex-1">
+            <div className="flex h-10 items-stretch gap-2">
+              <div className="relative box-border h-10 min-w-0 flex-1">
                 {renderSearchForm(mobileInputRef)}
                 {renderResultsPanel('mt-1')}
               </div>
               <button
                 type="button"
                 onClick={() => setMobileExpanded(false)}
-                className="touch-target flex-shrink-0 rounded-none border border-dark-border px-2 py-2 text-zinc-400 transition-colors hover:border-zinc-500 hover:text-white"
+                className="box-border flex h-10 min-h-0 max-h-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-none border border-zinc-800 bg-black/80 px-3 py-0 font-mono text-xs uppercase leading-none tracking-wider text-zinc-400 transition-colors hover:border-zinc-600 hover:text-white"
                 aria-label="Fechar busca"
               >
                 ✕

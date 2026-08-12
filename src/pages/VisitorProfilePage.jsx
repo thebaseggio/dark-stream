@@ -7,6 +7,7 @@ import VideoCard from '../components/VideoCard';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
 import { fetchFollowingPartners } from '../utils/subscriptions';
 import { useAuth } from '../contexts/AuthProvider';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const ProfileSection = ({ title, children }) => (
   <div className="bg-zinc-900 p-6 rounded-lg">
@@ -101,8 +102,8 @@ export default function VisitorProfilePage({ onProfileUpdate, onSuccess }) {
   if (loading || profileLoading) {
     return (
       <AnimatedPage>
-        <div className="min-h-[60vh] bg-black flex items-center justify-center text-zinc-400">
-          Carregando credenciais...
+        <div className="min-h-[60vh] bg-black flex items-center justify-center">
+          <LoadingSpinner size="md" label="Carregando credenciais..." />
         </div>
       </AnimatedPage>
     );
@@ -195,7 +196,9 @@ export default function VisitorProfilePage({ onProfileUpdate, onSuccess }) {
           <div>
             {activeTab === 'seguindo' && (
               isLoadingFollowing ? (
-                <p className="text-gray-400">Carregando parceiros seguidos...</p>
+                <div className="py-6 flex justify-center">
+                  <LoadingSpinner size="sm" label="Carregando parceiros seguidos..." />
+                </div>
               ) : following.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {following.map((partner) => (
@@ -213,7 +216,9 @@ export default function VisitorProfilePage({ onProfileUpdate, onSuccess }) {
 
             {activeTab === 'historico' && (
               isLoadingHistory ? (
-                <p className="text-gray-400">Carregando histórico...</p>
+                <div className="py-6 flex justify-center">
+                  <LoadingSpinner size="sm" label="Carregando histórico..." />
+                </div>
               ) : history.length > 0 ? (
                 <div className="space-y-4">
                   {history.map((video) => (

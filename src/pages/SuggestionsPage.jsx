@@ -15,6 +15,7 @@ import {
   fetchUserSuggestionVotes,
   voteCaseSuggestion,
 } from '../utils/caseSuggestions';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 function PaywallBanner() {
   return (
@@ -167,7 +168,9 @@ export default function SuggestionsPage() {
   if (authLoading) {
     return (
       <AnimatedPage>
-        <SiteContainer className="py-16 text-center text-zinc-500">Carregando…</SiteContainer>
+        <SiteContainer className="py-16 flex justify-center">
+          <LoadingSpinner size="md" label="Carregando…" />
+        </SiteContainer>
       </AnimatedPage>
     );
   }
@@ -213,7 +216,9 @@ export default function SuggestionsPage() {
             ) : !isSubscriber ? (
               <PaywallBanner />
             ) : loading ? (
-              <p className="py-16 text-center text-sm text-zinc-500">Carregando mural…</p>
+              <div className="py-16 flex justify-center">
+                <LoadingSpinner size="md" label="Carregando mural…" />
+              </div>
             ) : suggestions.length === 0 ? (
               <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 py-16 text-center">
                 <p className="text-sm text-zinc-500">Nenhuma sugestão nos últimos 30 dias.</p>

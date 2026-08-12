@@ -10,6 +10,7 @@ import {
   persistBannerUrl,
   isValidRenderableUrl,
 } from '../utils/profileMedia';
+import { sanitizeBio, sanitizeUsername } from '../utils/sanitizeText';
 
 const CameraIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor">
@@ -184,8 +185,8 @@ export default function ProfileEditor({ user, profile, onUploadSuccess, onSaveCo
 
   const buildProfilePayload = () => {
     const payload = {
-      username,
-      bio,
+      username: sanitizeUsername(username),
+      bio: sanitizeBio(bio),
       youtube_url: youtubeUrl || null,
       instagram_url: instagramUrl || null,
       x_url: xUrl || null,

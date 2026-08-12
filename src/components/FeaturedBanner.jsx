@@ -21,6 +21,18 @@ const VolumeMuteIcon = (props) => (
   </svg>
 );
 
+const ChevronLeftIcon = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="m15 18-6-6 6-6" />
+  </svg>
+);
+
+const ChevronRightIcon = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="m9 18 6-6-6-6" />
+  </svg>
+);
+
 function sortByViewsDesc(videos) {
   return [...videos].sort(
     (a, b) => (Number(b.views) || 0) - (Number(a.views) || 0),
@@ -67,6 +79,7 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
   const [hasScrolled, setHasScrolled] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [rotationResetKey, setRotationResetKey] = useState(0);
 
   const slides = useMemo(() => {
     if (featuredVideos?.length) return featuredVideos.slice(0, MAX_FEATURED_SLIDES);
@@ -108,6 +121,10 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const resetAutoplay = useCallback(() => {
+    setRotationResetKey((key) => key + 1);
+  }, []);
+
   useEffect(() => {
     if (slides.length <= 1 || isRotationPaused) return undefined;
 
@@ -116,7 +133,7 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
     }, ROTATION_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, [slides.length, isRotationPaused, slideIdsKey]);
+  }, [slides.length, isRotationPaused, slideIdsKey, rotationResetKey]);
 
   useEffect(() => {
     if (!currentVideo?.videoUrl || hasScrolled) return undefined;
@@ -177,6 +194,21 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
     if (videoRef.current) videoRef.current.muted = !isMuted;
   };
 
+  const nextSlide = (event) => {
+    stopHeroClick(event);
+    setActiveIndex((prev) => (prev + 1) % slides.length);
+    resetAutoplay();
+  };
+
+  const prevSlide = (event) => {
+    stopHeroClick(event);
+    setActiveIndex((prev) => (prev - 1 + slides.length) % slides.length);
+    resetAutoplay();
+  };
+
+  const heroArrowClass =
+    'absolute top-1/2 z-30 flex h-12 w-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-zinc-700/60 bg-black/50 text-white/80 opacity-0 shadow-2xl transition-all duration-300 hover:border-amber-500 hover:bg-amber-500 hover:text-black group-hover:opacity-100';
+
   return (
     <div
       className="FeaturedBanner group relative w-full min-h-[450px] cursor-pointer overflow-hidden bg-zinc-950 md:min-h-[550px]"
@@ -221,9 +253,32 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
           )}
         </div>
 
+        <div className="pointer-events-none absolute left-0 right-0 top-0 h-28 bg-gradient-to-b from-black/90 via-black/40 to-transparent" />
         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black via-black/70 to-transparent md:h-44" />
       </div>
+
+      {slides.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={prevSlide}
+            className={`${heroArrowClass} left-4`}
+            aria-label="Slide anterior"
+          >
+            <ChevronLeftIcon className="h-6 w-6" />
+          </button>
+
+          <button
+            type="button"
+            onClick={nextSlide}
+            className={`${heroArrowClass} right-4`}
+            aria-label="Próximo slide"
+          >
+            <ChevronRightIcon className="h-6 w-6" />
+          </button>
+        </>
+      )}
 
       {slides.length > 1 && (
         <div
@@ -320,9 +375,9 @@ export default function FeaturedBanner({ featuredVideos, featuredVideo, onNaviga
               <button
                 type="button"
                 onClick={handleWatch}
-                className="touch-target rounded-none bg-brand-primary px-6 py-3 font-mono text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-90"
+                className="touch-target whitespace-nowrap rounded-none bg-brand-primary px-6 py-3 font-mono text-xs font-bold uppercase tracking-wider text-black transition-opacity hover:opacity-90"
               >
-                Assistir
+                ASSISTIR
               </button>
 
               <WatchlistButton

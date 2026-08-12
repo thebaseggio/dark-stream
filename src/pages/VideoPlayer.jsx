@@ -2,13 +2,16 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link, useOutletContext, useLocation } from 'react-router-dom';
+import { Video, Headphones } from 'lucide-react';
 import { supabase } from '../supabase';
+import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import AnimatedPage from '../AnimatedPage';
 import RestrictedAccessScreen from '../components/RestrictedAccessScreen';
 import PlayerAmbientGlow from '../components/PlayerAmbientGlow';
 import TheoryForum from '../components/TheoryForum';
 import CaseFilesPanel from '../components/CaseFilesPanel';
 import SiteContainer from '../components/SiteContainer';
+import LoadingSpinner from '../components/LoadingSpinner';
 import SeoHead, { buildMetaDescription, buildVideoPageTitle } from '../components/SeoHead';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
 import {
@@ -111,9 +114,6 @@ function PlayerActionOverlay({ overlay }) {
 const BackIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" /></svg>
 );
-const LoadingSpinner = () => (
-  <div className="w-10 h-10 border-2 border-zinc-800 border-t-white animate-spin" />
-);
 
 const RECOMMEND_VOTE = 'recommend';
 const NOT_RECOMMEND_VOTE = 'not_recommend';
@@ -148,6 +148,25 @@ function persistStoredUserReaction(videoId, reaction) {
 function formatCategories(category) {
   if (!category) return null;
   return Array.isArray(category) ? category : [category];
+}
+
+function getVideoMediaUrl(video) {
+  if (!video) return '';
+  return video.videoUrl || video.video_url || video.url || '';
+}
+
+function buildAudioTrackFromVideo(video, videoId) {
+  const mediaUrl = getVideoMediaUrl(video);
+  if (!mediaUrl || !videoId) return null;
+
+  return {
+    id: videoId,
+    title: video.title,
+    thumbnail: video.thumbnail,
+    videoUrl: mediaUrl,
+    partnerName: video.creator_id?.username || 'Parceiro',
+    partnerId: video.creator_id?.id,
+  };
 }
 
 function getShortTypeLabel(shortType) {
@@ -203,6 +222,13 @@ export default function VideoPlayer({ user }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { chromeVisible = true, reportChromeActivity } = useOutletContext() || {};
+  const {
+    enterAudioMode,
+    exitAudioMode,
+    isActiveForVideo,
+    currentTime: contextAudioTime,
+    isPlaying: contextAudioPlaying,
+  } = useAudioPlayer();
 
   const [video, setVideo] = useState(null);
   const [updateShorts, setUpdateShorts] = useState([]);
@@ -233,6 +259,9 @@ export default function VideoPlayer({ user }) {
   const [isSynopsisExpanded, setIsSynopsisExpanded] = useState(false);
   const [playerOverlay, setPlayerOverlay] = useState(null);
   const [timelineHover, setTimelineHover] = useState(null);
+  const [isAudioOnlyView, setIsAudioOnlyView] = useState(false);
+
+  const audioModeActive = isAudioOnlyView;
 
   const inactivityTimerRef = useRef(null);
   const videoRef = useRef(null);
@@ -250,6 +279,8 @@ export default function VideoPlayer({ user }) {
   const savedProgressRef = useRef(0);
   const introSoundBlockedRef = useRef(false);
   const introSequenceRef = useRef(0);
+  const isAudioOnlyViewRef = useRef(false);
+  const hasSyncedContextAudioRef = useRef(false);
 
   const isIntroBlockingUi = showIntro || isIntroDissolving;
 
@@ -375,6 +406,28 @@ export default function VideoPlayer({ user }) {
       currentVideo.pause();
     }
   }, []);
+
+  const handlePlaybackModeChange = useCallback((mode) => {
+    if (!video || !videoId) return;
+
+    if (mode === 'audio') {
+      setIsAudioOnlyView(true);
+      setShowIntro(false);
+      setIsIntroDissolving(false);
+      setIsFloating(false);
+      setFloatingDismissed(false);
+      floatingDismissedRef.current = false;
+
+      const el = videoRef.current;
+      if (el?.paused && isPlaying) {
+        el.play().catch(() => setIsPlaying(false));
+      }
+      return;
+    }
+
+    setIsAudioOnlyView(false);
+    exitAudioMode();
+  }, [video, videoId, isPlaying, exitAudioMode]);
 
   const showActionOverlay = useCallback((overlay) => {
     const overlayId = Date.now();
@@ -828,6 +881,83 @@ export default function VideoPlayer({ user }) {
   }, [showIntro, loading, finishIntroOverlay, video?.id]);
 
   useEffect(() => {
+    isAudioOnlyViewRef.current = isAudioOnlyView;
+  }, [isAudioOnlyView]);
+
+  useEffect(() => {
+    setIsAudioOnlyView(false);
+    hasSyncedContextAudioRef.current = false;
+  }, [videoId]);
+
+  useEffect(() => {
+    if (!video || !videoId || !isActiveForVideo(videoId) || hasSyncedContextAudioRef.current) {
+      return undefined;
+    }
+
+    hasSyncedContextAudioRef.current = true;
+    const resumeTime = contextAudioTime;
+    const shouldPlay = contextAudioPlaying;
+
+    exitAudioMode();
+    setIsAudioOnlyView(true);
+    setShowIntro(false);
+    setIsIntroDissolving(false);
+
+    const el = videoRef.current;
+    if (el) {
+      if (resumeTime > 0) {
+        el.currentTime = resumeTime;
+        setCurrentTime(resumeTime);
+        setProgress(el.duration ? (resumeTime / el.duration) * 100 : 0);
+      }
+      if (shouldPlay) {
+        el.play().catch(() => setIsPlaying(false));
+      }
+    }
+
+    return undefined;
+  }, [
+    video,
+    videoId,
+    isActiveForVideo,
+    contextAudioTime,
+    contextAudioPlaying,
+    exitAudioMode,
+  ]);
+
+  useEffect(() => {
+    if (!isAudioOnlyView) return undefined;
+
+    setShowIntro(false);
+    setIsIntroDissolving(false);
+    setIsFloating(false);
+    setFloatingDismissed(false);
+    floatingDismissedRef.current = false;
+
+    return undefined;
+  }, [isAudioOnlyView]);
+
+  useEffect(() => {
+    return () => {
+      if (!isAudioOnlyViewRef.current) return;
+
+      const currentVideo = videoRef.current;
+      const track = buildAudioTrackFromVideo(videoDataRef.current, videoId);
+      if (!track) return;
+
+      enterAudioMode(
+        track,
+        currentVideo?.currentTime ?? 0,
+        currentVideo ? !currentVideo.paused : false,
+        {
+          volume: currentVideo?.volume ?? 0.8,
+          muted: currentVideo?.muted ?? false,
+        },
+      );
+    };
+  }, [videoId, enterAudioMode]);
+
+  useEffect(() => {
     const currentVideo = videoRef.current;
     if (!currentVideo || hasStartedPlaybackRef.current) return;
     if (showIntro && !isIntroDissolving) return;
@@ -876,12 +1006,16 @@ export default function VideoPlayer({ user }) {
   }, [isFloating]);
 
   useEffect(() => {
-    if (isIntroBlockingUi) return undefined;
+    if (isIntroBlockingUi || isAudioOnlyView) return undefined;
 
     const handleScroll = () => {
-      if (!playerRef.current) return;
-      const rect = playerRef.current.getBoundingClientRect();
-      const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      const playerEl = playerRef.current;
+      if (!playerEl) return;
+
+      const rect = playerEl.getBoundingClientRect?.();
+      if (!rect) return;
+
+      const scrollY = window.scrollY ?? document.documentElement?.scrollTop ?? 0;
 
       if (
         !floatingDismissedRef.current
@@ -903,7 +1037,7 @@ export default function VideoPlayer({ user }) {
       window.removeEventListener('scroll', handleScroll);
       document.removeEventListener('scroll', handleScroll);
     };
-  }, [isIntroBlockingUi]);
+  }, [isIntroBlockingUi, isAudioOnlyView]);
 
   useEffect(() => {
     if (!endAutoplayActive || !endAutoplayTarget?.id) return undefined;
@@ -1017,7 +1151,7 @@ export default function VideoPlayer({ user }) {
   if (loading) {
     return (
       <div className="bg-dark-pure text-white min-h-screen flex items-center justify-center font-sans">
-        <LoadingSpinner />
+        <LoadingSpinner size="lg" />
       </div>
     );
   }
@@ -1114,11 +1248,30 @@ export default function VideoPlayer({ user }) {
         onLoadedData={handleLoadedData}
         className={
           floating
-            ? 'relative z-0 block w-full h-full min-h-[8rem] object-cover bg-black'
-            : 'absolute inset-0 z-0 w-full h-full object-contain bg-black'
+            ? `relative z-0 block w-full h-full min-h-[8rem] object-cover bg-black${audioModeActive ? ' opacity-0 pointer-events-none' : ''}`
+            : `absolute inset-0 z-0 w-full h-full object-contain bg-black${audioModeActive ? ' opacity-0 pointer-events-none' : ''}`
         }
-        src={video.videoUrl}
+        src={getVideoMediaUrl(video)}
       />
+
+      {audioModeActive && !floating && (
+        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center overflow-hidden bg-black">
+          <img
+            src={video.thumbnail}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover opacity-25"
+          />
+          <div className="relative z-10 flex flex-col items-center gap-3 px-6 text-center">
+            <Headphones className="h-10 w-10 text-amber-500" aria-hidden="true" />
+            <p className="font-mono text-xs uppercase tracking-[0.25em] text-amber-500">
+              Dossiê em Áudio
+            </p>
+            <p className="max-w-sm text-sm text-zinc-400">
+              O caso continua no player flutuante. Navegue livremente pela plataforma.
+            </p>
+          </div>
+        </div>
+      )}
 
       <PlayerActionOverlay overlay={playerOverlay} />
 
@@ -1213,8 +1366,41 @@ export default function VideoPlayer({ user }) {
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
             </div>
-            {!floating && (
-              <div className="flex flex-shrink-0 items-center gap-2">
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <div
+                className="flex items-center overflow-hidden rounded-none border border-zinc-700"
+                role="group"
+                aria-label="Modo de reprodução"
+              >
+                <button
+                  type="button"
+                  onClick={() => handlePlaybackModeChange('video')}
+                  className={`flex items-center gap-1 px-2 py-1 text-[9px] font-mono uppercase tracking-wider transition-colors ${
+                    !audioModeActive
+                      ? 'bg-amber-500 text-black'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                  aria-pressed={!audioModeActive}
+                >
+                  <Video className="h-3 w-3" aria-hidden="true" />
+                  <span className="hidden sm:inline">Vídeo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePlaybackModeChange('audio')}
+                  className={`flex items-center gap-1 px-2 py-1 text-[9px] font-mono uppercase tracking-wider transition-colors ${
+                    audioModeActive
+                      ? 'bg-amber-500 text-black'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                  aria-pressed={audioModeActive}
+                >
+                  <Headphones className="h-3 w-3" aria-hidden="true" />
+                  <span className="hidden sm:inline">Áudio</span>
+                </button>
+              </div>
+              {!floating && (
+                <>
                 <button
                   type="button"
                   onClick={toggleTheaterMode}
@@ -1233,8 +1419,9 @@ export default function VideoPlayer({ user }) {
                 >
                   <FullscreenIcon />
                 </button>
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -1364,13 +1551,13 @@ export default function VideoPlayer({ user }) {
                   : 'h-[450px] md:h-[600px] lg:h-[min(56.25vw,85vh)]'
               }`}
             >
-              {isFloating && (
+              {isFloating && !audioModeActive && (
                 <div className="absolute inset-0 bg-black/90" aria-hidden="true" />
               )}
               <div
                 ref={playerSurfaceRef}
                 className={
-                  isFloating
+                  isFloating && !audioModeActive
                     ? 'fixed bottom-6 right-6 z-[99999] aspect-video w-80 max-w-full overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950 shadow-2xl animate-slide-up pointer-events-auto md:w-96'
                     : `absolute inset-0 bg-black/90 overflow-hidden group ${
                         !areControlsVisible && isPlaying ? 'cursor-none' : ''
@@ -1382,7 +1569,7 @@ export default function VideoPlayer({ user }) {
                 }}
                 onTouchStart={handleActivity}
               >
-                {renderVideoSurface(isFloating)}
+                {renderVideoSurface(isFloating && !audioModeActive)}
               </div>
             </div>
           </section>
@@ -1567,7 +1754,7 @@ export default function VideoPlayer({ user }) {
                 </div>
               )}
 
-              <TheoryForum videoId={videoId} user={user} />
+              <TheoryForum videoId={videoId} partnerId={video.creator_id?.id} user={user} />
             </div>
 
             <aside className="col-span-12 lg:col-span-4">

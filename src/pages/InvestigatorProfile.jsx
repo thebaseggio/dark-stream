@@ -7,6 +7,7 @@ import {
   getInvestigatorRank,
   mergeSolvedCases,
 } from '../utils/investigatorRank';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 function SolvedCaseCard({ item }) {
   const video = item.video;
@@ -103,9 +104,7 @@ export default function InvestigatorProfile({ user, profile }) {
     return (
       <AnimatedPage>
         <div className="min-h-[60vh] bg-dark-pure flex items-center justify-center">
-          <p className="text-[11px] font-mono uppercase tracking-widest text-zinc-500">
-            Carregando crachá...
-          </p>
+          <LoadingSpinner size="md" label="Carregando crachá..." />
         </div>
       </AnimatedPage>
     );

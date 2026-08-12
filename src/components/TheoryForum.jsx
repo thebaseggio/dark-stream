@@ -5,13 +5,13 @@ import {
   countUniqueCases,
   getInvestigatorRank,
 } from '../utils/investigatorRank';
+import LoadingSpinner from './LoadingSpinner';
+import { sanitizeCommentText } from '../utils/sanitizeText';
+import { fetchActiveSupporterIds } from '../utils/partnerSupport';
+import SupporterBadge from './SupporterBadge';
 
 const ACCENT = '#eab308';
 const THEORY_MAX_CHARS = 2000;
-
-function sanitizeTheoryText(text) {
-  return text.trim().replace(/\n{3,}/g, '\n\n');
-}
 
 function formatTheoryDate(timestamp) {
   return new Date(timestamp).toLocaleString('pt-BR', {
@@ -50,7 +50,7 @@ async function fetchUserCaseCount(userId) {
   return countUniqueCases(ids);
 }
 
-function TheoryCard({ theory, author, rank, isOwn, onDelete, isDeleting }) {
+function TheoryCard({ theory, author, rank, isOwn, isSupporter, onDelete, isDeleting }) {
   const avatarUrl = author?.creatorAvatar
     || `https://ui-avatars.com/api/?name=${getInitials(author?.username)}&background=111111&color=eab308&bold=true`;
 
@@ -67,6 +67,7 @@ function TheoryCard({ theory, author, rank, isOwn, onDelete, isDeleting }) {
             <span className="text-xs font-mono font-semibold uppercase tracking-wider text-zinc-200">
               {author?.username || 'Investigador'}
             </span>
+            {isSupporter && <SupporterBadge />}
             <span
               className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 border"
               style={{ borderColor: `${ACCENT}55`, color: ACCENT }}
@@ -96,10 +97,11 @@ function TheoryCard({ theory, author, rank, isOwn, onDelete, isDeleting }) {
   );
 }
 
-export default function TheoryForum({ videoId, user }) {
+export default function TheoryForum({ videoId, partnerId, user }) {
   const [theories, setTheories] = useState([]);
   const [authors, setAuthors] = useState({});
   const [authorRanks, setAuthorRanks] = useState({});
+  const [supporterIds, setSupporterIds] = useState(new Set());
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -149,13 +151,21 @@ export default function TheoryForum({ videoId, user }) {
         })
       );
       setAuthorRanks(Object.fromEntries(rankEntries));
+
+      if (partnerId) {
+        const ids = await fetchActiveSupporterIds(supabase, partnerId, userIds);
+        setSupporterIds(ids);
+      } else {
+        setSupporterIds(new Set());
+      }
     } else {
       setAuthors({});
       setAuthorRanks({});
+      setSupporterIds(new Set());
     }
 
     setLoading(false);
-  }, [videoId]);
+  }, [videoId, partnerId]);
 
   useEffect(() => {
     loadTheories();
@@ -178,7 +188,7 @@ export default function TheoryForum({ videoId, user }) {
     e.preventDefault();
     if (!user?.id || submitting) return;
 
-    const cleanedText = sanitizeTheoryText(content);
+    const cleanedText = sanitizeCommentText(content, THEORY_MAX_CHARS);
 
     if (cleanedText.length === 0) {
       setError('A teoria não pode ser vazia.');
@@ -303,9 +313,9 @@ export default function TheoryForum({ videoId, user }) {
           </p>
 
           {loading ? (
-            <p className="text-[11px] font-mono text-zinc-600 uppercase tracking-wider py-6 text-center">
-              Carregando arquivo...
-            </p>
+            <div className="py-6 flex justify-center">
+              <LoadingSpinner size="sm" label="Carregando arquivo..." />
+            </div>
           ) : theories.length === 0 ? (
             <p className="text-[11px] font-mono text-zinc-600 uppercase tracking-wider py-6 text-center border border-dashed border-dark-border">
               Nenhuma teoria registrada ainda. Seja o primeiro investigador a analisar o caso.
@@ -319,6 +329,7 @@ export default function TheoryForum({ videoId, user }) {
                   author={authors[theory.user_id]}
                   rank={authorRanks[theory.user_id]}
                   isOwn={user?.id === theory.user_id}
+                  isSupporter={supporterIds.has(theory.user_id)}
                   onDelete={handleDelete}
                   isDeleting={deletingId === theory.id}
                 />

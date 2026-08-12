@@ -1,131 +1,148 @@
-// src/pages/SearchResults.jsx (versão final com "Super Card")
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../supabase';
 import AnimatedPage from '../AnimatedPage';
-import SkeletonCard from './SkeletonCard';
+import VideoCard from '../components/VideoCard';
 import { getPartnerProfilePath } from '../utils/partnerProfile';
+import { getPartnerAvatarUrl, normalizeSearchTerm, searchCatalog } from '../utils/searchCatalog';
 import SeoHead, { DEFAULT_SITE_DESCRIPTION } from '../components/SeoHead';
 import SiteContainer from '../components/SiteContainer';
+import LoadingSpinner from '../components/LoadingSpinner';
 
-// Componente para um card de vídeo individual (reutilizado)
-function VideoCard({ video, onNavigate }) {
-    const videoPath = `/video/${video.id}`;
-    return (
-        <div onClick={() => onNavigate(videoPath)} className="bg-zinc-900 border border-white/10 p-4 flex flex-col h-full group cursor-pointer transition-colors hover:border-white/20">
-            <div className="relative w-full aspect-video mb-3 overflow-hidden border border-white/10">
-                <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-80"/>
-            </div>
-            <div className="flex flex-col flex-grow">
-                <h2 className="text-xs font-mono uppercase tracking-wider text-zinc-300 line-clamp-2 leading-snug group-hover:text-white transition-colors">{video.title}</h2>
-            </div>
+const VerifiedIcon = (props) => (
+  <svg {...props} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10.09,16.5L6.5,12.91L7.91,11.5L10.09,13.67L16.08,7.68L17.5,9.09L10.09,16.5Z" />
+  </svg>
+);
+
+function PartnerResultCard({ partner }) {
+  const partnerPath = getPartnerProfilePath(partner) || `/parceiro/${partner.id}`;
+
+  return (
+    <Link
+      to={partnerPath}
+      className="group flex max-w-xs cursor-pointer items-center gap-3 rounded-lg border border-zinc-800/80 bg-zinc-900/80 p-2.5 transition-all duration-200 hover:border-amber-500/60"
+    >
+      <img
+        src={getPartnerAvatarUrl(partner)}
+        alt={partner.username}
+        className="h-10 w-10 shrink-0 rounded-full object-cover"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1">
+          <h3 className="truncate text-sm font-semibold text-white transition-colors group-hover:text-brand-primary">
+            {partner.username}
+          </h3>
+          {(partner.role === 'partner' || partner.is_partner) && (
+            <VerifiedIcon className="h-3 w-3 shrink-0 text-zinc-500" title="Parceiro Verificado" />
+          )}
         </div>
-    );
+        {partner.bio && (
+          <p className="line-clamp-1 text-xs text-zinc-400">{partner.bio}</p>
+        )}
+      </div>
+    </Link>
+  );
 }
 
-// O NOVO "SUPER CARD": Um grupo que mostra o Parceiro e seus vídeos
-function PartnerResultGroup({ partner, videos, onNavigate, partnerId }) {
-    const partnerPath = getPartnerProfilePath({ username: partner.username, id: partnerId }) || `/parceiro/${partnerId}`;
-    return (
-        <div className="col-span-full bg-zinc-900/50 border border-zinc-800 rounded-lg p-6 mb-8">
-            <Link to={partnerPath} className="flex items-center gap-4 mb-6 group/partner cursor-pointer">
-                <img src={partner.avatar} alt={partner.username} className="w-16 h-16 rounded-full object-cover transition-transform duration-300 group-hover/partner:scale-110"/>
-                <div>
-                    <h2 className="font-anton text-white text-3xl group-hover/partner:text-[#f1c40f] transition-colors">{partner.username}</h2>
-                </div>
-            </Link>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {videos.map(video => <VideoCard key={video.id} video={video} onNavigate={onNavigate} />)}
-            </div>
-        </div>
-    )
-}
+const VIDEO_GRID_CLASS =
+  'mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
 
 export default function SearchResults() {
-    const [searchParams] = useSearchParams();
-    const query = searchParams.get('q');
-    const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const query = searchParams.get('q');
+  const navigate = useNavigate();
 
-    const [groupedResults, setGroupedResults] = useState({ partners: {}, videos: [] });
-    const [loading, setLoading] = useState(true);
+  const [partners, setPartners] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (!query) {
-            setLoading(false);
-            return;
-        }
+  useEffect(() => {
+    const normalized = normalizeSearchTerm(query);
+    if (!normalized) {
+      setPartners([]);
+      setVideos([]);
+      setLoading(false);
+      return undefined;
+    }
 
-        const performSearch = async () => {
-            setLoading(true);
-            const { data, error } = await supabase.rpc('search_darkstream', { search_term: query });
+    let cancelled = false;
 
-            if (error) {
-                console.error("Erro na busca:", error);
-                setGroupedResults({ partners: {}, videos: [] });
-            } else {
-                // Lógica para agrupar os resultados
-                const groups = { partners: {}, videos: [] };
-                data.forEach(item => {
-                    if (item.type === 'video_from_partner') {
-                        if (!groups.partners[item.creator_id]) {
-                            groups.partners[item.creator_id] = {
-                                username: item.creator_username,
-                                avatar: item.creator_avatar,
-                                videos: []
-                            };
-                        }
-                        groups.partners[item.creator_id].videos.push(item);
-                    } else if (item.type === 'video') {
-                        groups.videos.push(item);
-                    }
-                });
-                setGroupedResults(groups);
-            }
-            setLoading(false);
-        };
+    const performSearch = async () => {
+      setLoading(true);
+      const result = await searchCatalog(supabase, query);
 
-        performSearch();
-    }, [query]);
+      if (cancelled) return;
 
-    const handleNavigation = (path) => navigate(path);
-    
-    const partnerGroups = Object.entries(groupedResults.partners);
+      setPartners(Array.isArray(result?.partners) ? result.partners : []);
+      setVideos(Array.isArray(result?.videos) ? result.videos : []);
+      setLoading(false);
+    };
 
-    return (
-        <AnimatedPage>
-            <SeoHead
-              title={query ? `Busca: ${query} | Dark Stream` : 'Buscar | Dark Stream'}
-              description={DEFAULT_SITE_DESCRIPTION}
-            />
-            <SiteContainer className="my-8 py-8">
-                <div>
-                    <h2 className="font-anton text-white text-2xl mb-6 text-left">
-                        {query ? `Resultados da busca para: "${query}"` : 'Faça uma busca'}
-                    </h2>
+    performSearch();
 
-                    {loading ? (
-                        <div className="grid grid-cols-1 gap-6 pb-10 md:grid-cols-2 lg:grid-cols-3">
-                            {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
-                        </div>
-                    ) : (
-                        (partnerGroups.length > 0 || groupedResults.videos.length > 0) ? (
-                            <div className="grid grid-cols-1 gap-6 pb-10 md:grid-cols-2 lg:grid-cols-3">
-                                {partnerGroups.map(([creatorId, partnerData]) => (
-                                    <PartnerResultGroup key={creatorId} partner={partnerData} partnerId={creatorId} videos={partnerData.videos} onNavigate={handleNavigation} />
-                                ))}
-                                {groupedResults.videos.map((video) => (
-                                    <VideoCard key={video.id} video={video} onNavigate={handleNavigation} />
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="col-span-full text-gray-400 text-center py-10">
-                                Nenhum resultado encontrado para "{query}".
-                            </p>
-                        )
-                    )}
+    return () => {
+      cancelled = true;
+    };
+  }, [query]);
+
+  const handleNavigation = (path) => navigate(path);
+  const hasResults = partners.length > 0 || videos.length > 0;
+
+  return (
+    <AnimatedPage>
+      <SeoHead
+        title={query ? `Busca: ${query} | Dark Stream` : 'Buscar | Dark Stream'}
+        description={DEFAULT_SITE_DESCRIPTION}
+      />
+      <SiteContainer className="my-8 py-8">
+        <h2 className="mb-6 text-left font-anton text-2xl text-white">
+          {query ? `Resultados da busca para: "${query}"` : 'Faça uma busca'}
+        </h2>
+
+        {loading ? (
+          <div className="py-16 flex justify-center">
+            <LoadingSpinner size="md" label="Buscando resultados..." />
+          </div>
+        ) : !hasResults ? (
+          <p className="py-10 text-center text-gray-400">
+            Nenhum resultado encontrado para &quot;{query}&quot;.
+          </p>
+        ) : (
+          <div className="space-y-10 pb-10">
+            {partners.length > 0 && (
+              <section>
+                <h3 className="mb-4 font-mono text-xs uppercase tracking-[0.25em] text-zinc-500">
+                  Parceiros Encontrados
+                </h3>
+                <div className="flex flex-wrap gap-4">
+                  {partners.map((partner) => (
+                    <PartnerResultCard key={partner.id} partner={partner} />
+                  ))}
                 </div>
-            </SiteContainer>
-        </AnimatedPage>
-    );
+              </section>
+            )}
+
+            {videos.length > 0 && (
+              <section>
+                <h3 className="font-mono text-xs uppercase tracking-[0.25em] text-zinc-500">
+                  Vídeos Encontrados
+                </h3>
+                <div className={VIDEO_GRID_CLASS}>
+                  {videos.map((video) => (
+                    <VideoCard
+                      key={video.id}
+                      video={video}
+                      onNavigate={handleNavigation}
+                      fullWidth
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </SiteContainer>
+    </AnimatedPage>
+  );
 }

@@ -9,6 +9,7 @@ import SeoHead, { DEFAULT_SITE_DESCRIPTION, DEFAULT_SITE_TITLE } from '../compon
 import { clearVideoProgressSession } from '../utils/videoPlayback';
 import { clearViewRegisteredSession } from '../utils/videoViews';
 import UserMenu from '../components/UserMenu';
+import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 
 function isVideoPlayerRoute(pathname) {
   return /^\/(video|caso)\/[^/]+$/.test(pathname);
@@ -53,37 +54,36 @@ function Header({ user, profile, immersive, chromeVisible }) {
       }`}
     >
       <SiteContainer>
-        <div className="flex h-14 w-full items-center justify-between gap-2 md:h-16">
-          <Link to="/casos" className="flex-shrink-0">
+        <div className="flex w-full items-center justify-between gap-3 py-2 md:py-2.5">
+          <Link to="/casos" className="flex flex-shrink-0 items-center pl-4 sm:pl-0">
             <img
               src="/LogoT.png"
               alt="Dark Stream"
-              className={`w-auto transition-opacity ${
-                immersive ? 'h-10 opacity-70 hover:opacity-100 md:h-12' : 'h-7 md:h-9'
+              className={`h-12 w-auto object-contain transition-opacity md:h-14 ${
+                immersive ? 'opacity-70 hover:opacity-100' : ''
               }`}
             />
           </Link>
-          <div className="flex min-w-0 items-center gap-1.5 md:gap-3">
+          <div className="flex h-10 min-w-0 items-center gap-3 pr-4 sm:pr-0">
             <Searchbar immersive={immersive} />
             {user ? (
               <UserMenu profile={profile} onLogout={handleLogout} />
             ) : (
               <>
-                <Link to="/login" className="flex-shrink-0">
+                <Link to="/login" className="flex h-10 flex-shrink-0 items-stretch">
                   <button
                     type="button"
-                    className="touch-target flex-shrink-0 rounded-none border border-dark-border px-2 py-1 font-mono text-xs uppercase tracking-wider text-zinc-400 transition-colors hover:border-zinc-500 hover:text-white md:px-4 md:py-2 md:text-sm whitespace-nowrap"
+                    className="box-border flex h-10 cursor-pointer items-center justify-center rounded-none border border-zinc-700 bg-black/60 px-5 py-0 font-mono text-xs font-bold uppercase leading-none tracking-wider text-white transition-all hover:bg-zinc-800 md:text-sm"
                   >
                     Entrar
                   </button>
                 </Link>
-                <Link to="/inscrever-se" className="flex-shrink-0">
+                <Link to="/inscrever-se" className="flex h-10 flex-shrink-0 items-stretch">
                   <button
                     type="button"
-                    className="touch-target flex-shrink-0 rounded-none bg-brand-primary px-2 py-1 text-xs font-bold uppercase tracking-wider text-black transition-opacity hover:opacity-90 md:px-4 md:py-2 md:text-sm whitespace-nowrap"
+                    className="box-border flex h-10 cursor-pointer items-center justify-center rounded-none border border-amber-500 bg-amber-500 px-5 py-0 font-mono text-xs font-bold uppercase leading-none tracking-wider text-black transition-all hover:bg-amber-400 md:text-sm"
                   >
-                    <span className="sm:hidden">Parceiro</span>
-                    <span className="hidden sm:inline">Seja Parceiro</span>
+                    Inscrever-se
                   </button>
                 </Link>
               </>
@@ -97,6 +97,9 @@ function Header({ user, profile, immersive, chromeVisible }) {
 
 export default function MainLayout({ user, profile }) {
   const location = useLocation();
+  const { isMiniPlayerVisible } = useAudioPlayer();
+  const onVideoPage = isVideoPlayerRoute(location.pathname);
+  const showMiniPlayerPadding = isMiniPlayerVisible && !onVideoPage;
   const immersive = isVideoPlayerRoute(location.pathname);
   const isHomeCatalog = isHomeCatalogRoute(location.pathname);
   const [chromeVisible, setChromeVisible] = useState(true);
@@ -140,7 +143,7 @@ export default function MainLayout({ user, profile }) {
       <main
         className={`min-w-0 w-full max-w-full flex-1 ${
           isHomeCatalog ? '' : 'pt-16 md:pt-20'
-        }`}
+        } ${showMiniPlayerPadding ? 'pb-20' : ''}`}
       >
         {immersive ? (
           <Outlet context={{ chromeVisible, reportChromeActivity }} />

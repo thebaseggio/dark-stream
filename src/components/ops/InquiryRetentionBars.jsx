@@ -1,5 +1,6 @@
 import React from 'react';
 import { OpsPanel } from './OpsPanel';
+import LoadingSpinner from '../LoadingSpinner';
 
 export default function InquiryRetentionBars({ data = [], loading }) {
   const maxValue = Math.max(...data.map((d) => Math.max(d.started, d.completed)), 1);
@@ -7,7 +8,9 @@ export default function InquiryRetentionBars({ data = [], loading }) {
   return (
     <OpsPanel title="Retenção de Público">
       {loading ? (
-        <p className="text-sm text-neutral-400 py-8 text-center">Carregando dados...</p>
+        <div className="py-8 flex justify-center">
+          <LoadingSpinner size="sm" label="Carregando dados..." />
+        </div>
       ) : data.length === 0 ? (
         <p className="text-sm text-neutral-400 py-8 text-center">
           Sem visualizações registradas no período.

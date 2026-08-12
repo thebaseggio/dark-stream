@@ -17,20 +17,23 @@ import SignupPage from './pages/SignupPage';
 import NotificationModal from './components/NotificationModal.jsx';
 import VisitorProfilePage from './pages/VisitorProfilePage';
 import { UploadProvider } from './contexts/UploadProvider.jsx'; 
+import { AudioPlayerProvider } from './contexts/AudioPlayerContext.jsx';
+import MiniAudioPlayer from './components/MiniAudioPlayer.jsx';
 import SearchResults from './pages/SearchResults';
 import CategoryPage from './pages/CategoryPage';
-import NossaMissao from './pages/NossaMissao';
-import TermosDeServico from './pages/TermosDeServico';
-import PoliticaDePrivacidade from './pages/PoliticaDePrivacidade';
+import OurMission from './pages/institutional/OurMission';
+import TermsOfService from './pages/institutional/TermsOfService';
+import InstitutionalPrivacy from './pages/institutional/InstitutionalPrivacy';
 import SejaUmParceiro from './pages/SejaUmParceiro';
 import AccountSettings from './pages/AccountSettings';
 import PlansPage from './pages/PlansPage';
 import SuggestionsPage from './pages/SuggestionsPage';
+import LoadingSpinner from './components/LoadingSpinner';
 
 
 const AuthLoadingScreen = ({ message = 'Carregando credenciais...' }) => (
-    <div className="min-h-screen bg-black flex items-center justify-center text-zinc-400">
-        {message}
+    <div className="min-h-screen bg-black flex items-center justify-center">
+        <LoadingSpinner size="lg" label={message} />
     </div>
 );
 
@@ -62,6 +65,7 @@ export default function App() {
  return (
     <NotificationProvider showNotification={showNotification}>
         <UploadProvider>
+            <AudioPlayerProvider>
             <div className="w-full max-w-full overflow-x-hidden min-h-screen bg-black text-white">
             <Router>
             <>
@@ -73,23 +77,18 @@ export default function App() {
 
                 {/* --- Rotas Públicas dentro do Layout Principal --- */}
                 <Route element={<MainLayout user={user} profile={profile} />}>
-                    {/* As props 'videos' foram removidas daqui */}
                     <Route path="/casos" element={<Explore user={user} />} />
                     <Route path="/explorar" element={<Explore user={user} />} />
-                    
-                    {/* Passando o objeto 'user' completo (que agora inclui o perfil) para o VideoPlayer */}
                     <Route path="/video/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/caso/:id" element={<VideoPlayer user={user} />} />
                     <Route path="/parceiro/:id" element={<PartnerProfile currentUser={user} />} />
                     <Route path="/parceiros/:username" element={<PartnerProfile currentUser={user} />} />
-
                     <Route path="/busca" element={<SearchResults />} />
                     <Route path="/categoria/:categoryName" element={<CategoryPage />} />
-                    <Route path="/nossa-missao" element={<NossaMissao />} />
-                    <Route path="/termos-de-servico" element={<TermosDeServico />} />
-                    <Route path="/politica-de-privacidade" element={<PoliticaDePrivacidade />} />
+                    <Route path="/missao" element={<OurMission />} />
+                    <Route path="/termos" element={<TermsOfService />} />
+                    <Route path="/privacidade" element={<InstitutionalPrivacy />} />
                     <Route path="/seja-um-parceiro" element={<SejaUmParceiro />} />
-
                     <Route path="/plans" element={<PlansPage />} />
                     <Route path="/sugestoes" element={<SuggestionsPage />} />
                     <Route path="/subscribe" element={<Navigate to="/plans" replace />} />
@@ -135,8 +134,13 @@ export default function App() {
                         </PrivateRoute>
                     } />
                 </Route>
-                
-                <Route path="*" element={<div><h1>404 - Página não encontrada</h1></div>} />
+
+                {/* Redirecionamentos de rotas antigas */}
+                <Route path="/nossa-missao" element={<Navigate to="/missao" replace />} />
+                <Route path="/termos-de-servico" element={<Navigate to="/termos" replace />} />
+                <Route path="/politica-de-privacidade" element={<Navigate to="/privacidade" replace />} />
+
+                <Route path="*" element={<div className="min-h-screen bg-black text-white flex items-center justify-center"><h1>404 - Página não encontrada</h1></div>} />
             </Routes>
 
             <NotificationModal 
@@ -145,9 +149,11 @@ export default function App() {
                 type={notification.type}
                 message={notification.message}
             />
+            <MiniAudioPlayer />
         </>
         </Router>
             </div>
+            </AudioPlayerProvider>
   </UploadProvider>
 </NotificationProvider>
   );

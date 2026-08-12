@@ -15,6 +15,7 @@ import {
   REVENUE_PER_HOUR_BRL,
 } from '../utils/partnerDashboardMetrics';
 import { buildVideoPrefillFromSuggestion } from '../utils/caseSuggestions';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const PERIOD_OPTIONS = [
   { value: 7, label: '7d' },
@@ -87,7 +88,9 @@ function ViewsTrendChart({ data, loading }) {
       </div>
 
       {loading ? (
-        <div className="h-40 animate-pulse rounded bg-zinc-800/50" />
+        <div className="flex h-40 items-center justify-center">
+          <LoadingSpinner size="sm" />
+        </div>
       ) : (
         <div className="flex h-40 items-end gap-1.5 sm:gap-2">
           {(data || []).map((item) => (
@@ -348,7 +351,9 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
               </div>
 
               {loading ? (
-                <p className="px-6 py-12 text-center text-sm text-zinc-500">Carregando catálogo…</p>
+                <div className="px-6 py-12 flex justify-center">
+                  <LoadingSpinner size="sm" label="Carregando catálogo…" />
+                </div>
               ) : videos.length === 0 ? (
                 <div className="px-6 py-16 text-center">
                   <p className="text-sm text-zinc-500">Nenhum caso cadastrado ainda.</p>
