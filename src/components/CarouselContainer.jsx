@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 
-const GESTURE_LOCK_PX = 10;
 const SCROLL_STEP_PX = 600;
+const DESKTOP_DRAG_QUERY = '(min-width: 769px)';
 
 const ChevronLeftIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -18,13 +18,11 @@ const ChevronRightIcon = (props) => (
 export default function CarouselContainer({ children, className = '' }) {
   const rowRef = useRef(null);
   const [hasOverflow, setHasOverflow] = useState(false);
+  const [enableDragScroll, setEnableDragScroll] = useState(false);
   const isDragging = useRef(false);
-  const isTouchGesture = useRef(false);
   const dragStartX = useRef(0);
-  const dragStartY = useRef(0);
   const scrollStart = useRef(0);
   const hasDragged = useRef(false);
-  const gestureAxis = useRef(null);
 
   const updateScrollState = useCallback(() => {
     const container = rowRef.current;
@@ -32,6 +30,15 @@ export default function CarouselContainer({ children, className = '' }) {
 
     const { scrollWidth, clientWidth } = container;
     setHasOverflow(scrollWidth > clientWidth + 4);
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(DESKTOP_DRAG_QUERY);
+    const syncDragMode = () => setEnableDragScroll(mediaQuery.matches);
+
+    syncDragMode();
+    mediaQuery.addEventListener('change', syncDragMode);
+    return () => mediaQuery.removeEventListener('change', syncDragMode);
   }, []);
 
   useEffect(() => {
@@ -81,54 +88,35 @@ export default function CarouselContainer({ children, className = '' }) {
     const container = rowRef.current;
     if (!container) return;
     isDragging.current = false;
-    isTouchGesture.current = false;
-    gestureAxis.current = null;
-    container.style.scrollBehavior = 'smooth';
-    container.style.cursor = 'grab';
+    container.style.scrollBehavior = '';
+    container.style.cursor = '';
   };
 
-  const handlePointerDown = (clientX, clientY, fromTouch = false) => {
+  const handleMouseDown = (event) => {
+    if (!enableDragScroll) return;
+
     const container = rowRef.current;
     if (!container) return;
+
     isDragging.current = true;
-    isTouchGesture.current = fromTouch;
     hasDragged.current = false;
-    gestureAxis.current = null;
-    dragStartX.current = clientX;
-    dragStartY.current = clientY;
+    dragStartX.current = event.pageX;
     scrollStart.current = container.scrollLeft;
     container.style.scrollBehavior = 'auto';
     container.style.cursor = 'grabbing';
   };
 
-  const handlePointerMove = (clientX, clientY) => {
-    if (!isDragging.current) return false;
+  const handleMouseMove = (event) => {
+    if (!enableDragScroll || !isDragging.current) return;
 
     const container = rowRef.current;
-    if (!container) return false;
+    if (!container) return;
 
-    const deltaX = clientX - dragStartX.current;
-    const deltaY = clientY - dragStartY.current;
-
-    if (gestureAxis.current === null) {
-      if (Math.abs(deltaX) < GESTURE_LOCK_PX && Math.abs(deltaY) < GESTURE_LOCK_PX) {
-        return false;
-      }
-
-      if (isTouchGesture.current && Math.abs(deltaY) >= Math.abs(deltaX)) {
-        gestureAxis.current = 'vertical';
-        resetDragState();
-        return false;
-      }
-
-      gestureAxis.current = 'horizontal';
-    }
-
-    if (gestureAxis.current !== 'horizontal') return false;
-
+    const deltaX = event.pageX - dragStartX.current;
     if (Math.abs(deltaX) > 4) hasDragged.current = true;
+
+    event.preventDefault();
     container.scrollLeft = scrollStart.current - deltaX;
-    return true;
   };
 
   const suppressClick = (event) => {
@@ -174,25 +162,12 @@ export default function CarouselContainer({ children, className = '' }) {
 
       <div
         ref={rowRef}
-        className="flex w-full min-w-0 cursor-grab touch-pan-y gap-4 overflow-x-auto pb-4 scrollbar-hide"
-        style={{ touchAction: 'pan-y pinch-zoom' }}
-        onMouseDown={(e) => handlePointerDown(e.pageX, e.pageY)}
-        onMouseMove={(e) => {
-          if (isDragging.current) {
-            e.preventDefault();
-            handlePointerMove(e.pageX, e.pageY);
-          }
-        }}
-        onMouseUp={resetDragState}
-        onMouseLeave={resetDragState}
-        onTouchStart={(e) => handlePointerDown(e.touches[0].clientX, e.touches[0].clientY, true)}
-        onTouchMove={(e) => {
-          const isHorizontal = handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
-          if (isHorizontal) e.preventDefault();
-        }}
-        onTouchEnd={resetDragState}
-        onTouchCancel={resetDragState}
-        onClickCapture={suppressClick}
+        className="flex w-full min-w-0 touch-pan-x gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth scrollbar-hide transform-gpu [-webkit-overflow-scrolling:touch] [touch-action:pan-x_pan-y] md:cursor-grab"
+        onMouseDown={enableDragScroll ? handleMouseDown : undefined}
+        onMouseMove={enableDragScroll ? handleMouseMove : undefined}
+        onMouseUp={enableDragScroll ? resetDragState : undefined}
+        onMouseLeave={enableDragScroll ? resetDragState : undefined}
+        onClickCapture={enableDragScroll ? suppressClick : undefined}
       >
         {children}
       </div>

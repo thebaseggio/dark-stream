@@ -112,6 +112,7 @@ export default function VideoCard({
   orientation = 'vertical',
   variant = 'default',
   fullWidth = false,
+  inCarousel = false,
   progressPercent,
   showProgressBar = false,
 }) {
@@ -226,7 +227,9 @@ export default function VideoCard({
   const ratingLabel = formatRatingLabel(video);
   const widthClass = fullWidth
     ? 'w-full max-w-full'
-    : 'w-64 max-w-full flex-shrink-0 sm:w-72 lg:w-80 xl:w-[300px]';
+    : inCarousel
+      ? 'flex-none snap-start w-[75vw] sm:w-[40vw] md:w-[25vw] min-w-0 max-w-full'
+      : 'w-64 max-w-full flex-shrink-0 sm:w-72 lg:w-80 xl:w-[300px]';
 
   return (
     <div

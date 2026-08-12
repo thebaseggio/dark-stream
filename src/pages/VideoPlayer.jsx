@@ -8,6 +8,7 @@ import RestrictedAccessScreen from '../components/RestrictedAccessScreen';
 import PlayerAmbientGlow from '../components/PlayerAmbientGlow';
 import TheoryForum from '../components/TheoryForum';
 import CaseFilesPanel from '../components/CaseFilesPanel';
+import PlayerOverlayMenu from '../components/PlayerOverlayMenu';
 import SiteContainer from '../components/SiteContainer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SeoHead, { buildMetaDescription, buildVideoPageTitle } from '../components/SeoHead';
@@ -183,6 +184,9 @@ function getAutoplayTarget(video, updateShorts) {
 
 const END_AUTOPLAY_SECONDS = 15;
 const AUTOPLAY_NEXT_KEY = 'darkstream:autoplay-next';
+const PLAYER_PLAYBACK_RATE_KEY = 'darkstream:player-playback-rate';
+const PLAYER_CAPTIONS_ENABLED_KEY = 'darkstream:player-captions-enabled';
+const PLAYER_AUTOPLAY_ENABLED_KEY = 'darkstream:player-autoplay-enabled';
 const SEEK_STEP_SECONDS = 10;
 const VOLUME_STEP = 0.05;
 
@@ -191,6 +195,52 @@ function isEditableElement(element) {
   const tag = element.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   return element.isContentEditable;
+}
+
+function readStoredPlaybackRate() {
+  try {
+    const rate = parseFloat(localStorage.getItem(PLAYER_PLAYBACK_RATE_KEY));
+    if ([0.5, 0.75, 1, 1.25, 1.5, 2].includes(rate)) return rate;
+  } catch {
+    // ignore storage errors
+  }
+  return 1;
+}
+
+function readStoredCaptionsEnabled() {
+  try {
+    return localStorage.getItem(PLAYER_CAPTIONS_ENABLED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function readAutoplayPreference() {
+  try {
+    return localStorage.getItem(PLAYER_AUTOPLAY_ENABLED_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
+function getQualityLabel(videoEl) {
+  const height = videoEl?.videoHeight;
+  if (!height) return 'AUTO (1080P)';
+  if (height >= 2160) return 'AUTO (4K)';
+  if (height >= 1080) return 'AUTO (1080P)';
+  if (height >= 720) return 'AUTO (720P)';
+  return `AUTO (${height}P)`;
+}
+
+function applyCaptionTracks(videoEl, enabled) {
+  const tracks = videoEl?.textTracks;
+  if (!tracks?.length) return false;
+
+  for (let index = 0; index < tracks.length; index += 1) {
+    tracks[index].mode = enabled ? 'showing' : 'hidden';
+  }
+
+  return true;
 }
 
 const INTRO_PRIMARY_LINE_CLASS =
@@ -237,6 +287,11 @@ export default function VideoPlayer({ user }) {
   const [hasSynopsisOverflow, setHasSynopsisOverflow] = useState(false);
   const [playerOverlay, setPlayerOverlay] = useState(null);
   const [timelineHover, setTimelineHover] = useState(null);
+  const [playbackRate, setPlaybackRate] = useState(readStoredPlaybackRate);
+  const [captionsEnabled, setCaptionsEnabled] = useState(readStoredCaptionsEnabled);
+  const [hasCaptions, setHasCaptions] = useState(false);
+  const [autoplayEnabled, setAutoplayEnabled] = useState(readAutoplayPreference);
+  const [qualityLabel, setQualityLabel] = useState('AUTO (1080P)');
 
   const inactivityTimerRef = useRef(null);
   const videoRef = useRef(null);
@@ -402,13 +457,15 @@ export default function VideoPlayer({ user }) {
     setIsPlaying(false);
     setIsFloating(false);
 
+    if (!autoplayEnabled) return;
+
     const target = getAutoplayTarget(videoDataRef.current, updateShorts);
     if (!target?.id) return;
 
     setEndAutoplayTarget(target);
     setEndAutoplaySeconds(END_AUTOPLAY_SECONDS);
     setEndAutoplayActive(true);
-  }, [updateShorts]);
+  }, [autoplayEnabled, updateShorts]);
 
   const handleDurationChange = useCallback((e) => {
     const el = e.currentTarget;
@@ -465,9 +522,13 @@ export default function VideoPlayer({ user }) {
   }, [loading, video, showIntro, isIntroDissolving, volume, isMuted]);
 
   const handleVideoMetadataLoaded = useCallback((e) => {
+    const el = e.currentTarget;
     handleDurationChange(e);
+    setQualityLabel(getQualityLabel(el));
+    setHasCaptions(applyCaptionTracks(el, captionsEnabled));
+    el.playbackRate = playbackRate;
     attemptInitialAutoplay();
-  }, [handleDurationChange, attemptInitialAutoplay]);
+  }, [handleDurationChange, attemptInitialAutoplay, captionsEnabled, playbackRate]);
 
   const handleLoadedData = useCallback((e) => {
     if (hasRestoredProgressRef.current) return;
@@ -595,6 +656,46 @@ export default function VideoPlayer({ user }) {
 
   const toggleTheaterMode = useCallback(() => {
     setIsTheaterMode((current) => !current);
+  }, []);
+
+  const handlePlaybackRateChange = useCallback((rate) => {
+    setPlaybackRate(rate);
+    try {
+      localStorage.setItem(PLAYER_PLAYBACK_RATE_KEY, String(rate));
+    } catch {
+      // ignore storage errors
+    }
+
+    const currentVideo = videoRef.current;
+    if (currentVideo) {
+      currentVideo.playbackRate = rate;
+    }
+  }, []);
+
+  const handleCaptionsChange = useCallback((enabled) => {
+    setCaptionsEnabled(enabled);
+    try {
+      localStorage.setItem(PLAYER_CAPTIONS_ENABLED_KEY, enabled ? '1' : '0');
+    } catch {
+      // ignore storage errors
+    }
+
+    const currentVideo = videoRef.current;
+    if (currentVideo) {
+      setHasCaptions(applyCaptionTracks(currentVideo, enabled));
+    }
+  }, []);
+
+  const handleAutoplayToggle = useCallback(() => {
+    setAutoplayEnabled((current) => {
+      const next = !current;
+      try {
+        localStorage.setItem(PLAYER_AUTOPLAY_ENABLED_KEY, next ? '1' : '0');
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
   }, []);
 
   const handleTimelineMouseMove = useCallback((e) => {
@@ -1271,13 +1372,13 @@ export default function VideoPlayer({ user }) {
 
       {!floating && (
         <div
-          className={`absolute top-0 left-0 w-full z-20 px-5 py-4 flex items-center gap-4 bg-gradient-to-b from-black/80 via-black/30 to-transparent transition-all duration-500 ease-in-out ${
+          className={`absolute top-0 left-0 w-full z-20 px-4 py-4 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/30 to-transparent transition-all duration-500 ease-in-out ${
             chromeVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >
           <button
             onClick={handleBackToCatalog}
-            className="flex items-center gap-2 text-white/80 hover:text-brand-primary border border-dark-border px-3 py-2 transition-colors"
+            className="flex flex-shrink-0 items-center gap-2 border border-dark-border px-3 py-2 text-white/80 transition-colors hover:text-brand-primary"
             title="Voltar ao catálogo"
           >
             <BackIcon className="w-4 h-4 flex-shrink-0" />
@@ -1285,11 +1386,17 @@ export default function VideoPlayer({ user }) {
               Voltar ao catálogo
             </span>
           </button>
+
+          <p className="pointer-events-none hidden min-w-0 flex-1 truncate px-4 text-center font-mono text-[10px] uppercase tracking-widest text-zinc-400 md:block">
+            {video.title}
+          </p>
+
+          <div className="hidden w-[7.5rem] flex-shrink-0 sm:block" aria-hidden="true" />
         </div>
       )}
 
       <div
-        className={`absolute bottom-0 left-0 w-full max-w-full overflow-hidden z-20 transition-all duration-500 ease-in-out ${
+        className={`absolute bottom-0 left-0 w-full max-w-full z-20 overflow-visible transition-all duration-500 ease-in-out ${
           areControlsVisible || floating ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -1297,7 +1404,7 @@ export default function VideoPlayer({ user }) {
           className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"
           aria-hidden="true"
         />
-        <div className={`relative z-10 max-w-full overflow-hidden pb-1 ${floating ? 'pt-2' : 'pt-12'}`}>
+        <div className={`relative z-10 max-w-full overflow-visible pb-1 ${floating ? 'pt-2' : 'pt-12'}`}>
           <div
             ref={timelineTrackRef}
             className="player-timeline-track relative max-w-full overflow-hidden px-4"
@@ -1360,7 +1467,7 @@ export default function VideoPlayer({ user }) {
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
             </div>
-            <div className="flex flex-shrink-0 items-center gap-2">
+            <div className="flex flex-shrink-0 items-center gap-1 overflow-visible">
               {!floating && (
                 <>
                 <button
@@ -1374,6 +1481,16 @@ export default function VideoPlayer({ user }) {
                 >
                   <TheaterIcon className="h-full w-full" />
                 </button>
+                <PlayerOverlayMenu
+                  playbackRate={playbackRate}
+                  onPlaybackRateChange={handlePlaybackRateChange}
+                  captionsEnabled={captionsEnabled}
+                  onCaptionsChange={handleCaptionsChange}
+                  hasCaptions={hasCaptions}
+                  autoplayEnabled={autoplayEnabled}
+                  onAutoplayToggle={handleAutoplayToggle}
+                  qualityLabel={qualityLabel}
+                />
                 <button
                   onClick={toggleFullScreen}
                   className="h-5 w-5 flex-shrink-0 text-white/90 transition-colors duration-300 hover:text-brand-primary"

@@ -38,6 +38,7 @@ export default function CategoryRow({
             video={video}
             onNavigate={onNavigate}
             variant={variant}
+            inCarousel
             showProgressBar={showProgressBar}
           />
         ))}
