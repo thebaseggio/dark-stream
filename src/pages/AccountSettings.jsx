@@ -34,10 +34,6 @@ const VALID_TAB_IDS = {
   partner: PARTNER_TABS.map((tab) => tab.id),
 };
 
-function resolveInitialTab(searchParams) {
-  return normalizeAccountTab(searchParams.get('tab'));
-}
-
 function isAllowedAccountTab(tabId, partnerNav, allowChannelProfile = false) {
   if (tabId === 'channel' && allowChannelProfile) return true;
   const allowed = partnerNav ? VALID_TAB_IDS.partner : VALID_TAB_IDS.investigator;
@@ -220,10 +216,10 @@ export default function AccountSettings() {
   const { user, profile, loading, profileLoading, refreshProfile } = useAuth();
   const { showNotification } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabFromUrl = searchParams.get('tab');
+  const tabParam = normalizeAccountTab(searchParams.get('tab'));
   const isPartner = isPartnerAccount(profile);
-  const showChannelProfileNav = shouldShowChannelProfileNav(profile, tabFromUrl);
-  const [activeTab, setActiveTab] = useState(() => resolveInitialTab(searchParams));
+  const showChannelProfileNav = shouldShowChannelProfileNav(profile, tabParam);
+  const [activeTab, setActiveTab] = useState(tabParam || 'overview');
   const [accountLoading, setAccountLoading] = useState(true);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
@@ -302,9 +298,11 @@ export default function AccountSettings() {
   }, [isPartner, activeTab]);
 
   useEffect(() => {
-    if (loading || profileLoading) return;
+    setActiveTab(tabParam || 'overview');
+  }, [tabParam]);
 
-    const tabParam = normalizeAccountTab(searchParams.get('tab'));
+  useEffect(() => {
+    if (loading || profileLoading) return;
 
     const allowChannelProfile = shouldShowChannelProfileNav(profile, tabParam);
 
@@ -320,7 +318,7 @@ export default function AccountSettings() {
 
     setActiveTab('overview');
     setSearchParams({}, { replace: true });
-  }, [loading, profileLoading, isPartner, profile, searchParams, setSearchParams]);
+  }, [loading, profileLoading, isPartner, profile, tabParam, setSearchParams]);
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);

@@ -4,15 +4,10 @@ import { UserCog } from 'lucide-react';
 import { isValidRenderableUrl, resolveAvatarUrl } from '../utils/profileMedia';
 import { isPartnerAccount } from '../utils/partnerAccess';
 
-function buildPartnerSlug(profile) {
-  const rawName = (
-    profile?.slug
-    || profile?.name
-    || profile?.username
-    || 'freak-tv'
-  ).trim();
-
-  const slug = rawName
+function sanitizeSlug(value) {
+  if (!value) return null;
+  const slug = String(value)
+    .trim()
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -92,8 +87,8 @@ export default function UserMenu({ profile, onLogout }) {
   const isDashboardUser = ['partner', 'admin', 'tester'].includes(role);
   const isPartnerAccountUser = isPartnerAccount(profile);
   const showChannelProfileLink = isPartnerAccountUser || isDashboardUser;
-  const partnerSlug = buildPartnerSlug(profile);
-  const partnerPublicUrl = `/parceiro/${encodeURIComponent(partnerSlug)}`;
+  const partnerSlug = profile?.slug || sanitizeSlug(profile?.name || profile?.username) || 'freak-tv';
+  const partnerPublicUrl = `/parceiro/${partnerSlug}`;
   const menuLinkClassName = 'flex items-center gap-2 px-4 py-2 font-mono text-xs uppercase tracking-wider text-zinc-300 transition-all hover:bg-zinc-900/80 hover:text-amber-500';
 
   const closeMenu = () => setOpen(false);
