@@ -2,14 +2,18 @@
 -- Dark Stream — seed de parceiros e vídeos de teste
 -- Gerado automaticamente por scripts/generate-seed-sql.mjs
 -- =============================================================================
--- 4 parceiros + 1 investigador QA + 25 vídeos
+-- 5 parceiros + 1 investigador QA + 29 vídeos
 --
 -- Senha padrão: DarkStream@2026!
 --   marcos.campos@seed.darkstream.test
 --   ju.cassini@seed.darkstream.test
 --   caixa.pandora@seed.darkstream.test
 --   cafezinho@seed.darkstream.test
+--   contato@freaktv.com
 --   investigador@seed.darkstream.test  (trilho "Recomendados para Você")
+--
+-- Senhas específicas:
+--   contato@freaktv.com: DarkStream@Freak2026
 --
 -- EXECUÇÃO (SQL Editor ou CLI):
 --   npx supabase db execute --file supabase/seed_test_data.sql --linked
@@ -18,6 +22,17 @@
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+INSERT INTO public.categories (name) VALUES
+  ('Nacionais'),
+  ('Internacionais'),
+  ('Mistérios'),
+  ('Não solucionados'),
+  ('Solucionados'),
+  ('Serial Killers'),
+  ('Documentários'),
+  ('Sobrenaturais')
+ON CONFLICT (name) DO NOTHING;
 
 -- ATENÇÃO: apaga TODOS os vídeos e registros dependentes (feedback, views, etc.)
 TRUNCATE TABLE public.videos CASCADE;
@@ -29,6 +44,7 @@ WHERE user_id IN (
   '11111111-1111-4111-8111-111111111102'::uuid,
   '11111111-1111-4111-8111-111111111105'::uuid,
   '11111111-1111-4111-8111-111111111103'::uuid,
+  '11111111-1111-4111-8111-111111111106'::uuid,
   '11111111-1111-4111-8111-111111111104'::uuid
 );
 
@@ -38,6 +54,7 @@ WHERE id IN (
   '11111111-1111-4111-8111-111111111102'::uuid,
   '11111111-1111-4111-8111-111111111105'::uuid,
   '11111111-1111-4111-8111-111111111103'::uuid,
+  '11111111-1111-4111-8111-111111111106'::uuid,
   '11111111-1111-4111-8111-111111111104'::uuid
 );
 
@@ -112,6 +129,22 @@ INSERT INTO auth.users (
     '', '', '', ''
   ),
   (
+    '11111111-1111-4111-8111-111111111106',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'contato@freaktv.com',
+    crypt('DarkStream@Freak2026', gen_salt('bf')),
+    now(),
+    now(),
+    now(),
+    '{"provider":"email","providers":["email"]}'::jsonb,
+    '{"username":"Freak TV"}'::jsonb,
+    now() - interval '45 days',
+    now(),
+    '', '', '', ''
+  ),
+  (
     '11111111-1111-4111-8111-111111111104',
     '00000000-0000-0000-0000-000000000000',
     'authenticated',
@@ -161,6 +194,14 @@ INSERT INTO auth.identities (
     '11111111-1111-4111-8111-111111111103',
     '11111111-1111-4111-8111-111111111103',
     jsonb_build_object('sub', '11111111-1111-4111-8111-111111111103', 'email', 'cafezinho@seed.darkstream.test'),
+    'email',
+    now(), now(), now()
+  ),
+  (
+    '11111111-1111-4111-8111-111111111106',
+    '11111111-1111-4111-8111-111111111106',
+    '11111111-1111-4111-8111-111111111106',
+    jsonb_build_object('sub', '11111111-1111-4111-8111-111111111106', 'email', 'contato@freaktv.com'),
     'email',
     now(), now(), now()
   ),
@@ -229,6 +270,19 @@ INSERT INTO public.profiles (
     'https://youtube.com/@cafezinhoinvestigativo',
     'https://instagram.com/cafezinhoinvestigativo',
     'https://x.com/cafezinho_cases'
+  ),
+  (
+    '11111111-1111-4111-8111-111111111106',
+    'Freak TV',
+    'partner',
+    'Casos bizarros, mistérios sem explicação, arquivos confidenciais e investigações sombrias.',
+    true,
+    'https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=500&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1600&auto=format&fit=crop&q=80',
+    'https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=500&auto=format&fit=crop&q=80',
+    'https://youtube.com/@freaktv',
+    'https://instagram.com/freaktv',
+    NULL
   ),
   (
     '11111111-1111-4111-8111-111111111104',
@@ -432,6 +486,94 @@ Investigamos conexões com desaparecimentos contemporâneos.',
     now() - interval '6 days'
   ),
   (
+    '22222222-2222-4222-8222-222222222226',
+    'Arquivo 17: O Apartamento que Respirava',
+    E'Moradores de um prédio em São Paulo relataram paredes úmidas, ruídos de respiração e luzes piscando sempre às 3h17.
+
+Freak TV cruza laudos elétricos, boletins de ocorrência e gravações de madrugada para reconstruir a origem do fenômeno.
+
+O último inquilino deixou o imóvel sem retirar nenhum pertence.',
+    ARRAY['Nacionais', 'Mistérios', 'Não solucionados']::text[],
+    ARRAY['freak tv', 'são paulo', 'apartamento', 'mistério', 'arquivo confidencial']::text[],
+    '11111111-1111-4111-8111-111111111106',
+    'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+    17640,
+    2260,
+    false,
+    264,
+    705,
+    52,
+    false,
+    now() - interval '17 days'
+  ),
+  (
+    '22222222-2222-4222-8222-222222222227',
+    'A Ligação da Linha Morta',
+    E'Uma central telefônica desativada em Minas Gerais voltou a registrar chamadas sem origem durante quatro noites consecutivas.
+
+As mensagens repetiam nomes de desaparecidos e coordenadas de uma estrada rural.
+
+A investigação Freak TV testa as fitas originais e visita o ponto indicado.',
+    ARRAY['Nacionais', 'Mistérios']::text[],
+    ARRAY['freak tv', 'minas gerais', 'telefone', 'desaparecidos', 'mistério']::text[],
+    '11111111-1111-4111-8111-111111111106',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+    13980,
+    1985,
+    false,
+    209,
+    559,
+    41,
+    false,
+    now() - interval '11 days'
+  ),
+  (
+    '22222222-2222-4222-8222-222222222228',
+    'Dossiê Serra Negra: A Casa sem Sombra',
+    E'Fotografias tiradas entre 1994 e 2024 mostram a mesma casa no interior paulista sem projetar sombra ao meio-dia.
+
+Especialistas descartam montagem em parte do acervo, mas não explicam os negativos analógicos.
+
+Freak TV abre o dossiê e entrevista a família que guardou as imagens.',
+    ARRAY['Nacionais', 'Mistérios', 'Documentários']::text[],
+    ARRAY['freak tv', 'serra negra', 'fotografia', 'dossiê', 'mistério']::text[],
+    '11111111-1111-4111-8111-111111111106',
+    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=800&auto=format&fit=crop',
+    'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
+    15820,
+    2420,
+    false,
+    237,
+    632,
+    47,
+    false,
+    now() - interval '8 days'
+  ),
+  (
+    '22222222-2222-4222-8222-222222222229',
+    'Protocolo Anhangá: O Trem que Não Chegou',
+    E'Relatórios ferroviários de 1987 descrevem um trem cargueiro visto por três estações, mas ausente de todos os registros oficiais.
+
+A composição teria transportado caixas lacradas com símbolos militares e desaparecido antes do pátio final.
+
+Freak TV reúne mapas, depoimentos e documentos obtidos por arquivo público.',
+    ARRAY['Nacionais', 'Mistérios', 'Não solucionados']::text[],
+    ARRAY['freak tv', 'ferrovia', 'arquivo público', 'protocolo', 'mistério']::text[],
+    '11111111-1111-4111-8111-111111111106',
+    'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    12110,
+    2110,
+    false,
+    181,
+    484,
+    36,
+    false,
+    now() - interval '4 days'
+  ),
+  (
     '22222222-2222-4222-8222-222222222209',
     'Colombia 289: O Voo que Nunca Pousou',
     E'O voo 289 perdeu contato por 41 minutos sobre os Andes.
@@ -442,8 +584,8 @@ Nenhuma explicação oficial foi publicada.',
     ARRAY['Internacionais', 'Não solucionados']::text[],
     ARRAY['colômbia', 'aviação', 'desaparecimento', 'andean']::text[],
     '11111111-1111-4111-8111-111111111103',
-    'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+    'https://images.unsplash.com/photo-1550684848-fc0739664c97?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
     31200,
     3250,
     false,
@@ -464,8 +606,8 @@ Forense independente aponta assinatura incompatível.',
     ARRAY['Internacionais', 'Serial Killers']::text[],
     ARRAY['londres', 'serial killer', 'jack the ripper', 'cold case']::text[],
     '11111111-1111-4111-8111-111111111103',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+    'https://images.unsplash.com/photo-1589829085413-51b5876a6623?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
     19880,
     2460,
     false,
@@ -486,8 +628,8 @@ Recuperamos frames e a última coordenada GPS.',
     ARRAY['Internacionais', 'Não solucionados']::text[],
     ARRAY['tóquio', 'urban exploration', 'metrô', 'desaparecimento']::text[],
     '11111111-1111-4111-8111-111111111103',
-    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=800&auto=format&fit=crop',
-    'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
+    'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
     14220,
     2100,
     false,
@@ -508,8 +650,8 @@ Comparamos arquivos FOIA e registros hospitalares.',
     ARRAY['Internacionais', 'Documentários']::text[],
     ARRAY['berlim', 'arquivo', 'guerra fria', 'mistério']::text[],
     '11111111-1111-4111-8111-111111111103',
-    'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    'https://images.unsplash.com/photo-1489599849927-2fa91ead8788?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
     12950,
     2380,
     false,
@@ -530,8 +672,8 @@ Mapeamos níveis não catalogados.',
     ARRAY['Internacionais', 'Não solucionados']::text[],
     ARRAY['chicago', 'desaparecimento', 'porão', 'cold case']::text[],
     '11111111-1111-4111-8111-111111111103',
-    'https://images.unsplash.com/photo-1550684848-fc0739664c97?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
     11800,
     2220,
     false,
@@ -552,8 +694,8 @@ Analisamos logs de rádio e restos de acampamento.',
     ARRAY['Internacionais', 'Não solucionados']::text[],
     ARRAY['saara', 'expedição', 'desaparecimento', 'mistério']::text[],
     '11111111-1111-4111-8111-111111111103',
-    'https://images.unsplash.com/photo-1589829085413-51b5876a6623?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
     9340,
     1950,
     false,
@@ -574,8 +716,8 @@ Quem tinha acesso às ocorrências em tempo real?',
     ARRAY['Internacionais', 'Solucionados']::text[],
     ARRAY['oslo', 'telefone', 'predição', 'inquérito']::text[],
     '11111111-1111-4111-8111-111111111103',
-    'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+    'https://images.unsplash.com/photo-1534447675818-99d6d054b2c2?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
     8120,
     1680,
     false,
@@ -596,8 +738,8 @@ Traduzimos registros e entrevistamos ex-agentes.',
     ARRAY['Internacionais', 'Documentários']::text[],
     ARRAY['buenos aires', 'arquivo', 'ditadura', 'mistério']::text[],
     '11111111-1111-4111-8111-111111111103',
-    'https://images.unsplash.com/photo-1489599849927-2fa91ead8788?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+    'https://images.unsplash.com/photo-1560174037-3b98236c7eca?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
     7450,
     1845,
     false,
@@ -618,8 +760,8 @@ Produção independente escrita e dirigida por Ju Cassini.',
     ARRAY['Nacionais', 'Documentários']::text[],
     ARRAY['curta', 'terror', 'suspense', 'paranoia']::text[],
     '11111111-1111-4111-8111-111111111102',
-    'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+    'https://images.unsplash.com/photo-1578662996442-48f601eca288?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
     28400,
     840,
     false,
@@ -640,8 +782,8 @@ Documentário de terror independente — direção Ju Cassini.',
     ARRAY['Sobrenaturais', 'Documentários']::text[],
     ARRAY['petrópolis', 'terror', 'documentário', 'casa assombrada']::text[],
     '11111111-1111-4111-8111-111111111102',
-    'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    'https://images.unsplash.com/photo-1590856020156-8665f259f3a6?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
     11340,
     2890,
     false,
@@ -662,8 +804,8 @@ Curta de suspense sobrenatural — produção Ju Cassini.',
     ARRAY['Sobrenaturais', 'Nacionais']::text[],
     ARRAY['aviação', 'terror', 'curta', 'suspense']::text[],
     '11111111-1111-4111-8111-111111111102',
-    'https://images.unsplash.com/photo-1534447675818-99d6d054b2c2?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+    'https://images.unsplash.com/photo-1605649487212-47bdab064df7?q=80&w=800&auto=format&fit=crop',
+    'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
     8750,
     1860,
     false,
@@ -684,8 +826,8 @@ Análise cinematográfica de registros found footage — Ju Cassini.',
     ARRAY['Sobrenaturais', 'Nacionais']::text[],
     ARRAY['salvador', 'terror', 'found footage', 'suspense']::text[],
     '11111111-1111-4111-8111-111111111102',
-    'https://images.unsplash.com/photo-1560174037-3b98236c7eca?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
+    'https://images.unsplash.com/photo-1611194339398-2d876353da2a?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
     9680,
     2145,
     false,
@@ -706,8 +848,8 @@ Montagem autoral sobre medo coletivo e crença — direção Ju Cassini.',
     ARRAY['Sobrenaturais', 'Documentários']::text[],
     ARRAY['nazaré', 'suspense', 'vídeo', 'curta']::text[],
     '11111111-1111-4111-8111-111111111102',
-    'https://images.unsplash.com/photo-1578662996442-48f601eca288?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
     7120,
     1770,
     false,
@@ -728,8 +870,8 @@ Investigação Caixa de Pandora — três oficiais mudaram de versão na mesma s
     ARRAY['Sobrenaturais', 'Nacionais']::text[],
     ARRAY['varginha', 'ovni', 'desclassificado', 'conspiração']::text[],
     '11111111-1111-4111-8111-111111111105',
-    'https://images.unsplash.com/photo-1590856020156-8665f259f3a6?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+    'https://images.unsplash.com/photo-1509245858120-9a2ee496571b?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
     24100,
     3120,
     false,
@@ -750,8 +892,8 @@ Caixa de Pandora isola gravações e triangula a origem.',
     ARRAY['Sobrenaturais', 'Não solucionados']::text[],
     ARRAY['rádio', 'mistério', 'neblina', 'investigação']::text[],
     '11111111-1111-4111-8111-111111111105',
-    'https://images.unsplash.com/photo-1605649487212-47bdab064df7?q=80&w=800&auto=format&fit=crop',
-    'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
+    'https://images.unsplash.com/photo-1478720568477-152d9b164e26?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
     10220,
     2010,
     false,
@@ -772,8 +914,8 @@ Cruzamos acidentes, mapas e depoimentos idênticos — arquivo Caixa de Pandora.
     ARRAY['Sobrenaturais', 'Não solucionados']::text[],
     ARRAY['estrada', 'faróis', 'cold case', 'conspiração']::text[],
     '11111111-1111-4111-8111-111111111105',
-    'https://images.unsplash.com/photo-1611194339398-2d876353da2a?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
     8340,
     1920,
     false,
@@ -794,8 +936,8 @@ Investigação Caixa de Pandora revisita logs e entrevista o único sobrevivente
     ARRAY['Sobrenaturais', 'Internacionais', 'Não solucionados']::text[],
     ARRAY['oceano', 'sonar', 'desaparecimento', 'expedição']::text[],
     '11111111-1111-4111-8111-111111111105',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?q=80&w=800&auto=format&fit=crop',
-    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?q=80&w=800&auto=format&fit=crop',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
     6890,
     2055,
     false,
@@ -838,6 +980,6 @@ LEFT JOIN public.videos v
   ON v.category @> ARRAY[cat.name]::text[]
   AND v.is_short = false
   AND v.parent_video_id IS NULL
-WHERE cat.name IN ('Nacionais', 'Internacionais', 'Não solucionados', 'Sobrenaturais')
+WHERE cat.name IN ('Nacionais', 'Internacionais', 'Mistérios', 'Não solucionados', 'Sobrenaturais')
 GROUP BY cat.name
 ORDER BY cat.name;

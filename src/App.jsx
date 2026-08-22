@@ -104,6 +104,7 @@ export default function App() {
                     } />
                     <Route path="/conta" element={<Navigate to="/account" replace />} />
 
+                    <Route path="/studio" element={<Navigate to="/partner/dashboard" replace />} />
                     <Route path="/partner/dashboard" element={
                         <PrivateRoute user={user} loading={loading}>
                             {(profile?.role === 'partner' || profile?.role === 'admin' || profile?.role === 'tester') ? (

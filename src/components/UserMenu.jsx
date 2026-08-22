@@ -2,7 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { UserCog } from 'lucide-react';
 import { isValidRenderableUrl, resolveAvatarUrl } from '../utils/profileMedia';
-import { isPartnerAccount, shouldShowChannelProfileNav } from '../utils/partnerAccess';
+import { isPartnerAccount } from '../utils/partnerAccess';
+
+function sanitizeSlug(value) {
+  if (!value) return null;
+  const slug = String(value)
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return slug || 'freak-tv';
+}
 
 const InvestigatorIcon = (props) => (
   <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -74,6 +87,9 @@ export default function UserMenu({ profile, onLogout }) {
   const isDashboardUser = ['partner', 'admin', 'tester'].includes(role);
   const isPartnerAccountUser = isPartnerAccount(profile);
   const showChannelProfileLink = isPartnerAccountUser || isDashboardUser;
+  const partnerSlug = profile?.slug || sanitizeSlug(profile?.name || profile?.username) || 'freak-tv';
+  const partnerPublicUrl = `/parceiro/${partnerSlug}`;
+  const menuLinkClassName = 'flex items-center gap-2 px-4 py-2 font-mono text-xs uppercase tracking-wider text-zinc-300 transition-all hover:bg-zinc-900/80 hover:text-amber-500';
 
   const closeMenu = () => setOpen(false);
 
@@ -143,13 +159,13 @@ export default function UserMenu({ profile, onLogout }) {
           )}
 
           {showChannelProfileLink && (
-            <MenuLink to="/account?tab=channel-profile" onSelect={closeMenu}>
+            <Link to={partnerPublicUrl} className={menuLinkClassName}>
               <UserCog className="h-4 w-4 text-amber-500" aria-hidden="true" />
               Perfil do Canal
-            </MenuLink>
+            </Link>
           )}
 
-          <MenuLink to="/account" onSelect={closeMenu}>
+          <MenuLink to="/account?tab=overview" onSelect={closeMenu}>
             Minha Conta
           </MenuLink>
 

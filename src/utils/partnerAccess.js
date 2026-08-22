@@ -26,6 +26,6 @@ export function canAccessPartnerDashboard(profile) {
 }
 
 export function shouldShowChannelProfileNav(profile, tabFromUrl = null) {
-  if (tabFromUrl === 'channel-profile') return true;
+  if (tabFromUrl === 'channel' || tabFromUrl === 'channel-profile') return true;
   return isPartnerAccount(profile) || canAccessPartnerDashboard(profile);
 }
