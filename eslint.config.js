@@ -25,8 +25,11 @@ module.exports = [
     rules: {
       ...js.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
+      'no-control-regex': 'warn',
       'no-irregular-whitespace': 'off',
+      'no-useless-assignment': 'warn',
       'no-unused-vars': ['warn', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^_' }],
+      'react-hooks/preserve-manual-memoization': 'off',
       'react-hooks/refs': 'off',
       'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': [

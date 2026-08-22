@@ -98,21 +98,33 @@ function buildVideoInsert(row) {
 }
 
 const videoRows = VIDEOS.map((video, index) => buildVideoRow(video, index));
-const partnerIntervals = ['400 days', '320 days', '290 days', '260 days'];
+const partnerIntervals = ['400 days', '320 days', '290 days', '260 days', '45 days'];
 const allUsers = [...PARTNERS, INVESTIGATOR];
+const seedEmailLines = [
+  ...PARTNERS.map((partner) => `--   ${partner.email}`),
+  `--   ${INVESTIGATOR.email}  (trilho "Recomendados para Você")`,
+].join('\n');
+const categoryOrder = [
+  'Nacionais',
+  'Internacionais',
+  'Mistérios',
+  'Não solucionados',
+  'Solucionados',
+  'Serial Killers',
+  'Documentários',
+  'Sobrenaturais',
+];
+const videoCategories = new Set(VIDEOS.flatMap((video) => video.category));
+const seedCategories = categoryOrder.filter((category) => videoCategories.has(category));
 
 const sql = `-- =============================================================================
 -- Dark Stream — seed de parceiros e vídeos de teste
 -- Gerado automaticamente por scripts/generate-seed-sql.mjs
 -- =============================================================================
--- 4 parceiros + 1 investigador QA + 25 vídeos
+-- ${PARTNERS.length} parceiros + 1 investigador QA + ${VIDEOS.length} vídeos
 --
 -- Senha padrão: ${TEST_PASSWORD}
---   marcos.campos@seed.darkstream.test
---   ju.cassini@seed.darkstream.test
---   caixa.pandora@seed.darkstream.test
---   cafezinho@seed.darkstream.test
---   investigador@seed.darkstream.test  (trilho "Recomendados para Você")
+${seedEmailLines}
 --
 -- EXECUÇÃO (SQL Editor ou CLI):
 --   npx supabase db execute --file supabase/seed_test_data.sql --linked
@@ -121,6 +133,10 @@ const sql = `-- ================================================================
 BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+INSERT INTO public.categories (name) VALUES
+${seedCategories.map((category) => `  (${sqlEscape(category)})`).join(',\n')}
+ON CONFLICT (name) DO NOTHING;
 
 -- ATENÇÃO: apaga TODOS os vídeos e registros dependentes (feedback, views, etc.)
 TRUNCATE TABLE public.videos CASCADE;
@@ -214,7 +230,7 @@ LEFT JOIN public.videos v
   ON v.category @> ARRAY[cat.name]::text[]
   AND v.is_short = false
   AND v.parent_video_id IS NULL
-WHERE cat.name IN ('Nacionais', 'Internacionais', 'Não solucionados', 'Sobrenaturais')
+WHERE cat.name IN ('Nacionais', 'Internacionais', 'Mistérios', 'Não solucionados', 'Sobrenaturais')
 GROUP BY cat.name
 ORDER BY cat.name;
 `;
