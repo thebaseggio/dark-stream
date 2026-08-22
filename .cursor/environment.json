@@ -1,0 +1,10 @@
+{
+  "name": "Dark Stream",
+  "install": "npm ci && ([ -f .env ] || cp .env.example .env)",
+  "terminals": [
+    {
+      "name": "vite-dev",
+      "command": "npm run dev -- --host 0.0.0.0"
+    }
+  ]
+}
