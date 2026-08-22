@@ -301,7 +301,14 @@ export default function AccountSettings() {
     if (loading || profileLoading) return;
 
     const tabParam = searchParams.get('tab');
-    if (!tabParam) return;
+
+    if (!tabParam || tabParam === 'overview') {
+      setActiveTab('overview');
+      if (tabParam === 'overview') {
+        setSearchParams({}, { replace: true });
+      }
+      return;
+    }
 
     const allowChannelProfile = shouldShowChannelProfileNav(profile, tabParam);
 
