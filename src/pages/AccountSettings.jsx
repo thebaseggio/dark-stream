@@ -23,7 +23,7 @@ const INVESTIGATOR_TABS = [
 
 const PARTNER_TABS = [
   { id: 'overview', label: 'Visão Geral' },
-  { id: 'channel-profile', label: 'Perfil do Canal' },
+  { id: 'channel', label: 'Perfil do Canal' },
   { id: 'payout', label: 'Repasse / Pix' },
   { id: 'security', label: 'Segurança' },
   { id: 'devices', label: 'Aparelhos' },
@@ -35,18 +35,22 @@ const VALID_TAB_IDS = {
 };
 
 function resolveInitialTab(searchParams) {
-  const tabParam = searchParams.get('tab');
-  if (tabParam) return tabParam;
-  return 'overview';
+  return normalizeAccountTab(searchParams.get('tab'));
 }
 
 function isAllowedAccountTab(tabId, partnerNav, allowChannelProfile = false) {
-  if (tabId === 'channel-profile' && allowChannelProfile) return true;
+  if (tabId === 'channel' && allowChannelProfile) return true;
   const allowed = partnerNav ? VALID_TAB_IDS.partner : VALID_TAB_IDS.investigator;
   return allowed.includes(tabId);
 }
 
-const CHANNEL_PROFILE_TAB = { id: 'channel-profile', label: 'Perfil do Canal' };
+function normalizeAccountTab(tabId) {
+  if (!tabId) return 'overview';
+  if (tabId === 'channel-profile') return 'channel';
+  return tabId;
+}
+
+const CHANNEL_PROFILE_TAB = { id: 'channel', label: 'Perfil do Canal' };
 
 const INVESTIGATOR_PLANS = [
   {
@@ -237,7 +241,7 @@ export default function AccountSettings() {
   const accountTabs = useMemo(() => {
     const baseTabs = isPartner ? [...PARTNER_TABS] : [...INVESTIGATOR_TABS];
 
-    if (showChannelProfileNav && !baseTabs.some((tab) => tab.id === 'channel-profile')) {
+    if (showChannelProfileNav && !baseTabs.some((tab) => tab.id === 'channel')) {
       const overviewIndex = baseTabs.findIndex((tab) => tab.id === 'overview');
       const insertAt = overviewIndex >= 0 ? overviewIndex + 1 : 0;
       return [
@@ -300,13 +304,12 @@ export default function AccountSettings() {
   useEffect(() => {
     if (loading || profileLoading) return;
 
-    const tabParam = searchParams.get('tab');
-    if (!tabParam) return;
+    const tabParam = normalizeAccountTab(searchParams.get('tab'));
 
     const allowChannelProfile = shouldShowChannelProfileNav(profile, tabParam);
 
-    if (tabParam === 'channel-profile' && allowChannelProfile) {
-      setActiveTab('channel-profile');
+    if (tabParam === 'channel' && allowChannelProfile) {
+      setActiveTab('channel');
       return;
     }
 
@@ -497,7 +500,7 @@ export default function AccountSettings() {
         <SectionCard title="Atalhos Rápidos" subtitle="Central da conta">
           <div className="space-y-2">
             <QuickLink to="/partner/dashboard">Painel do Parceiro</QuickLink>
-            <QuickLink onClick={() => handleTabChange('channel-profile')}>Perfil do Canal</QuickLink>
+            <QuickLink onClick={() => handleTabChange('channel')}>Perfil do Canal</QuickLink>
             <QuickLink onClick={() => handleTabChange('payout')}>Dados de Repasse / Pix</QuickLink>
             <QuickLink onClick={() => handleTabChange('security')}>Segurança e Senha</QuickLink>
           </div>
@@ -767,7 +770,7 @@ export default function AccountSettings() {
 
   const tabContent = {
     overview: isPartner ? renderPartnerOverview : renderOverview,
-    'channel-profile': renderChannelProfile,
+    channel: renderChannelProfile,
     subscription: renderSubscription,
     payout: renderPayout,
     security: renderSecurity,
@@ -837,7 +840,7 @@ export default function AccountSettings() {
           </div>
         </header>
 
-        {isPartner && channelProfileSaved && activeTab !== 'channel-profile' && (
+        {isPartner && channelProfileSaved && activeTab !== 'channel' && (
           <div className="mb-8 border border-brand-primary/50 bg-brand-primary/10 px-4 py-3 text-sm text-brand-primary">
             Perfil do Parceiro atualizado com sucesso!
           </div>

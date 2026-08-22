@@ -5,15 +5,21 @@ import { isValidRenderableUrl, resolveAvatarUrl } from '../utils/profileMedia';
 import { isPartnerAccount } from '../utils/partnerAccess';
 
 function buildPartnerSlug(profile) {
-  const username = profile?.username?.trim();
-  if (!username) return null;
+  const rawName = (
+    profile?.slug
+    || profile?.name
+    || profile?.username
+    || 'freak-tv'
+  ).trim();
 
-  return username
+  const slug = rawName
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+
+  return slug || 'freak-tv';
 }
 
 const InvestigatorIcon = (props) => (
@@ -87,9 +93,8 @@ export default function UserMenu({ profile, onLogout }) {
   const isPartnerAccountUser = isPartnerAccount(profile);
   const showChannelProfileLink = isPartnerAccountUser || isDashboardUser;
   const partnerSlug = buildPartnerSlug(profile);
-  const publicChannelPath = partnerSlug
-    ? `/parceiro/${encodeURIComponent(partnerSlug)}`
-    : `/parceiro/${profile?.id || ''}`;
+  const partnerPublicUrl = `/parceiro/${encodeURIComponent(partnerSlug)}`;
+  const menuLinkClassName = 'flex items-center gap-2 px-4 py-2 font-mono text-xs uppercase tracking-wider text-zinc-300 transition-all hover:bg-zinc-900/80 hover:text-amber-500';
 
   const closeMenu = () => setOpen(false);
 
@@ -159,10 +164,10 @@ export default function UserMenu({ profile, onLogout }) {
           )}
 
           {showChannelProfileLink && (
-            <MenuLink to={publicChannelPath} onSelect={closeMenu}>
+            <Link to={partnerPublicUrl} className={menuLinkClassName}>
               <UserCog className="h-4 w-4 text-amber-500" aria-hidden="true" />
               Perfil do Canal
-            </MenuLink>
+            </Link>
           )}
 
           <MenuLink to="/account?tab=overview" onSelect={closeMenu}>

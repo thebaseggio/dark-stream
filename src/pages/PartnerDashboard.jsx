@@ -266,7 +266,7 @@ export default function PartnerDashboard({ user, profile, onSuccess }) {
 
                 <div className="relative z-10 flex w-full flex-shrink-0 flex-wrap items-center gap-2 sm:w-auto">
                   <Link
-                    to="/account?tab=channel-profile"
+                    to="/account?tab=channel"
                     className="inline-flex h-10 shrink-0 items-center gap-2 border border-zinc-700 bg-zinc-900 px-4 font-mono text-xs font-bold uppercase tracking-wider text-zinc-200 transition-all hover:border-amber-500/60 hover:bg-zinc-800 hover:text-white rounded-none"
                   >
                     <UserCog className="h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
