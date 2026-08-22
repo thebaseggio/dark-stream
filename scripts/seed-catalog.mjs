@@ -107,7 +107,8 @@ export const PARTNERS = [
   },
   {
     id: PARTNER_IDS.freakTv,
-    email: 'freak.tv@seed.darkstream.test',
+    email: 'contato@freaktv.com',
+    password: 'DarkStream@Freak2026',
     username: 'Freak TV',
     bio: 'Casos bizarros, mistérios sem explicação, arquivos confidenciais e investigações sombrias.',
     avatar_url: 'https://images.unsplash.com/photo-1509248961158-e54f6934749c?w=500&auto=format&fit=crop&q=80',

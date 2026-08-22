@@ -31,13 +31,15 @@ function sqlArray(values) {
 }
 
 function buildAuthUserInsert(partner, createdInterval) {
+  const password = partner.password || TEST_PASSWORD;
+
   return `  (
     ${sqlEscape(partner.id)},
     '00000000-0000-0000-0000-000000000000',
     'authenticated',
     'authenticated',
     ${sqlEscape(partner.email)},
-    crypt(${sqlEscape(TEST_PASSWORD)}, gen_salt('bf')),
+    crypt(${sqlEscape(password)}, gen_salt('bf')),
     now(),
     now(),
     now(),
@@ -104,6 +106,10 @@ const seedEmailLines = [
   ...PARTNERS.map((partner) => `--   ${partner.email}`),
   `--   ${INVESTIGATOR.email}  (trilho "Recomendados para Você")`,
 ].join('\n');
+const partnerPasswordLines = PARTNERS
+  .filter((partner) => partner.password)
+  .map((partner) => `--   ${partner.email}: ${partner.password}`)
+  .join('\n');
 const categoryOrder = [
   'Nacionais',
   'Internacionais',
@@ -125,6 +131,7 @@ const sql = `-- ================================================================
 --
 -- Senha padrão: ${TEST_PASSWORD}
 ${seedEmailLines}
+${partnerPasswordLines ? `--\n-- Senhas específicas:\n${partnerPasswordLines}` : ''}
 --
 -- EXECUÇÃO (SQL Editor ou CLI):
 --   npx supabase db execute --file supabase/seed_test_data.sql --linked

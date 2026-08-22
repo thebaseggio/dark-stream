@@ -49,8 +49,8 @@ INSERT INTO auth.users (
   '00000000-0000-0000-0000-000000000000',
   'authenticated',
   'authenticated',
-  'freak.tv@seed.darkstream.test',
-  crypt('DarkStream@2026!', gen_salt('bf')),
+  'contato@freaktv.com',
+  crypt('DarkStream@Freak2026', gen_salt('bf')),
   now(),
   now(),
   now(),
@@ -62,6 +62,8 @@ INSERT INTO auth.users (
 )
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email,
+  encrypted_password = EXCLUDED.encrypted_password,
+  email_confirmed_at = COALESCE(auth.users.email_confirmed_at, EXCLUDED.email_confirmed_at),
   raw_app_meta_data = EXCLUDED.raw_app_meta_data,
   raw_user_meta_data = EXCLUDED.raw_user_meta_data,
   updated_at = now();
@@ -73,7 +75,7 @@ INSERT INTO auth.identities (
   '11111111-1111-4111-8111-111111111106',
   '11111111-1111-4111-8111-111111111106',
   '11111111-1111-4111-8111-111111111106',
-  jsonb_build_object('sub', '11111111-1111-4111-8111-111111111106', 'email', 'freak.tv@seed.darkstream.test'),
+  jsonb_build_object('sub', '11111111-1111-4111-8111-111111111106', 'email', 'contato@freaktv.com'),
   'email',
   now(), now(), now()
 )
